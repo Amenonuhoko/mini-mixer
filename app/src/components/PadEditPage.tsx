@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { usePadPlaying } from '../hooks/usePadPlaying'
 import { EFFECT_IDS, EFFECT_MAX, EFFECT_MIN, EFFECT_PRESETS, EFFECT_STEP } from '../state/constants'
@@ -10,9 +10,6 @@ import type { AudioEngine } from '../engine/AudioEngine'
 import type { EffectId, Pad } from '../state/types'
 import { InfoTip } from './InfoTip'
 import { WaveformTrimEditor } from './WaveformTrimEditor'
-
-/** How far right a swipe from the edge zone (see .swipe-edge-zone in CSS) has to travel before it's treated as a completed "go back" gesture, not a stray touch. */
-const SWIPE_DISTANCE_PX = 80
 
 const EFFECT_LABELS: Record<EffectId, string> = {
   pitch: 'Pitch',
@@ -50,9 +47,10 @@ function formatSeconds(seconds: number): string {
 }
 
 /**
- * Full-page pad editor — dials and trim get the whole screen, not a slice of
- * one shared with the pad grid or anything else. Reached from a pad's "Edit
- * Sound" action on the Pads page; back returns there.
+ * Pad editor — dials and trim, opened as a popup over whatever page you were
+ * on (see PadEditOverlay) rather than a navigated-to page. Tapping the
+ * backdrop or Close dismisses it; every change here dispatches immediately,
+ * so there's nothing "unsaved" to lose by dismissing at any point.
  */
 export function PadEditPage() {
   const { editingPadId, goToEditPad, goBackFromEdit } = useNavigation()
@@ -63,37 +61,10 @@ export function PadEditPage() {
   const looping = usePadLooping(engine, editingPadId ?? '')
   const playing = usePadPlaying(engine, editingPadId ?? '')
   const sample = pad?.sampleId ? state.samples[pad.sampleId] : undefined
-  const [confirmingLeave, setConfirmingLeave] = useState(false)
 
   useEffect(() => {
     if (!pad) goBackFromEdit()
   }, [pad, goBackFromEdit])
-
-  // Edge-swipe-to-go-back: a dedicated, invisible fixed-position strip flush
-  // with the true left edge of the viewport handles this (rendered below) —
-  // not the page's own content div, which sits 16px in from the edge behind
-  // app-shell's padding and would miss a gesture starting right at the edge,
-  // the whole point of an edge swipe. Pointer capture on that strip means a
-  // drag reported here keeps reporting here even once the finger moves well
-  // past the strip's own narrow width, out over the rest of the page.
-  const swipeStartXRef = useRef<number | null>(null)
-
-  const handleSwipeZonePointerDown = (event: React.PointerEvent) => {
-    event.currentTarget.setPointerCapture(event.pointerId)
-    swipeStartXRef.current = event.clientX
-  }
-
-  const handleSwipeZonePointerMove = (event: React.PointerEvent) => {
-    if (swipeStartXRef.current === null) return
-    if (event.clientX - swipeStartXRef.current >= SWIPE_DISTANCE_PX) {
-      setConfirmingLeave(true)
-      swipeStartXRef.current = null
-    }
-  }
-
-  const handleSwipeZonePointerEnd = () => {
-    swipeStartXRef.current = null
-  }
 
   const handleToggleLoop = () => {
     if (!pad?.sampleId || !sample) return
@@ -104,39 +75,19 @@ export function PadEditPage() {
   if (!pad) return null
 
   return (
-    <div className="page edit-pad-page">
-      <div
-        className="swipe-edge-zone"
-        onPointerDown={handleSwipeZonePointerDown}
-        onPointerMove={handleSwipeZonePointerMove}
-        onPointerUp={handleSwipeZonePointerEnd}
-        onPointerCancel={handleSwipeZonePointerEnd}
-        aria-hidden="true"
-      />
+    <div className="edit-pad-page">
       <div className="edit-pad-header">
-        <button type="button" className="back-btn" onClick={goBackFromEdit}>
-          ← Back
-        </button>
-        <span className="tag edit-pad-heading" style={{ background: pad.color }}>
-          Pad {padIndex + 1}
-        </span>
         <div className="edit-pad-header-tags">
           {looping && <span className="tag tag-live">looping</span>}
           {playing && !looping && <span className="tag tag-playing">playing</span>}
         </div>
+        <span className="tag edit-pad-heading" style={{ background: pad.color }}>
+          Pad {padIndex + 1}
+        </span>
+        <button type="button" className="overlay-close-x" onClick={goBackFromEdit} aria-label="Close">
+          ✕
+        </button>
       </div>
-
-      {confirmingLeave && (
-        <div className="confirm-overwrite">
-          <span>Leave this pad?</span>
-          <button type="button" className="btn" onClick={() => setConfirmingLeave(false)}>
-            Stay
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={goBackFromEdit}>
-            Leave
-          </button>
-        </div>
-      )}
 
       <PadSwitcherStrip
         pads={state.pads.slice(0, state.visiblePadCount)}

@@ -108,6 +108,7 @@ export interface ProjectMeta {
     loopMode: LoopMode
     metronomeEnabled: boolean
     padLoopModeEnabled: boolean
+    padInstrumentModeEnabled: boolean
   }
 }
 
@@ -125,13 +126,20 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
       loopMode: state.transport.loopMode,
       metronomeEnabled: state.transport.metronomeEnabled,
       padLoopModeEnabled: state.transport.padLoopModeEnabled,
+      padInstrumentModeEnabled: state.transport.padInstrumentModeEnabled,
     },
   }
 }
 
 /** isPlaying/currentStep are transient playback state, not project data — always reset. */
 export function buildTransport(meta: ProjectMeta['transport']): Transport {
-  return { ...meta, isPlaying: false, currentStep: 0 }
+  return {
+    ...meta,
+    // Older saved projects/autosave records predate instrument mode — default it in.
+    padInstrumentModeEnabled: meta.padInstrumentModeEnabled ?? false,
+    isPlaying: false,
+    currentStep: 0,
+  }
 }
 
 export function buildSample(

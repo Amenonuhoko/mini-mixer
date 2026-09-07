@@ -28,14 +28,15 @@ function buildKeySamples(buffers: AudioBuffer[], namePrefix: string): Sample[] {
  * build a 16-key keyboard from either a bundled synth preset or one of your
  * own recordings (pitch-mapped across a range, the same detune mechanism the
  * live pitch dial already uses, just baked in once via an offline render).
- * Each key is a real library Sample under the hood, so "use in pads" is just
- * ASSIGN_SAMPLE_TO_PAD applied to a whole grid at once — no new playback path.
+ * Each key is a real library Sample under the hood — laying one across the
+ * pads (via Instrument Mode, on the Pads page) is just ASSIGN_SAMPLE_TO_PAD
+ * applied to a whole grid at once, no new playback path. Building lives here;
+ * applying an instrument to the grid is a pad-grid mode, not a library action.
  */
 export function InstrumentLibrary() {
   const { state, dispatch } = useAppState()
   const [building, setBuilding] = useState<string | null>(null)
   const [pickingRoot, setPickingRoot] = useState(false)
-  const [confirmApplyId, setConfirmApplyId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const instruments = state.instrumentOrder
@@ -88,8 +89,8 @@ export function InstrumentLibrary() {
     <section className="panel instrument-library" aria-label="instruments">
       <h2>Instruments ({instruments.length})</h2>
       <p className="muted">
-        Build a 16-key keyboard from a synth preset or one of your recordings, then lay it across
-        the pads in one tap.
+        Build a 16-key keyboard from a synth preset or one of your recordings. Turn on Instrument
+        Mode from the Pads page to lay one across the grid.
       </p>
 
       {instruments.length > 0 && (
@@ -105,13 +106,6 @@ export function InstrumentLibrary() {
               <div className="instrument-row-actions">
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setConfirmApplyId(instrument.id)}
-                >
-                  Use in Pads
-                </button>
-                <button
-                  type="button"
                   className="btn btn-secondary btn-icon-only"
                   onClick={() => setConfirmDeleteId(instrument.id)}
                   aria-label={`Delete ${instrument.name}`}
@@ -119,31 +113,6 @@ export function InstrumentLibrary() {
                   🗑
                 </button>
               </div>
-              {confirmApplyId === instrument.id && (
-                <div className="confirm-overwrite">
-                  <span>
-                    Apply "{instrument.name}" to all {state.visiblePadCount} pads? This replaces
-                    every pad's current sound.
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={() => {
-                      dispatch({ type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
-                      setConfirmApplyId(null)
-                    }}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setConfirmApplyId(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
               {confirmDeleteId === instrument.id && (
                 <div className="confirm-overwrite">
                   <span>Delete "{instrument.name}"? This removes its generated samples too.</span>

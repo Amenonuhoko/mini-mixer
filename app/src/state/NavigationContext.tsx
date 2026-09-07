@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type Page = 'pads' | 'sequencer' | 'library' | 'edit-pad'
+export type Page = 'pads' | 'sequencer' | 'library'
 
 interface NavigationValue {
   page: Page
-  /** Only meaningful when page === 'edit-pad'. */
+  /** Non-null whenever the pad edit popup is open — independent of `page`, since it's an overlay, not a destination. */
   editingPadId: string | null
   goToPads: () => void
   goToSequencer: () => void
@@ -16,10 +16,12 @@ interface NavigationValue {
 const NavigationContext = createContext<NavigationValue | null>(null)
 
 /**
- * Client-side page state only — no router library. This app has four small,
+ * Client-side page state only — no router library. This app has three small,
  * flat destinations and no need for URLs/history, so a plain context keeps
  * navigation reachable from deep components (e.g. a pad's "Edit" action)
- * without prop-drilling, at a fraction of a router's weight.
+ * without prop-drilling, at a fraction of a router's weight. Editing a pad is
+ * a popup (see PadEditOverlay), not a fourth destination — editingPadId opens
+ * and closes it without changing `page` underneath.
  */
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<Page>('pads')
@@ -31,11 +33,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     goToPads: () => setPage('pads'),
     goToSequencer: () => setPage('sequencer'),
     goToLibrary: () => setPage('library'),
-    goToEditPad: (padId: string) => {
-      setEditingPadId(padId)
-      setPage('edit-pad')
-    },
-    goBackFromEdit: () => setPage('pads'),
+    goToEditPad: (padId: string) => setEditingPadId(padId),
+    goBackFromEdit: () => setEditingPadId(null),
   }
 
   return <NavigationContext value={value}>{children}</NavigationContext>

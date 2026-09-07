@@ -4,27 +4,31 @@ import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
 import { PadGrid } from './PadGrid'
+import { PadLibraryPicker } from './PadLibraryPicker'
 
 /**
  * Home page: pads are the hero content, full width, nothing else competing
  * for space. Selecting a pad (tap, which also plays it) surfaces a summary
- * bar below the grid with three generously-sized actions — Mute, Effects,
- * Edit Sound (Mute and Effects sit stacked in one column, Edit spans both
- * rows beside them — see .selected-pad-actions). Loop used to live here
- * too, but it's now driven by the global loop-mode toggle (see
+ * bar below the grid with four generously-sized actions — Mute, Effects,
+ * Edit, and Library (see .selected-pad-actions, a plain 2x2 grid). Loop used
+ * to live here too, but it's now driven by the global loop-mode toggle (see
  * LoopModeButton) — tapping a pad directly toggles its loop while that mode
  * is on, so a separate button for it here would be redundant. Effects is a
- * reversible bypass, not the Edit page's "Reset dials": it plays the pad as
+ * reversible bypass, not the Edit popup's "Reset dials": it plays the pad as
  * if every dial were neutral without touching the stored values, so turning
- * it back off restores exactly what was dialed in. The pad itself stays a
- * single undivided tap target either way; every other per-pad action lives
- * down here, where there's room to make it easy to hit reliably.
+ * it back off restores exactly what was dialed in. Library opens a popup to
+ * pull an existing sample onto this pad without leaving the page — the
+ * reverse direction of the Library page's own "Assign…" action. The pad
+ * itself stays a single undivided tap target either way; every other
+ * per-pad action lives down here, where there's room to make it easy to hit
+ * reliably.
  */
 export function PadsPage() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { goToEditPad } = useNavigation()
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
+  const [pickingLibrary, setPickingLibrary] = useState(false)
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const looping = usePadLooping(engine, selectedPadId ?? '')
 
@@ -101,10 +105,36 @@ export function PadsPage() {
             >
               Edit →
             </button>
+            <button
+              type="button"
+              className="action-btn action-library"
+              onClick={() => setPickingLibrary(true)}
+            >
+              <LibraryGlyph />
+              Library
+            </button>
           </div>
         </div>
       )}
+      {pickingLibrary && selectedPad && (
+        <PadLibraryPicker padId={selectedPad.id} onClose={() => setPickingLibrary(false)} />
+      )}
     </div>
+  )
+}
+
+function LibraryGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M5 4v16M9 4l9 3v13l-9-3M9 4v13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 

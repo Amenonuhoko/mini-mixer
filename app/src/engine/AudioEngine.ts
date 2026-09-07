@@ -1,5 +1,6 @@
 import { DEFAULT_BPM, EFFECT_IDS, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
+import type { PerformanceHit } from './bounce'
 import {
   buildGritCurve,
   dialToDetuneCents,
@@ -67,6 +68,12 @@ export class AudioEngine {
    * of phase with loops already playing. See toggleLoop().
    */
   private loopEpoch: number | null = null
+
+  /** True while the record FAB is capturing a performance instead of the mic — see startPerformanceCapture. */
+  private capturing = false
+  /** Wall-clock (performance.now()) reference point for offsetting captured hits — not audio-clock time, since capture can start before any AudioContext resume completes. */
+  private captureStartMs = 0
+  private captureHits: PerformanceHit[] = []
 
   /**
    * Subscribe to changes in engine-side playback state (which pads are looping,
@@ -398,6 +405,60 @@ export class AudioEngine {
    * `activeSources` directly rather than just `loopingNodes`, since a one-shot
    * source is never itself stoppable any other way once started.
    */
+  isCapturingPerformance(): boolean {
+    return this.capturing
+  }
+
+  /**
+   * Instrument mode's alternative to mic recording (see RecordFAB): while the
+   * record FAB is held, pad presses are logged instead of audio being captured
+   * from the microphone, then bounced offline into a single sample — see
+   * engine/bounce.ts. Uses wall-clock time, not the audio context's clock, so
+   * capture can start the instant the FAB is pressed without waiting on the
+   * context to resume.
+   */
+  startPerformanceCapture(): void {
+    this.capturing = true
+    this.captureStartMs = performance.now()
+    this.captureHits = []
+  }
+
+  stopPerformanceCapture(): PerformanceHit[] {
+    this.capturing = false
+    const hits = this.captureHits
+    this.captureHits = []
+    return hits
+  }
+
+  /** Seconds since capture started — call on press to timestamp a hit's offset. */
+  performanceElapsedSeconds(): number {
+    return (performance.now() - this.captureStartMs) / 1000
+  }
+
+  /**
+   * Logs one pad press for the in-progress performance capture. No-op if
+   * capture isn't active — callers can call this unconditionally on every
+   * press without checking isCapturingPerformance() themselves first, though
+   * they still need it to know whether to timestamp an offset in the first place.
+   */
+  logPerformanceHit(
+    pad: Pad,
+    buffer: AudioBuffer,
+    offsetSeconds: number,
+    durationSeconds: number | null,
+  ): void {
+    if (!this.capturing) return
+    this.captureHits.push({
+      padId: pad.id,
+      buffer,
+      effects: effectiveEffects(pad),
+      trimStart: pad.trimStart,
+      trimEnd: pad.trimEnd,
+      offsetSeconds,
+      durationSeconds,
+    })
+  }
+
   stopAllSounds(): void {
     this.loopingNodes.clear()
     for (const source of Array.from(this.activeSources)) {

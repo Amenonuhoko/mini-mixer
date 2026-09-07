@@ -182,6 +182,26 @@ describe('reducer', () => {
     expect(muted.pads[0]!.muted).toBe(true)
   })
 
+  it('enabling instrument mode turns off loop mode, and vice versa', () => {
+    const state = createInitialState(1)
+    expect(state.transport.padLoopModeEnabled).toBe(false)
+    expect(state.transport.padInstrumentModeEnabled).toBe(false)
+
+    const loopOn = reducer(state, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
+    expect(loopOn.transport.padLoopModeEnabled).toBe(true)
+
+    const instrumentOn = reducer(loopOn, {
+      type: 'SET_PAD_INSTRUMENT_MODE_ENABLED',
+      enabled: true,
+    })
+    expect(instrumentOn.transport.padInstrumentModeEnabled).toBe(true)
+    expect(instrumentOn.transport.padLoopModeEnabled).toBe(false)
+
+    const backToLoop = reducer(instrumentOn, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
+    expect(backToLoop.transport.padLoopModeEnabled).toBe(true)
+    expect(backToLoop.transport.padInstrumentModeEnabled).toBe(false)
+  })
+
   it('toggles the metronome', () => {
     const state = createInitialState(1)
     expect(state.transport.metronomeEnabled).toBe(false)

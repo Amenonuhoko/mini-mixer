@@ -78,6 +78,14 @@ export interface Transport {
    * this is the app's established home for that kind of global on/off switch.
    */
   padLoopModeEnabled: boolean
+  /**
+   * The pad grid's other mode toggle, mutually exclusive with padLoopModeEnabled
+   * (turning one on turns the other off — see reducer.ts). While on, pads keep
+   * playing normally (one-shot/gate, same as the default mode) but show which
+   * instrument key they hold, and holding the record FAB captures the series of
+   * pad presses as a performance instead of recording from the microphone.
+   */
+  padInstrumentModeEnabled: boolean
 }
 
 export interface AppState {

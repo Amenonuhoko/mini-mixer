@@ -249,6 +249,29 @@ h2 {
   color: #fff;
 }
 
+.instrument-mode-fab {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.instrument-mode-fab.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.instrument-mode-fab:disabled {
+  opacity: 0.4;
+}
+
 .record-fab.active {
   background: var(--danger-strong);
   animation: fab-pulse 1s ease-in-out infinite;
@@ -479,6 +502,53 @@ h2 {
   text-align: left;
 }
 
+.instrument-picker-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.instrument-picker-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.library-picker-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.library-picker-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.library-picker-btn .static-waveform {
+  flex-shrink: 0;
+}
+
+.library-picker-btn.current {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .reorder-btn:disabled {
   opacity: 0.35;
 }
@@ -635,7 +705,8 @@ h2 {
 /* A clear but non-intrusive signal that tapping a pad right now toggles its
    loop instead of playing it — the mode itself is controlled by the global
    LoopModeButton, not anything here, so this is purely informational. */
-.pad-grid-cells.loop-mode {
+.pad-grid-cells.loop-mode,
+.pad-grid-cells.instrument-mode {
   outline: 2px dashed var(--accent);
   outline-offset: 8px;
   border-radius: var(--radius-lg);
@@ -672,6 +743,15 @@ h2 {
 .pad.muted {
   opacity: 0.45;
   filter: grayscale(0.6);
+}
+
+.pad-instrument-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.85rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
 }
 
 .pad-empty-hint,
@@ -769,24 +849,12 @@ h2 {
   background: var(--accent);
 }
 
-/* Mute and Effects stack in one column; Edit spans both rows beside them —
-   puts the new Effects button directly below Mute, as asked, while keeping
-   Edit a single large, easy target rather than shrinking to a third of the row. */
+/* Plain 2x2 grid, four equal-sized actions in reading order: Mute, Effects
+   (row 1) then Edit, Library (row 2). */
 .selected-pad-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: repeat(2, 1fr);
   gap: 8px;
-}
-
-.action-mute {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.action-effects {
-  grid-column: 1;
-  grid-row: 2;
 }
 
 .action-btn {
@@ -827,30 +895,18 @@ h2 {
   color: #fff;
 }
 
-.action-edit {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+.action-edit,
+.action-library {
   color: var(--accent);
   border-color: var(--accent);
 }
 
-/* Pad edit page */
+/* Pad edit popup (see PadEditOverlay) */
 
 .edit-pad-page {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-}
-
-/* Flush with the true left edge of the viewport (not the page content, which
-   sits 16px in behind app-shell's padding) so a swipe starting right at the
-   physical edge is actually caught — see PadEditPage's swipe-back handlers. */
-.swipe-edge-zone {
-  position: fixed;
-  left: 0;
-  top: calc(var(--topnav-height) + var(--safe-top));
-  bottom: 0;
-  width: 24px;
-  z-index: 5;
-  touch-action: pan-y;
 }
 
 .pad-switcher-strip {
@@ -928,17 +984,19 @@ h2 {
   display: flex;
   align-items: center;
   gap: 6px;
-  justify-self: end;
+  justify-self: start;
 }
 
-.back-btn {
+.overlay-close-x {
   background: none;
   border: none;
   color: var(--text);
   font-weight: 700;
-  padding: 8px 4px 8px 0;
+  font-size: 1.1rem;
+  padding: 8px;
   min-height: 40px;
-  justify-self: start;
+  min-width: 40px;
+  justify-self: end;
 }
 
 .tag-live,

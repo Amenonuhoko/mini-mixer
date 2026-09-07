@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react'
+import { InstrumentModeButton } from './components/InstrumentModeButton'
 import { Library } from './components/Library'
 import { LoopModeButton } from './components/LoopModeButton'
 import { MetronomeButton } from './components/MetronomeButton'
 import { Nav } from './components/Nav'
-import { PadEditPage } from './components/PadEditPage'
+import { PadEditOverlay } from './components/PadEditOverlay'
 import { PadsPage } from './components/PadsPage'
 import { PlayBar } from './components/PlayBar'
 import { RecordFAB } from './components/RecordFAB'
@@ -28,8 +29,6 @@ function CurrentPage() {
   switch (page) {
     case 'pads':
       return <PadsPage />
-    case 'edit-pad':
-      return <PadEditPage />
     case 'sequencer':
       return <Sequencer />
     case 'library':
@@ -39,7 +38,7 @@ function CurrentPage() {
 
 function Shell() {
   const { state, dispatch } = useAppState()
-  const { page } = useNavigation()
+  const { page, editingPadId, goBackFromEdit } = useNavigation()
   const engine = useEngine()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -63,19 +62,21 @@ function Shell() {
       </main>
       {showPlayBar && <PlayBar />}
       <div className="fab-cluster">
-        {/* The edit page gets its own pad-specific loop control (see the pad
-            switcher strip in PadEditPage) — the global toggle would be
-            redundant, even confusing, sitting right next to it, so it's the
-            one FAB hidden there. Record and Metronome stay reachable from
-            every page, unlike this one, per the app's established "always
-            reachable" principle for those two. */}
-        {page !== 'edit-pad' && <LoopModeButton />}
+        {/* The pad edit popup has its own pad-specific loop control (see the pad
+            switcher strip in PadEditPage) — the global mode toggles would be
+            redundant, even confusing, sitting right next to it, so they're the
+            two FABs hidden while it's open. Record and Metronome stay reachable
+            regardless, per the app's established "always reachable" principle
+            for those two. */}
+        {editingPadId === null && <LoopModeButton />}
+        {editingPadId === null && <InstrumentModeButton />}
         <MetronomeButton />
         <RecordFAB
           sampleCount={Object.keys(state.samples).length}
           onRecorded={setPendingRecording}
         />
       </div>
+      {editingPadId !== null && <PadEditOverlay onClose={goBackFromEdit} />}
       {pendingRecording && (
         <RecordingReviewOverlay
           recording={pendingRecording}

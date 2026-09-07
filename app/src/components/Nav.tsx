@@ -29,8 +29,8 @@ export function Nav({ onOpenSettings }: NavProps) {
         <button
           type="button"
           role="tab"
-          aria-selected={page === 'pads' || page === 'edit-pad'}
-          className={page === 'pads' || page === 'edit-pad' ? 'nav-tab active' : 'nav-tab'}
+          aria-selected={page === 'pads'}
+          className={page === 'pads' ? 'nav-tab active' : 'nav-tab'}
           onClick={goToPads}
         >
           Pads

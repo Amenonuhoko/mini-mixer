@@ -1,6 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import { renderPerformance } from '../engine/bounce'
 import { formatElapsed, useElapsedSeconds } from '../hooks/useElapsedSeconds'
 import { useRecorder } from '../hooks/useRecorder'
+import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { computePeaks } from '../utils/waveform'
 import type { PendingRecording } from './RecordingReview'
@@ -18,23 +20,47 @@ interface RecordFABProps {
  * tied to any one screen. Holding down is the recording gesture itself (like a
  * voice memo app): press starts, release stops, however long that is. No
  * separate tap-to-start/tap-to-stop mode to remember.
+ *
+ * While instrument mode is on, holding this button captures the series of pad
+ * presses that happen during the hold instead of recording from the
+ * microphone — see AudioEngine.startPerformanceCapture and engine/bounce.ts.
+ * Same review step either way (onRecorded), since both end up as a plain
+ * AudioBuffer + peaks.
  */
 export function RecordFAB({ sampleCount, onRecorded }: RecordFABProps) {
+  const { state } = useAppState()
   const engine = useEngine()
   const { isRecording, error, analyserRef, start, stop } = useRecorder()
-  const elapsed = useElapsedSeconds(isRecording)
+  const [capturingPerformance, setCapturingPerformance] = useState(false)
+  const elapsed = useElapsedSeconds(isRecording || capturingPerformance)
   const holdingRef = useRef(false)
+  const instrumentModeEnabled = state.transport.padInstrumentModeEnabled
 
   const beginHold = (event: React.PointerEvent) => {
     event.preventDefault()
     if (holdingRef.current) return
     holdingRef.current = true
+    if (instrumentModeEnabled) {
+      engine.startPerformanceCapture()
+      setCapturingPerformance(true)
+      return
+    }
     void start()
   }
 
   const endHold = () => {
     if (!holdingRef.current) return
     holdingRef.current = false
+    if (capturingPerformance) {
+      setCapturingPerformance(false)
+      const hits = engine.stopPerformanceCapture()
+      if (hits.length === 0) return
+      void renderPerformance(hits).then((buffer) => {
+        const peaks = computePeaks(buffer, WAVEFORM_BUCKETS)
+        onRecorded({ label: `Performance ${sampleCount + 1}`, buffer, peaks })
+      })
+      return
+    }
     void stop().then(async (arrayBuffer) => {
       if (arrayBuffer.byteLength === 0) return
       const buffer = await engine.decodeSample(arrayBuffer)
@@ -45,23 +71,29 @@ export function RecordFAB({ sampleCount, onRecorded }: RecordFABProps) {
 
   return (
     <>
-      {isRecording && (
+      {(isRecording || capturingPerformance) && (
         <div className="record-live-panel">
           <span className="record-dot" aria-hidden="true" />
           <span className="recorder-elapsed">{formatElapsed(elapsed)}</span>
-          <LiveWaveform analyserRef={analyserRef} active={isRecording} />
-          <span className="muted">Release to stop</span>
+          {capturingPerformance ? (
+            <span className="muted">Tap pads to perform — release to finish</span>
+          ) : (
+            <>
+              <LiveWaveform analyserRef={analyserRef} active={isRecording} />
+              <span className="muted">Release to stop</span>
+            </>
+          )}
         </div>
       )}
       {error && <div className="record-error-toast">{error}</div>}
       <button
         type="button"
-        className={isRecording ? 'record-fab active' : 'record-fab'}
+        className={isRecording || capturingPerformance ? 'record-fab active' : 'record-fab'}
         onPointerDown={beginHold}
         onPointerUp={endHold}
         onPointerLeave={endHold}
         onPointerCancel={endHold}
-        aria-label="Hold to record"
+        aria-label={instrumentModeEnabled ? 'Hold to capture a performance' : 'Hold to record'}
       >
         <MicIcon />
       </button>

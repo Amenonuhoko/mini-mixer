@@ -4,8 +4,9 @@ import { usePadPlaying } from '../hooks/usePadPlaying'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
+import { instrumentIcon } from '../utils/instrumentIcon'
 import type { AudioEngine } from '../engine/AudioEngine'
-import type { Pad } from '../state/types'
+import type { Instrument, Pad } from '../state/types'
 
 /**
  * How long a press has to be held before it's treated as "gating" the sound
@@ -24,11 +25,31 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   const engine = useEngine()
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const loopModeEnabled = state.transport.padLoopModeEnabled
+  const instrumentModeEnabled = state.transport.padInstrumentModeEnabled
+
+  // Which instrument (by icon) each key sample belongs to, if any — built once
+  // per render rather than searching every instrument per pad. Shown whenever a
+  // pad holds one of these keys, regardless of whether instrument mode is on.
+  const sampleIcons = new Map<string, string>()
+  for (const instrumentId of state.instrumentOrder) {
+    const instrument = state.instruments[instrumentId] as Instrument | undefined
+    if (!instrument) continue
+    const icon = instrumentIcon(instrument)
+    for (const sampleId of instrument.keySampleIds) sampleIcons.set(sampleId, icon)
+  }
 
   return (
     <section className="panel pad-grid" aria-label="pads">
       <h2>Pads ({state.visiblePadCount})</h2>
-      <div className={loopModeEnabled ? 'pad-grid-cells loop-mode' : 'pad-grid-cells'}>
+      <div
+        className={[
+          'pad-grid-cells',
+          loopModeEnabled ? 'loop-mode' : '',
+          instrumentModeEnabled ? 'instrument-mode' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         {visiblePads.map((pad, index) => (
           <PadButton
             key={pad.id}
@@ -37,6 +58,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
             engine={engine}
             selected={pad.id === selectedPadId}
             loopModeEnabled={loopModeEnabled}
+            instrumentIcon={pad.sampleId ? sampleIcons.get(pad.sampleId) : undefined}
             onSelect={onSelectPad}
           />
         ))}
@@ -51,6 +73,8 @@ interface PadButtonProps {
   engine: AudioEngine
   selected: boolean
   loopModeEnabled: boolean
+  /** Set when this pad's sample is a key of some instrument — shown as a small badge. */
+  instrumentIcon: string | undefined
   onSelect: (padId: string) => void
 }
 
@@ -65,7 +89,15 @@ interface PadButtonProps {
  * itself — see the selected-pad action bar in PadsPage — this is purely a
  * playback trigger, not a settings surface.
  */
-function PadButton({ pad, index, engine, selected, loopModeEnabled, onSelect }: PadButtonProps) {
+function PadButton({
+  pad,
+  index,
+  engine,
+  selected,
+  loopModeEnabled,
+  instrumentIcon,
+  onSelect,
+}: PadButtonProps) {
   const { state } = useAppState()
   const looping = usePadLooping(engine, pad.id)
   const playing = usePadPlaying(engine, pad.id)
@@ -74,6 +106,11 @@ function PadButton({ pad, index, engine, selected, loopModeEnabled, onSelect }: 
   const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const gatedRef = useRef(false)
   const gateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Set on press only while a performance is being captured (see RecordFAB /
+  // AudioEngine.startPerformanceCapture) — null the rest of the time, so
+  // finishPress() knows whether there's anything to log on release.
+  const downAtMsRef = useRef(0)
+  const captureOffsetRef = useRef<number | null>(null)
 
   const clearGateTimer = () => {
     if (gateTimerRef.current !== null) {
@@ -103,6 +140,26 @@ function PadButton({ pad, index, engine, selected, loopModeEnabled, onSelect }: 
     gateTimerRef.current = setTimeout(() => {
       gatedRef.current = true
     }, GATE_HOLD_THRESHOLD_MS)
+
+    downAtMsRef.current = performance.now()
+    captureOffsetRef.current = engine.isCapturingPerformance()
+      ? engine.performanceElapsedSeconds()
+      : null
+  }
+
+  // Logs this press as a performance hit, if a capture is in progress —
+  // shared by pointerup and pointercancel, since a dropped gesture is still
+  // an audible hit worth keeping in the recording.
+  const finishCapture = () => {
+    if (captureOffsetRef.current === null || !pad.sampleId) return
+    const sample = state.samples[pad.sampleId]
+    if (sample) {
+      const durationSeconds = gatedRef.current
+        ? (performance.now() - downAtMsRef.current) / 1000
+        : null
+      engine.logPerformanceHit(pad, sample.buffer, captureOffsetRef.current, durationSeconds)
+    }
+    captureOffsetRef.current = null
   }
 
   const handlePointerUp = () => {
@@ -128,6 +185,7 @@ function PadButton({ pad, index, engine, selected, loopModeEnabled, onSelect }: 
       }
     }
     activeSourceRef.current = null
+    finishCapture()
     gatedRef.current = false
   }
 
@@ -144,6 +202,7 @@ function PadButton({ pad, index, engine, selected, loopModeEnabled, onSelect }: 
       }
     }
     activeSourceRef.current = null
+    finishCapture()
     gatedRef.current = false
   }
 
@@ -170,6 +229,11 @@ function PadButton({ pad, index, engine, selected, loopModeEnabled, onSelect }: 
       onPointerCancel={handlePointerCancel}
     >
       <span className="pad-index">{index + 1}</span>
+      {instrumentIcon && (
+        <span className="pad-instrument-badge" aria-hidden="true">
+          {instrumentIcon}
+        </span>
+      )}
       {!filled && <span className="pad-empty-hint">empty</span>}
       {pad.muted && <span className="pad-muted-hint">muted</span>}
       {playing && (

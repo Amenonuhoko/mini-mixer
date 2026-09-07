@@ -31,6 +31,7 @@ export type Action =
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
   | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_LOOP_MODE_ENABLED'; enabled: boolean }
+  | { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
   | { type: 'LOAD_PROJECT'; state: AppState }
@@ -241,7 +242,26 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, transport: { ...state.transport, metronomeEnabled: action.enabled } }
 
     case 'SET_PAD_LOOP_MODE_ENABLED':
-      return { ...state, transport: { ...state.transport, padLoopModeEnabled: action.enabled } }
+      // Mutually exclusive with instrument mode — both change what tapping a pad
+      // means for the grid as a whole, so having both on at once would be ambiguous.
+      return {
+        ...state,
+        transport: {
+          ...state.transport,
+          padLoopModeEnabled: action.enabled,
+          padInstrumentModeEnabled: action.enabled ? false : state.transport.padInstrumentModeEnabled,
+        },
+      }
+
+    case 'SET_PAD_INSTRUMENT_MODE_ENABLED':
+      return {
+        ...state,
+        transport: {
+          ...state.transport,
+          padInstrumentModeEnabled: action.enabled,
+          padLoopModeEnabled: action.enabled ? false : state.transport.padLoopModeEnabled,
+        },
+      }
 
     case 'SET_CURRENT_STEP':
       return { ...state, transport: { ...state.transport, currentStep: action.stepIndex } }
