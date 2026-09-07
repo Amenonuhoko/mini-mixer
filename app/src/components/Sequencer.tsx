@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
-import { STEP_COUNT } from '../state/constants'
+import { MAX_PAD_COUNT, STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Pad, Transport } from '../state/types'
+import { PadLibraryPicker } from './PadLibraryPicker'
 
 const GROUP_SIZE = 4
 
@@ -14,18 +16,27 @@ function chunk<T>(items: T[], size: number): T[][] {
   return groups
 }
 
+/**
+ * The 16-step grid, restyled to read as a continuous timeline (bar lines
+ * between beat groups, a glowing playhead cell) rather than a plain checkbox
+ * grid — see .step-group/.step in index.css. Each row is one pad; tapping its
+ * color swatch opens the same PadLibraryPicker the Pads page uses, so you can
+ * swap what a row plays without leaving the Sequencer. "Add row" grows
+ * visiblePadCount by one, the same mechanism Settings' pad-count stepper uses.
+ */
 export function Sequencer() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const pattern = state.patterns.find((p) => p.id === state.activePatternId)
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
 
   if (!pattern) return null
 
   return (
     <section className="panel sequencer" aria-label="sequencer">
       <h2>Sequencer — {pattern.name}</h2>
-      <p className="muted sequencer-hint">Swipe sideways for all 16 steps.</p>
+      <p className="muted sequencer-hint">Swipe sideways for all 16 steps on narrow screens.</p>
       <div className="sequencer-scroll">
         <div className="sequencer-grid">
           <div className="sequencer-row sequencer-header-row" aria-hidden="true">
@@ -51,10 +62,22 @@ export function Sequencer() {
               onToggleStep={(stepIndex) =>
                 dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex })
               }
+              onSwapSound={() => setSwappingPadId(pad.id)}
             />
           ))}
         </div>
       </div>
+      <button
+        type="button"
+        className="btn btn-secondary sequencer-add-row"
+        onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
+        disabled={state.visiblePadCount >= MAX_PAD_COUNT}
+      >
+        + Add row
+      </button>
+      {swappingPadId && (
+        <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />
+      )}
     </section>
   )
 }
@@ -67,6 +90,7 @@ interface SequencerRowProps {
   transport: Transport
   engine: AudioEngine
   onToggleStep: (stepIndex: number) => void
+  onSwapSound: () => void
 }
 
 function SequencerRow({
@@ -76,18 +100,22 @@ function SequencerRow({
   transport,
   engine,
   onToggleStep,
+  onSwapSound,
 }: SequencerRowProps) {
   const looping = usePadLooping(engine, pad.id)
 
   return (
     <div className={looping ? 'sequencer-row row-looping' : 'sequencer-row'}>
-      <span
+      <button
+        type="button"
         className="sequencer-row-label"
         style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
+        onClick={onSwapSound}
+        title="Tap to change this row's sound"
       >
         {padIndex + 1}
         {looping && <span className="row-loop-badge" aria-hidden="true" />}
-      </span>
+      </button>
       {chunk(steps, GROUP_SIZE).map((group, groupIndex) => (
         <div className="step-group" key={groupIndex}>
           {group.map((on, i) => {

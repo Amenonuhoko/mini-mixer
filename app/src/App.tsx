@@ -14,6 +14,7 @@ import { Sequencer } from './components/Sequencer'
 import { SettingsOverlay } from './components/SettingsOverlay'
 import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
+import { useIsWideScreen } from './hooks/useIsWideScreen'
 import { AppStateProvider, useAppState } from './state/AppStateContext'
 import { EngineProvider, useEngine } from './state/EngineContext'
 import { NavigationProvider, useNavigation } from './state/NavigationContext'
@@ -24,8 +25,27 @@ function EngineBridge({ children }: { children: ReactNode }) {
   return <EngineProvider engine={engine}>{children}</EngineProvider>
 }
 
+/**
+ * Above the wide-screen breakpoint, Pads and Sequencer are shown together
+ * side by side instead of as separate pages — they're the two screens you go
+ * back and forth between while actually playing/building a beat, unlike
+ * Library, which stays a full-width page even when wide since it's more of
+ * an occasional-visit browsing screen. The nav tabs still work as before;
+ * on a wide screen, switching to either "Pads" or "Sequencer" shows both.
+ */
 function CurrentPage() {
   const { page } = useNavigation()
+  const isWide = useIsWideScreen()
+
+  if (isWide && (page === 'pads' || page === 'sequencer')) {
+    return (
+      <div className="wide-split">
+        <PadsPage />
+        <Sequencer />
+      </div>
+    )
+  }
+
   switch (page) {
     case 'pads':
       return <PadsPage />
@@ -44,15 +64,19 @@ function Shell() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   useAutosave(state, dispatch, engine)
 
+  const isWide = useIsWideScreen()
   // Play/pause, BPM, and loop-mode are all specifically about sequencer pattern
   // playback — meaningless while just tapping/looping pads by hand — so the play
-  // bar is a real transport bar that only exists on the Sequencer page, not a
-  // global bit of chrome. It keeps playing in the background if you navigate
-  // away; pausing just requires coming back to Sequencer. --playbar-height drives
-  // both the app-shell's reserved bottom padding and the FAB cluster's vertical
-  // offset, so collapsing it to 0 here (rather than only hiding <PlayBar/>) makes
-  // both close the gap automatically instead of leaving dead space behind.
-  const showPlayBar = page === 'sequencer'
+  // bar is a real transport bar that only shows when the Sequencer is actually
+  // visible, not a global bit of chrome. On a wide screen the Sequencer is also
+  // visible while the "Pads" tab is selected (see CurrentPage's side-by-side
+  // layout), so the bar needs to show there too. It keeps playing in the
+  // background if you navigate away on a narrow screen; pausing just requires
+  // coming back to Sequencer. --playbar-height drives both the app-shell's
+  // reserved bottom padding and the FAB cluster's vertical offset, so collapsing
+  // it to 0 here (rather than only hiding <PlayBar/>) makes both close the gap
+  // automatically instead of leaving dead space behind.
+  const showPlayBar = isWide ? page === 'pads' || page === 'sequencer' : page === 'sequencer'
 
   return (
     <div style={{ '--playbar-height': showPlayBar ? '76px' : '0px' } as React.CSSProperties}>

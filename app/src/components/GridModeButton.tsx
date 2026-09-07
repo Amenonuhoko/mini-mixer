@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { instrumentIcon } from '../utils/instrumentIcon'
 import type { Instrument } from '../state/types'
+import { Overlay } from './Overlay'
 
 type GridMode = 'off' | 'loop' | 'instrument'
 
@@ -86,96 +87,92 @@ export function GridModeButton() {
       </button>
 
       {menuOpen && (
-        <div className="overlay-backdrop" onClick={closeAll}>
-          <div className="overlay-sheet" onClick={(event) => event.stopPropagation()}>
-            <h2>Pad grid mode</h2>
-            <ul className="mode-menu-list">
-              <li>
-                <button
-                  type="button"
-                  className={mode === 'off' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
-                  onClick={turnOff}
-                >
-                  <span className="mode-menu-title">Off</span>
-                  <span className="muted">Tap a pad to play it, hold to gate</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  className={mode === 'loop' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
-                  onClick={turnOnLoop}
-                >
-                  <span className="mode-menu-title">Loop Mode</span>
-                  <span className="muted">Tap a pad to toggle its loop</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  className={mode === 'instrument' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
-                  onClick={openInstrumentPicker}
-                  disabled={instruments.length === 0}
-                >
-                  <span className="mode-menu-title">Instrument Mode</span>
-                  <span className="muted">
-                    {instruments.length === 0
-                      ? 'Build an instrument in the Library first'
-                      : 'Choose an instrument to lay across the pads'}
-                  </span>
-                </button>
-              </li>
-            </ul>
-            <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
-              Cancel
-            </button>
-          </div>
-        </div>
+        <Overlay onClose={closeAll}>
+          <h2>Pad grid mode</h2>
+          <ul className="mode-menu-list">
+            <li>
+              <button
+                type="button"
+                className={mode === 'off' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
+                onClick={turnOff}
+              >
+                <span className="mode-menu-title">Off</span>
+                <span className="muted">Tap a pad to play it, hold to gate</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className={mode === 'loop' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
+                onClick={turnOnLoop}
+              >
+                <span className="mode-menu-title">Loop Mode</span>
+                <span className="muted">Tap a pad to toggle its loop</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className={mode === 'instrument' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
+                onClick={openInstrumentPicker}
+                disabled={instruments.length === 0}
+              >
+                <span className="mode-menu-title">Instrument Mode</span>
+                <span className="muted">
+                  {instruments.length === 0
+                    ? 'Build an instrument in the Library first'
+                    : 'Choose an instrument to lay across the pads'}
+                </span>
+              </button>
+            </li>
+          </ul>
+          <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
+            Cancel
+          </button>
+        </Overlay>
       )}
 
       {pickingInstrument && (
-        <div className="overlay-backdrop" onClick={closeAll}>
-          <div className="overlay-sheet" onClick={(event) => event.stopPropagation()}>
-            <h2>Choose an instrument</h2>
-            <p className="muted">Lays its keys across the pads — Pad 1 gets the lowest note.</p>
-            <ul className="instrument-picker-list">
-              {instruments.map((instrument) => (
-                <li key={instrument.id}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary instrument-picker-btn"
-                    onClick={() => handlePickInstrument(instrument.id)}
-                  >
-                    <span aria-hidden="true">{instrumentIcon(instrument)}</span>
-                    {instrument.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {confirmInstrumentId && (
-              <div className="confirm-overwrite">
-                <span>Replace every pad's current sound with this instrument?</span>
+        <Overlay onClose={closeAll}>
+          <h2>Choose an instrument</h2>
+          <p className="muted">Lays its keys across the pads — Pad 1 gets the lowest note.</p>
+          <ul className="instrument-picker-list">
+            {instruments.map((instrument) => (
+              <li key={instrument.id}>
                 <button
                   type="button"
-                  className="btn btn-danger"
-                  onClick={() => applyInstrument(confirmInstrumentId)}
+                  className="btn btn-secondary instrument-picker-btn"
+                  onClick={() => handlePickInstrument(instrument.id)}
                 >
-                  Apply
+                  <span aria-hidden="true">{instrumentIcon(instrument)}</span>
+                  {instrument.name}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setConfirmInstrumentId(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
-              Cancel
-            </button>
-          </div>
-        </div>
+              </li>
+            ))}
+          </ul>
+          {confirmInstrumentId && (
+            <div className="confirm-overwrite">
+              <span>Replace every pad's current sound with this instrument?</span>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => applyInstrument(confirmInstrumentId)}
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setConfirmInstrumentId(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
+            Cancel
+          </button>
+        </Overlay>
       )}
     </>
   )

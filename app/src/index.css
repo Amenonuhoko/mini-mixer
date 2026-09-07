@@ -1304,6 +1304,11 @@ input[type='range']::-moz-range-thumb {
   margin: -4px 0 10px;
 }
 
+.sequencer-add-row {
+  width: 100%;
+  margin-top: 10px;
+}
+
 .sequencer-scroll {
   overflow-x: auto;
   margin: 0 -16px;
@@ -1335,6 +1340,8 @@ input[type='range']::-moz-range-thumb {
   width: 26px;
   height: 26px;
   border-radius: 50%;
+  border: none;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1364,15 +1371,25 @@ input[type='range']::-moz-range-thumb {
   animation: dot-pulse 1s ease-in-out infinite;
 }
 
+/* A continuous timeline/bar-strip look, not an isolated checkbox grid: steps
+   within a beat sit close together (a "cell" feel), each beat group is set
+   off from the next by a real border (a bar line), not just a background
+   tint, and the currently-playing step glows rather than just outlining. */
 .step-group {
   display: flex;
-  gap: 4px;
-  padding: 3px;
-  border-radius: 8px;
+  gap: 2px;
+  padding: 3px 3px 3px 7px;
+  border-left: 2px solid var(--border);
+}
+
+.step-group:first-of-type {
+  border-left: none;
+  padding-left: 3px;
 }
 
 .step-group:nth-of-type(even) {
   background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-radius: 0 8px 8px 0;
 }
 
 .step-group-number {
@@ -1388,14 +1405,16 @@ input[type='range']::-moz-range-thumb {
 .step {
   width: 34px;
   height: 34px;
-  border-radius: 6px;
+  border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--bg);
   padding: 0;
 }
 
 .step.current {
-  box-shadow: 0 0 0 2px var(--accent) inset;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent) inset,
+    0 0 8px 1px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 /* Settings */
@@ -1598,5 +1617,23 @@ input[type='range']::-moz-range-thumb {
   .app-shell {
     padding-left: 12px;
     padding-right: 12px;
+  }
+}
+
+/* Wide-screen responsive layout — see useIsWideScreen.ts / App.tsx's
+   CurrentPage. Above this breakpoint, Pads and Sequencer show side by side
+   (the two screens you actually go back and forth between while playing),
+   so .app-shell gets room to hold both instead of staying phone-width and
+   centered with empty margins on either side. */
+@media (min-width: 900px) {
+  .app-shell {
+    max-width: 1100px;
+  }
+
+  .wide-split {
+    display: grid;
+    grid-template-columns: minmax(320px, 420px) 1fr;
+    align-items: start;
+    gap: 20px;
   }
 }
