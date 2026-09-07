@@ -7,12 +7,14 @@ import { PadGrid } from './PadGrid'
 
 /**
  * Home page: pads are the hero content, full width, nothing else competing
- * for space. Selecting a pad (tap) surfaces a small summary bar below the
- * grid with an explicit "Edit Sound" action — casual play/loop/mute stay on
- * the pad itself, deliberate editing is one tap away but never in the way.
+ * for space. Selecting a pad (tap, which also plays it) surfaces a summary
+ * bar below the grid with three generously-sized actions — Loop, Mute, Edit
+ * Sound. The pad itself stays a single undivided tap target; every other
+ * per-pad action lives down here instead, where there's room to make it easy
+ * to hit reliably.
  */
 export function PadsPage() {
-  const { state } = useAppState()
+  const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { goToEditPad } = useNavigation()
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
@@ -33,24 +35,107 @@ export function PadsPage() {
   const selectedIndex = visiblePads.findIndex((pad) => pad.id === selectedPadId)
   const selectedPad = selectedIndex >= 0 ? visiblePads[selectedIndex] : undefined
 
+  const handleToggleLoop = () => {
+    if (!selectedPad?.sampleId) return
+    // Stopping an already-looping pad is always allowed; starting a new loop
+    // on a muted pad isn't, same as tapping the pad body while muted.
+    if (selectedPad.muted && !looping) return
+    const sample = state.samples[selectedPad.sampleId]
+    if (!sample) return
+    engine.toggleLoop(selectedPad, sample.buffer)
+  }
+
+  const handleToggleMute = () => {
+    if (!selectedPad) return
+    dispatch({ type: 'SET_PAD_MUTED', padId: selectedPad.id, muted: !selectedPad.muted })
+  }
+
   return (
     <div className="page pads-page">
       <PadGrid selectedPadId={selectedPadId} onSelectPad={setSelectedPadId} />
       {selectedPad && (
         <div className="panel selected-pad-bar">
-          <span className="tag" style={{ background: selectedPad.color }}>
-            Pad {selectedIndex + 1}
-          </span>
-          {looping && <span className="tag tag-live">looping</span>}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => goToEditPad(selectedPad.id)}
-          >
-            Edit Sound →
-          </button>
+          <div className="selected-pad-tags">
+            <span className="tag" style={{ background: selectedPad.color }}>
+              Pad {selectedIndex + 1}
+            </span>
+            {looping && <span className="tag tag-live">looping</span>}
+            {selectedPad.muted && <span className="tag tag-muted">muted</span>}
+          </div>
+          <div className="selected-pad-actions">
+            <button
+              type="button"
+              className={looping ? 'action-btn action-loop on' : 'action-btn action-loop'}
+              onClick={handleToggleLoop}
+              disabled={!selectedPad.sampleId}
+              aria-pressed={looping}
+            >
+              <LoopGlyph />
+              Loop
+            </button>
+            <button
+              type="button"
+              className={selectedPad.muted ? 'action-btn action-mute on' : 'action-btn action-mute'}
+              onClick={handleToggleMute}
+              aria-pressed={selectedPad.muted}
+            >
+              {selectedPad.muted ? <MutedGlyph /> : <UnmutedGlyph />}
+              Mute
+            </button>
+            <button
+              type="button"
+              className="action-btn action-edit"
+              onClick={() => goToEditPad(selectedPad.id)}
+            >
+              Edit →
+            </button>
+          </div>
         </div>
       )}
     </div>
+  )
+}
+
+function LoopGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M4 12a8 8 0 0 1 13.66-5.66L20 8M20 8V3M20 8h-5M20 12a8 8 0 0 1-13.66 5.66L4 16M4 16v5M4 16h5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function UnmutedGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+      <path
+        d="M17 9a4.5 4.5 0 0 1 0 6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function MutedGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+      <path
+        d="M16 9l5 6M21 9l-5 6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }

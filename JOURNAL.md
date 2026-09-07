@@ -411,3 +411,29 @@ Full verification: `tsc -b`, `vite build`, `oxlint` (three expected `only-export
 - The three `react/only-export-components` oxlint warnings (now including `NavigationContext`) remain expected/accepted.
 - Library search, datalist tick-mark rendering, and the mid-loop-mute gap remain open, unchanged from prior entries.
 - The pad edit page's info tips and trim/dial logic are otherwise unchanged from the prior session — this entry only relocated and re-headered them, so their own open items (none currently) don't need repeating here.
+
+---
+
+## 2026-09-07 — Pad loop button relocated off the pad face
+
+### Context
+Direct feedback after using the new app shell: "the pads seem a bit small and the buttons to loop are a bit hard to press... have a better consideration of how the loop button should be / is it the best idea to have it in the pad itself? think thoroughly about the layout from a UX standpoint." Two complaints, one likely-shared root cause: pads at ~80×80px in a 4-column grid, with a ~28px loop/mute icon nested in the corner of each — a small control crowded right up against the pad's own large tap-to-play zone, on the one control (loop) that gets tapped rhythmically during actual play.
+
+### Decision(s)
+**No — moved loop and mute off the pad face entirely.** The pad (`PadGrid.tsx`/`PadButton`) is now a single undivided tap target: tap always plays a one-shot, nothing else. It shows only non-interactive visual feedback — the existing glow/pulse/equalizer-bars for playing, a `looping` class for the ring, a plain "muted" text hint — none of which need touch precision, since they're read, not tapped. The interactive controls moved into the existing "selected pad" summary bar below the grid (`PadsPage.tsx`), which already held an "Edit Sound" button — extended into a 3-button action row: **Loop | Mute | Edit →**, each a full `.action-btn` (~103×57px measured, roughly 4x the old icon's touch area). Loop is disabled when the pad has no sample; both loop and mute keep their existing engine/reducer semantics (`engine.toggleLoop`, `SET_PAD_MUTED`) — only *where the button lives* changed, not what it does.
+
+Also widened the grid from 4 columns to 3 (`.pad-grid-cells`), growing each pad from ~80×80px to ~100×100px, and bumped the pad number's font size (1.3rem → 1.6rem) to match. Removed the now-dead `.loop-toggle`/`.mute-toggle` CSS rules.
+
+### Alternatives considered
+- **Keep loop/mute on the pad, just make the icons bigger.** Rejected — the underlying problem isn't icon size in isolation, it's two independently-tappable targets sharing one small tile; growing the icons enough to fix mis-taps would eat into the pad's own tap-to-play area, trading one touch-precision problem for another.
+- **Long-press the pad body to toggle loop.** Considered and rejected again, consistent with the earlier session's reasoning against long-press-to-edit: conflicts with the pad's existing tap-to-play handler (needs careful timing/threshold tuning to distinguish a tap from a hold), and is inherently harder to verify by automated browser testing than an explicit separate button.
+- **A swipe gesture on the pad for loop.** Rejected without much consideration — adds an undiscoverable, undocumented gesture for a core, frequently-used action; the whole point of this round was to make loop *easier* to hit reliably, not to trade a fiddly tap for a fiddlier swipe.
+
+### Reasoning
+The general principle from the app-shell restructure applies again here: casual/informational things (is it playing, is it looping, is it muted) don't need touch precision and can stay compact on the pad; deliberate interactive actions (start/stop a loop, toggle mute) do need precision and deserve dedicated space. The selected-pad action bar already existed as exactly that kind of space — extending it to 3 buttons instead of relegating loop/mute to on-pad icons was a natural fit rather than new UI. Shrinking the grid to 3 columns was a smaller, complementary fix to the same underlying "things are too small" complaint — pads are the app's hero content, so giving them more room for a UX price of one extra scroll row is worth it at typical pad counts (8 default).
+
+### Outcome
+Full verification: `tsc -b`, `vite build`, `oxlint` (same three expected `only-export-components` warnings, unchanged), `vitest run` (38/38, unchanged — this was UI-only, no reducer/engine logic touched). Comprehensive mobile-viewport (iPhone 13) Playwright check: measured pad size (~100×100px, up from ~80×80px), confirmed zero `.loop-toggle`/`.mute-toggle` elements remain on the pad, confirmed 3 action buttons render at the selected-pad bar with adequate size, loop button correctly disabled on an empty pad and enabled once a sample is assigned, loop toggles on/off via the action bar and survives repeated taps on the pad body (retriggering the one-shot without stopping the loop — the intended "pad body always plays, loop button always controls the loop" separation), mute toggles via the action bar and a muted pad correctly does not play on tap, and the Edit page still opens from the action bar. Zero console errors throughout. `project.md`'s "Pad Playback Behavior" and "Layout" sections updated to describe the action-bar location instead of an on-pad icon.
+
+### Open questions / carried forward
+- None new. Everything carried from the prior entry (oxlint warnings, library search, datalist ticks, mid-loop-mute) remains open and unchanged.
