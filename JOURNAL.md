@@ -499,7 +499,30 @@ Each of the four concrete items had a fairly direct, low-risk fix once located i
 Full verification: `tsc -b`, `vite build`, `oxlint` (same three expected warnings), `vitest run` (50/50, no logic changed by this round — everything here was UI/layout/ordering). Playwright pass on a real mobile viewport: confirmed 9 pads render in a 3×3 grid, the metronome button sits beside (not inside) the record FAB and toggles independently of the play button, the play bar no longer contains a metronome control, the "Pad N" heading measures dead-center in its header row both with and without a status tag present, and — after the FAB-overlap fix — the Edit button reliably opens the pad edit page. Zero console errors. `project.md` updated: pad count default, dial list and their new order, the metronome's new home next to record, the PlayBar's narrowed scope, and the edit header's 3-column layout.
 
 ### Open questions / carried forward
-- **Pads-tab play bar**: not yet decided. The user floated the idea that the bottom bar could be different specifically on the Pads page but didn't specify what — flagged back to them as a question in this session's reply rather than guessed at, since the play/pause+loop-mode controls are genuinely sequencer-specific and several reasonable redesigns (hide entirely on Pads, keep BPM only, make the whole bar Sequencer-page-only) have real workflow trade-offs (e.g. losing the ability to pause a background-playing pattern without navigating to Sequencer first) worth confirming before building.
 - **Saving libraries/songs**: explicitly "start thinking about," not a build request yet. This is a real architecture pivot — `project.md`'s Saving section currently states "None needed. Session-only, resets on reload" as a deliberate foundational decision — so it gets the same upfront-discussion treatment other foundational forks in this project got, rather than a guessed implementation. A recommendation was given in this session's reply; not yet decided or built.
 - The FAB-over-dial-content overlap on the Edit page (noted above) remains, low priority, unaddressed.
+- Everything else carried from prior entries (oxlint warnings, library search, datalist ticks, mid-loop-mute) remains open and unchanged.
+
+---
+
+## 2026-09-07 — PlayBar moved to Sequencer-only
+
+### Context
+Follow-up to the item left open above: whether the Pads tab's bottom bar could be "something different." Asked the user directly rather than guessing, since play/pause + BPM + loop-mode are genuinely sequencer-specific and the alternatives had real trade-offs. They picked hiding it entirely on Pads (recommended option): those controls move to a real transport bar that exists only on the Sequencer page, with background playback continuing if you navigate away.
+
+### Decision(s)
+`Shell` in `App.tsx` now reads the current page from `useNavigation()` and computes `showPlayBar = page === 'sequencer'`, conditionally rendering `<PlayBar />` only there. Rather than just hiding the component and leaving reserved layout space behind, the whole shell got wrapped in a single div carrying `style={{ '--playbar-height': showPlayBar ? '76px' : '0px' }}` — since `--playbar-height` already drove both `.app-shell`'s bottom padding and the FAB cluster's vertical offset (from the previous round's fix), collapsing it to 0 when the bar is hidden automatically closes the gap in both places with no separate CSS rules needed. `.record-live-panel`'s position, defined off the same variable, follows along correctly too.
+
+### Alternatives considered
+Covered in the previous entry's "Open questions" — keep BPM only, or leave the bar unchanged everywhere. Superseded by the user's explicit choice.
+
+### Reasoning
+This was a case where the existing `--playbar-height` CSS-variable architecture (built for a different reason — accounting for the play bar in the FAB's floating position) turned out to generalize directly to "the play bar doesn't exist on this page at all," with no new variables or duplicated rules needed. Wrapping the whole shell in one div to scope the override was the only structural change required, since `Nav`/`PlayBar`/the FAB cluster were previously siblings inside a fragment with no shared ancestor to hang a CSS custom property on.
+
+### Outcome
+Full verification: `tsc -b`, `vite build`, `oxlint` (same three expected warnings), `vitest run` (50/50, no logic touched). Playwright pass: confirmed no `.play-bar` renders on the Pads tab, confirmed play/pause + BPM + loop-mode all render and work on the Sequencer tab, confirmed the record FAB sits measurably lower (closer to the true viewport bottom) on Pads than on Sequencer — proving the reserved space actually closes rather than leaving a gap — and confirmed pressing Play on Sequencer, navigating to Pads, and navigating back shows playback continued the whole time with no play bar ever appearing on Pads. Zero console errors. `project.md`'s PlayBar and Sequencer-page bullets updated to describe it as page-scoped rather than global chrome.
+
+### Open questions / carried forward
+- **Saving libraries/songs** remains open, per the previous entry — a recommendation was given in this session's reply, not yet decided or built.
+- The FAB-over-dial-content overlap on the Edit page (from the previous entry) remains, low priority, unaddressed.
 - Everything else carried from prior entries (oxlint warnings, library search, datalist ticks, mid-loop-mute) remains open and unchanged.

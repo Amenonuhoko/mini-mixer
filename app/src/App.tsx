@@ -38,17 +38,28 @@ function CurrentPage() {
 
 function Shell() {
   const { state } = useAppState()
+  const { page } = useNavigation()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   useWarnBeforeUnload(Object.keys(state.samples).length > 0)
 
+  // Play/pause, BPM, and loop-mode are all specifically about sequencer pattern
+  // playback — meaningless while just tapping/looping pads by hand — so the play
+  // bar is a real transport bar that only exists on the Sequencer page, not a
+  // global bit of chrome. It keeps playing in the background if you navigate
+  // away; pausing just requires coming back to Sequencer. --playbar-height drives
+  // both the app-shell's reserved bottom padding and the FAB cluster's vertical
+  // offset, so collapsing it to 0 here (rather than only hiding <PlayBar/>) makes
+  // both close the gap automatically instead of leaving dead space behind.
+  const showPlayBar = page === 'sequencer'
+
   return (
-    <>
+    <div style={{ '--playbar-height': showPlayBar ? '76px' : '0px' } as React.CSSProperties}>
       <Nav onOpenSettings={() => setSettingsOpen(true)} />
       <main className="app-shell">
         <CurrentPage />
       </main>
-      <PlayBar />
+      {showPlayBar && <PlayBar />}
       <div className="fab-cluster">
         <MetronomeButton />
         <RecordFAB
@@ -63,7 +74,7 @@ function Shell() {
         />
       )}
       {settingsOpen && <SettingsOverlay onClose={() => setSettingsOpen(false)} />}
-    </>
+    </div>
   )
 }
 
