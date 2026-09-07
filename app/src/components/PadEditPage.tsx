@@ -71,11 +71,13 @@ export function PadEditPage() {
         <button type="button" className="back-btn" onClick={goBackFromEdit}>
           ← Back
         </button>
-        <span className="tag" style={{ background: pad.color }}>
+        <span className="tag edit-pad-heading" style={{ background: pad.color }}>
           Pad {padIndex + 1}
         </span>
-        {looping && <span className="tag tag-live">looping</span>}
-        {playing && !looping && <span className="tag tag-playing">playing</span>}
+        <div className="edit-pad-header-tags">
+          {looping && <span className="tag tag-live">looping</span>}
+          {playing && !looping && <span className="tag tag-playing">playing</span>}
+        </div>
       </div>
 
       {looping && (

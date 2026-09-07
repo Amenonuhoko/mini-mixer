@@ -1,4 +1,4 @@
-export const DEFAULT_PAD_COUNT = 8
+export const DEFAULT_PAD_COUNT = 9
 export const MIN_PAD_COUNT = 1
 export const MAX_PAD_COUNT = 16
 export const STEP_COUNT = 16
@@ -17,7 +17,11 @@ export const NEUTRAL_EFFECT_VALUE = 0
 /** Dials snap to these increments (drag to 76 -> lands on 75). */
 export const EFFECT_STEP = 25
 
-export const EFFECT_IDS = ['pitch', 'speed', 'filter', 'volume', 'grit', 'echo'] as const
+// Ordered by how often each gets reached for in practice: Volume is adjusted
+// on nearly every pad (basic mix level), Speed/Pitch are the classic sample-
+// flipping tools, Filter is a common tone-shaping move, and Grit/Echo are
+// occasional "spice" character effects — least reached for of the six.
+export const EFFECT_IDS = ['volume', 'speed', 'pitch', 'filter', 'grit', 'echo'] as const
 
 /** Trim handles can't collapse closer than this (fraction of the sample's duration). */
 export const MIN_TRIM_GAP = 0.02

@@ -16,6 +16,7 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --playbar-height: 76px;
   --topnav-height: 52px;
+  --fab-height: 60px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -69,8 +70,14 @@ h2 {
 .app-shell {
   max-width: 560px;
   margin: 0 auto;
+  /* Bottom padding clears the play bar AND the floating FAB cluster that sits
+     above it — otherwise the last bit of page content (e.g. the Pads page's
+     selected-pad action bar) can end up underneath the fixed-position FABs,
+     which visually overlaps it and blocks taps even where nothing is drawn
+     (a plain flex container's box is still hit-testable across its full
+     bounding rect, including the gap between its buttons). */
   padding: calc(var(--topnav-height) + var(--safe-top) + 16px) 16px
-    calc(var(--playbar-height) + var(--safe-bottom) + 24px);
+    calc(var(--playbar-height) + var(--safe-bottom) + var(--fab-height) + 32px);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -171,13 +178,26 @@ h2 {
   border: 1px solid var(--border);
 }
 
-/* Record FAB — floating, reachable from every page */
+/* FAB cluster — floating, reachable from every page: metronome + record */
 
-.record-fab {
+.fab-cluster {
   position: fixed;
   right: 16px;
   bottom: calc(var(--playbar-height) + var(--safe-bottom) + 16px);
   z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* The wrapper itself shouldn't swallow taps in its gap/whitespace — only
+     the two round buttons inside it should be tappable. */
+  pointer-events: none;
+}
+
+.fab-cluster > * {
+  pointer-events: auto;
+}
+
+.record-fab {
   width: 60px;
   height: 60px;
   border-radius: 50%;
@@ -189,6 +209,25 @@ h2 {
   justify-content: center;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
   touch-action: none;
+}
+
+.metronome-fab {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.metronome-fab.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .record-fab.active {
@@ -673,9 +712,21 @@ h2 {
 }
 
 .edit-pad-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
+}
+
+.edit-pad-heading {
+  justify-self: center;
+}
+
+.edit-pad-header-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: end;
 }
 
 .back-btn {
@@ -685,7 +736,7 @@ h2 {
   font-weight: 700;
   padding: 8px 4px 8px 0;
   min-height: 40px;
-  margin-right: auto;
+  justify-self: start;
 }
 
 .tag-live,
@@ -1089,25 +1140,6 @@ input[type='range']::-moz-range-thumb {
 }
 
 .loop-mode-btn.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.metronome-btn {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.metronome-btn.on {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;

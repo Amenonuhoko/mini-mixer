@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Library } from './components/Library'
+import { MetronomeButton } from './components/MetronomeButton'
 import { Nav } from './components/Nav'
 import { PadEditPage } from './components/PadEditPage'
 import { PadsPage } from './components/PadsPage'
@@ -48,7 +49,13 @@ function Shell() {
         <CurrentPage />
       </main>
       <PlayBar />
-      <RecordFAB sampleCount={Object.keys(state.samples).length} onRecorded={setPendingRecording} />
+      <div className="fab-cluster">
+        <MetronomeButton />
+        <RecordFAB
+          sampleCount={Object.keys(state.samples).length}
+          onRecorded={setPendingRecording}
+        />
+      </div>
       {pendingRecording && (
         <RecordingReviewOverlay
           recording={pendingRecording}

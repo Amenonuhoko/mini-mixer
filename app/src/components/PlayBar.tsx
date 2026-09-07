@@ -5,10 +5,13 @@ import { useAppState } from '../state/AppStateContext'
  * Fixed to the bottom of the viewport so play/pause and tempo stay reachable
  * with a thumb while scrolling through pads/dials/sequencer on a phone —
  * the controls you touch constantly shouldn't require scrolling back up to.
+ * The metronome used to live here too, but it's a global utility independent
+ * of play/pause (see useBeatEngine) — it now lives beside the record FAB
+ * instead, alongside MetronomeButton.tsx.
  */
 export function PlayBar() {
   const { state, dispatch } = useAppState()
-  const { isPlaying, bpm, loopMode, metronomeEnabled } = state.transport
+  const { isPlaying, bpm, loopMode } = state.transport
 
   return (
     <div className="play-bar">
@@ -53,19 +56,6 @@ export function PlayBar() {
       >
         <LoopIcon />
       </button>
-
-      <button
-        type="button"
-        className={metronomeEnabled ? 'metronome-btn on' : 'metronome-btn'}
-        onClick={() => dispatch({ type: 'SET_METRONOME_ENABLED', enabled: !metronomeEnabled })}
-        aria-pressed={metronomeEnabled}
-        aria-label="Toggle metronome"
-        title={
-          metronomeEnabled ? 'Metronome on — tap to turn off' : 'Metronome off — tap to turn on'
-        }
-      >
-        <MetronomeIcon />
-      </button>
     </div>
   )
 }
@@ -97,28 +87,6 @@ function LoopIcon() {
         strokeWidth="2"
         strokeLinecap="round"
       />
-    </svg>
-  )
-}
-
-function MetronomeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path
-        d="M8 21h8L13.5 5h-3L8 21z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 5v6l4 6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <circle cx="12" cy="3" r="1.5" fill="currentColor" />
     </svg>
   )
 }
