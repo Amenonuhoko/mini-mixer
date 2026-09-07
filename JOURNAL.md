@@ -601,3 +601,27 @@ Full verification: `tsc -b`, `vite build`, `oxlint` (same three expected warning
 - The FAB-over-dial-content overlap on the Edit page (from three entries back) remains, low priority, unaddressed.
 - Autosave's per-write full re-encode (from the previous entry) remains, low priority, unaddressed.
 - Everything else carried from prior entries (oxlint warnings, library search, datalist ticks, mid-loop-mute) remains open and unchanged.
+
+---
+
+## 2026-09-07 — Effects bypass button
+
+### Context
+"Add a button for turn off effects below mute" — a quick per-pad way to silence all effect dials without leaving the Pads page.
+
+### Decision(s)
+Added a reversible **bypass**, not a reset: a new `effectsBypassed: boolean` on `Pad`, toggled by a new "Effects" button directly below Mute in the Pads-page action bar. `AudioEngine`'s three trigger paths (`triggerPad`/`toggleLoop`/`triggerStep`) now read through a small `effectiveEffects(pad)` helper — an empty array when bypassed, the real `pad.effects` otherwise — reusing the existing `effectValue()` lookup's `?? 0` fallback to get "every dial reads as neutral" for free, no separate neutral-effects construction needed. A new `updateLoopingPadEffectsBypass` loops `updateLoopingPadEffect` once per `EFFECT_ID` so toggling bypass on a currently-looping pad is audible immediately, same as dragging any other dial.
+
+**Layout**: "below mute" was literal — `.selected-pad-actions` changed from a 3-across flex row to a CSS grid (`1fr 1fr` × 2 rows): Mute top-left, the new Effects button bottom-left directly beneath it, Edit spanning both rows on the right so it stays one large target instead of shrinking to a third of the row.
+
+### Alternatives considered
+- **Wire the button to the existing `RESET_PAD_EFFECTS` action** (the Edit page's "Reset dials") — rejected: that's destructive (zeroes the stored values), while "turn off" reads as a toggle you'd want to reverse. A bypass you can flip back on, restoring exactly what was dialed in, is more useful and matches the phrasing.
+
+### Reasoning
+The empty-array trick for bypass (rather than building a `createNeutralEffects()`-equivalent to pass in) works because `effectValue`'s lookup already treats "not found" as neutral — the same reason `effectiveEffects` needed no new logic in `AudioEngine`, just a different array handed to code that already existed.
+
+### Outcome
+Full verification: `tsc -b`, `vite build`, `oxlint` (same three expected warnings), `vitest run` (56/56, unchanged). Mobile Playwright pass: confirmed the Effects button renders directly below Mute (same x, lower y) with Edit spanning both rows; set a dial to +75, bypassed, confirmed the dial's stored value is still +75 on the Edit page despite the pad playing neutral; un-bypassed and confirmed the "fx off" tag disappears; toggled bypass on a currently-looping pad with no crash and the loop still running. Zero console errors. `project.md` updated: a new Pad Playback Behavior bullet for the bypass, and the Layout section's Pads-page bullet describing the new three-action grid.
+
+### Open questions / carried forward
+- Everything from the previous entry (mixer, instruments, bounce-to-pad, FAB overlap, autosave re-encode, and all earlier carried items) remains open and unchanged.

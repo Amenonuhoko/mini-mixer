@@ -690,13 +690,31 @@ h2 {
   background: var(--danger);
 }
 
+.tag-fx-off {
+  background: var(--accent);
+}
+
+/* Mute and Effects stack in one column; Edit spans both rows beside them —
+   puts the new Effects button directly below Mute, as asked, while keeping
+   Edit a single large, easy target rather than shrinking to a third of the row. */
 .selected-pad-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(2, 1fr);
   gap: 8px;
 }
 
+.action-mute {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.action-effects {
+  grid-column: 1;
+  grid-row: 2;
+}
+
 .action-btn {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -728,7 +746,15 @@ h2 {
   color: #fff;
 }
 
+.action-effects.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .action-edit {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   color: var(--accent);
   border-color: var(--accent);
 }

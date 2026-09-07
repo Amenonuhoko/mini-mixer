@@ -32,6 +32,7 @@ export function createPad(index: number): Pad {
     color: PAD_COLOR_PALETTE[index % PAD_COLOR_PALETTE.length]!,
     icon: String(index + 1),
     effects: createNeutralEffects(),
+    effectsBypassed: false,
   }
 }
 

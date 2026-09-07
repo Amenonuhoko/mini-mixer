@@ -17,6 +17,7 @@ export type Action =
   | { type: 'MOVE_SAMPLE'; sampleId: string; direction: 'up' | 'down' }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
   | { type: 'SET_PAD_MUTED'; padId: string; muted: boolean }
+  | { type: 'SET_PAD_EFFECTS_BYPASSED'; padId: string; bypassed: boolean }
   | { type: 'SET_PAD_EFFECT'; padId: string; effectId: EffectId; value: number }
   | { type: 'RESET_PAD_EFFECTS'; padId: string }
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
@@ -113,6 +114,12 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_PAD_MUTED':
       return updatePad(state, action.padId, (pad) => ({ ...pad, muted: action.muted }))
+
+    case 'SET_PAD_EFFECTS_BYPASSED':
+      return updatePad(state, action.padId, (pad) => ({
+        ...pad,
+        effectsBypassed: action.bypassed,
+      }))
 
     case 'SET_PAD_EFFECT':
       return updatePad(state, action.padId, (pad) => ({

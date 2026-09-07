@@ -31,6 +31,12 @@ export interface Pad {
   icon: string
   effects: EffectSetting[]
   /**
+   * Plays the pad as if every effect dial were at neutral (0), without
+   * touching the stored dial values — a reversible bypass, not a reset.
+   * Turning it back off restores exactly what was dialed in before.
+   */
+  effectsBypassed: boolean
+  /**
    * Non-destructive trim window into the assigned sample, as fractions (0-1) of
    * its duration — not stored in seconds, so it stays meaningful if the sample is
    * ever re-decoded, and resets to (0, 1) whenever a different sample is assigned

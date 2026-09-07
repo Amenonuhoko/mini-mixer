@@ -1,4 +1,4 @@
-import { DEFAULT_BPM, STEP_COUNT } from '../state/constants'
+import { DEFAULT_BPM, EFFECT_IDS, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
 import {
   buildGritCurve,
@@ -13,6 +13,17 @@ import { trimToPlaybackWindow } from './trim'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
   return effects.find((effect) => effect.id === id)?.value ?? 0
+}
+
+/**
+ * The effects list playBuffer should actually read for this pad — an empty
+ * array when bypassed, since effectValue's lookup already falls back to 0
+ * (neutral) for any id it can't find, giving a bypass for free with no
+ * separate "neutral effects" construction needed. Preserves the pad's real
+ * dial values untouched either way; this only changes what gets played.
+ */
+function effectiveEffects(pad: Pad): EffectSetting[] {
+  return pad.effectsBypassed ? [] : pad.effects
 }
 
 /** A short param ramp time (seconds) so live dial changes don't click/zipper. */
@@ -202,7 +213,7 @@ export class AudioEngine {
     const { source } = this.playBuffer(
       pad.id,
       buffer,
-      pad.effects,
+      effectiveEffects(pad),
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
       { loop: false },
     )
@@ -244,7 +255,7 @@ export class AudioEngine {
     const nodes = this.playBuffer(
       pad.id,
       buffer,
-      pad.effects,
+      effectiveEffects(pad),
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
       { loop: true, startTime },
     )
@@ -311,6 +322,18 @@ export class AudioEngine {
   }
 
   /**
+   * Live-applies (or lifts) the effects bypass on a pad that's currently
+   * looping — reuses updateLoopingPadEffect once per dial rather than
+   * duplicating the per-effect param logic, same "empty array reads as all
+   * neutral" trick effectiveEffects() uses for a fresh trigger.
+   */
+  updateLoopingPadEffectsBypass(padId: string, pad: Pad): void {
+    for (const effectId of EFFECT_IDS) {
+      this.updateLoopingPadEffect(padId, effectId, effectValue(effectiveEffects(pad), effectId))
+    }
+  }
+
+  /**
    * Fire a single sequencer step hit for a pad, scheduled at a precise audio-clock
    * time (from the lookahead Scheduler). Always a one-shot — a 16-step grid
    * re-firing an indefinite loop on every active step would be incoherent.
@@ -321,7 +344,7 @@ export class AudioEngine {
     this.playBuffer(
       pad.id,
       buffer,
-      pad.effects,
+      effectiveEffects(pad),
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
       { loop: false, startTime: time },
     )
