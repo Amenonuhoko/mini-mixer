@@ -26,6 +26,7 @@ export type Action =
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
   | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
+  | { type: 'SET_PAD_LOOP_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
   | { type: 'LOAD_PROJECT'; state: AppState }
@@ -184,6 +185,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_METRONOME_ENABLED':
       return { ...state, transport: { ...state.transport, metronomeEnabled: action.enabled } }
+
+    case 'SET_PAD_LOOP_MODE_ENABLED':
+      return { ...state, transport: { ...state.transport, padLoopModeEnabled: action.enabled } }
 
     case 'SET_CURRENT_STEP':
       return { ...state, transport: { ...state.transport, currentStep: action.stepIndex } }

@@ -1,5 +1,11 @@
 import type { AudioEngine } from '../engine/AudioEngine'
-import { buildSample, buildTransport, encodeWav, extractProjectMeta } from '../engine/projectFile'
+import {
+  buildSample,
+  buildTransport,
+  encodeWav,
+  extractProjectMeta,
+  type ProjectMeta,
+} from '../engine/projectFile'
 import type { AppState, Sample } from './types'
 
 const DB_NAME = 'mini-mixer'
@@ -19,16 +25,12 @@ interface AutosaveSample {
  * ArrayBuffers rather than base64 — IndexedDB stores binary natively, so
  * there's no reason to pay the ~33% base64 text-encoding cost autosave
  * pays on every debounced write, unlike the one-off downloadable file.
+ * Extends ProjectMeta directly (rather than re-declaring its fields) so the
+ * two representations can't quietly drift apart.
  */
-interface AutosaveRecord {
+interface AutosaveRecord extends ProjectMeta {
   savedAt: number
-  sampleOrder: string[]
   samples: AutosaveSample[]
-  pads: AppState['pads']
-  visiblePadCount: number
-  patterns: AppState['patterns']
-  activePatternId: string
-  transport: { bpm: number; loopMode: AppState['transport']['loopMode']; metronomeEnabled: boolean }
 }
 
 function openDb(): Promise<IDBDatabase> {

@@ -1,3 +1,4 @@
+import { DEFAULT_BPM, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
 import {
   buildGritCurve,
@@ -45,6 +46,16 @@ export class AudioEngine {
   /** Every currently-playing source — looping and one-shot alike — so stopAllSounds() can reach all of them. */
   private readonly activeSources = new Set<AudioBufferSourceNode>()
   private readonly listeners = new Set<() => void>()
+  /** Kept in sync from the reducer's transport.bpm — see setBpm(). Used for loop-sync quantization. */
+  private bpm = DEFAULT_BPM
+  /**
+   * The audio-clock time the current group of layered loops started at — reset
+   * whenever the loop count drops to 0 and a new one starts, so it always
+   * reflects "bar 0" of whatever's playing right now. Used to quantize a new
+   * loop's start to the next bar boundary instead of cutting in instantly out
+   * of phase with loops already playing. See toggleLoop().
+   */
+  private loopEpoch: number | null = null
 
   /**
    * Subscribe to changes in engine-side playback state (which pads are looping,
@@ -74,6 +85,17 @@ export class AudioEngine {
       this.activeInstanceCounts.set(padId, next)
     }
     this.notify()
+  }
+
+  /** Kept in sync with the reducer's transport.bpm — see useBeatEngine. */
+  setBpm(bpm: number): void {
+    this.bpm = bpm
+  }
+
+  /** Seconds for one full bar (STEP_COUNT 16th-note steps = 4 beats in 4/4) at the current BPM. */
+  private barSeconds(): number {
+    const secondsPerStep = 60 / this.bpm / 4
+    return secondsPerStep * STEP_COUNT
   }
 
   getContext(): AudioContext {
@@ -171,16 +193,20 @@ export class AudioEngine {
   /**
    * Trigger a pad's sample from a manual tap/click — always a one-shot. Layers
    * freely: each call fires a new, independent, overlapping playback instance,
-   * whether or not the pad is also currently looping via toggleLoop.
+   * whether or not the pad is also currently looping via toggleLoop. Returns
+   * the underlying source node so a caller can stop it early (see PadGrid's
+   * gate-on-hold behavior) — calling .stop() on it is safe at any time and
+   * self-cleans via the onended handler already wired up here.
    */
-  triggerPad(pad: Pad, buffer: AudioBuffer): void {
-    this.playBuffer(
+  triggerPad(pad: Pad, buffer: AudioBuffer): AudioBufferSourceNode {
+    const { source } = this.playBuffer(
       pad.id,
       buffer,
       pad.effects,
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
       { loop: false },
     )
+    return source
   }
 
   /**
@@ -189,6 +215,15 @@ export class AudioEngine {
    * triggerPad — tapping the pad body always plays it once; this is the only
    * way looping starts or stops, so the button's own visual state (driven by
    * isPadLooping) is always literally true.
+   *
+   * If no other pad is currently looping, this loop starts immediately and
+   * becomes the sync reference ("bar 0") for anything layered on top of it
+   * later. If at least one pad is already looping, the new loop is quantized
+   * to the next bar boundary instead of cutting in immediately, so layered
+   * loops stay in phase with each other rather than starting at an arbitrary
+   * offset. isPadLooping() (and so the UI's "looping" state) goes true as soon
+   * as the loop is scheduled, even if its audible start is still up to a bar
+   * away — matches how a "count-in" reads on a real sequencer.
    */
   toggleLoop(pad: Pad, buffer: AudioBuffer): void {
     if (this.isPadLooping(pad.id)) {
@@ -196,12 +231,22 @@ export class AudioEngine {
       return
     }
 
+    const ctx = this.getContext()
+    let startTime = ctx.currentTime
+    if (this.loopingNodes.size === 0) {
+      this.loopEpoch = startTime
+    } else if (this.loopEpoch !== null) {
+      const barSeconds = this.barSeconds()
+      const barsElapsed = Math.ceil((startTime - this.loopEpoch) / barSeconds)
+      startTime = this.loopEpoch + barsElapsed * barSeconds
+    }
+
     const nodes = this.playBuffer(
       pad.id,
       buffer,
       pad.effects,
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
-      { loop: true },
+      { loop: true, startTime },
     )
     this.loopingNodes.set(pad.id, nodes)
     this.notify()

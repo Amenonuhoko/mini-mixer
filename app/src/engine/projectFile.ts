@@ -93,7 +93,12 @@ export interface ProjectMeta {
   visiblePadCount: number
   patterns: Pattern[]
   activePatternId: string
-  transport: { bpm: number; loopMode: LoopMode; metronomeEnabled: boolean }
+  transport: {
+    bpm: number
+    loopMode: LoopMode
+    metronomeEnabled: boolean
+    padLoopModeEnabled: boolean
+  }
 }
 
 export function extractProjectMeta(state: AppState): ProjectMeta {
@@ -107,6 +112,7 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
       bpm: state.transport.bpm,
       loopMode: state.transport.loopMode,
       metronomeEnabled: state.transport.metronomeEnabled,
+      padLoopModeEnabled: state.transport.padLoopModeEnabled,
     },
   }
 }

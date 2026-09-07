@@ -8,10 +8,13 @@ import { PadGrid } from './PadGrid'
 /**
  * Home page: pads are the hero content, full width, nothing else competing
  * for space. Selecting a pad (tap, which also plays it) surfaces a summary
- * bar below the grid with three generously-sized actions — Loop, Mute, Edit
- * Sound. The pad itself stays a single undivided tap target; every other
- * per-pad action lives down here instead, where there's room to make it easy
- * to hit reliably.
+ * bar below the grid with two generously-sized actions — Mute, Edit Sound.
+ * Loop used to live here too, but it's now driven by the global loop-mode
+ * toggle (see LoopModeButton) — tapping a pad directly toggles its loop
+ * while that mode is on, so a separate button for it here would be
+ * redundant. The pad itself stays a single undivided tap target either way;
+ * every other per-pad action lives down here, where there's room to make it
+ * easy to hit reliably.
  */
 export function PadsPage() {
   const { state, dispatch } = useAppState()
@@ -35,16 +38,6 @@ export function PadsPage() {
   const selectedIndex = visiblePads.findIndex((pad) => pad.id === selectedPadId)
   const selectedPad = selectedIndex >= 0 ? visiblePads[selectedIndex] : undefined
 
-  const handleToggleLoop = () => {
-    if (!selectedPad?.sampleId) return
-    // Stopping an already-looping pad is always allowed; starting a new loop
-    // on a muted pad isn't, same as tapping the pad body while muted.
-    if (selectedPad.muted && !looping) return
-    const sample = state.samples[selectedPad.sampleId]
-    if (!sample) return
-    engine.toggleLoop(selectedPad, sample.buffer)
-  }
-
   const handleToggleMute = () => {
     if (!selectedPad) return
     dispatch({ type: 'SET_PAD_MUTED', padId: selectedPad.id, muted: !selectedPad.muted })
@@ -65,16 +58,6 @@ export function PadsPage() {
           <div className="selected-pad-actions">
             <button
               type="button"
-              className={looping ? 'action-btn action-loop on' : 'action-btn action-loop'}
-              onClick={handleToggleLoop}
-              disabled={!selectedPad.sampleId}
-              aria-pressed={looping}
-            >
-              <LoopGlyph />
-              Loop
-            </button>
-            <button
-              type="button"
               className={selectedPad.muted ? 'action-btn action-mute on' : 'action-btn action-mute'}
               onClick={handleToggleMute}
               aria-pressed={selectedPad.muted}
@@ -93,20 +76,6 @@ export function PadsPage() {
         </div>
       )}
     </div>
-  )
-}
-
-function LoopGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path
-        d="M4 12a8 8 0 0 1 13.66-5.66L20 8M20 8V3M20 8h-5M20 12a8 8 0 0 1-13.66 5.66L4 16M4 16v5M4 16h5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-    </svg>
   )
 }
 

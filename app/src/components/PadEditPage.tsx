@@ -1,13 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { usePadPlaying } from '../hooks/usePadPlaying'
-import { EFFECT_IDS, EFFECT_MAX, EFFECT_MIN, EFFECT_STEP } from '../state/constants'
+import { EFFECT_IDS, EFFECT_MAX, EFFECT_MIN, EFFECT_PRESETS, EFFECT_STEP } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
-import type { EffectId } from '../state/types'
+import { contrastingTextColor } from '../utils/color'
+import type { AudioEngine } from '../engine/AudioEngine'
+import type { EffectId, Pad } from '../state/types'
 import { InfoTip } from './InfoTip'
 import { WaveformTrimEditor } from './WaveformTrimEditor'
+
+/** How far right a swipe from the edge zone (see .swipe-edge-zone in CSS) has to travel before it's treated as a completed "go back" gesture, not a stray touch. */
+const SWIPE_DISTANCE_PX = 80
 
 const EFFECT_LABELS: Record<EffectId, string> = {
   pitch: 'Pitch',
@@ -50,7 +55,7 @@ function formatSeconds(seconds: number): string {
  * Sound" action on the Pads page; back returns there.
  */
 export function PadEditPage() {
-  const { editingPadId, goBackFromEdit } = useNavigation()
+  const { editingPadId, goToEditPad, goBackFromEdit } = useNavigation()
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const pad = state.pads.find((p) => p.id === editingPadId)
@@ -58,15 +63,56 @@ export function PadEditPage() {
   const looping = usePadLooping(engine, editingPadId ?? '')
   const playing = usePadPlaying(engine, editingPadId ?? '')
   const sample = pad?.sampleId ? state.samples[pad.sampleId] : undefined
+  const [confirmingLeave, setConfirmingLeave] = useState(false)
 
   useEffect(() => {
     if (!pad) goBackFromEdit()
   }, [pad, goBackFromEdit])
 
+  // Edge-swipe-to-go-back: a dedicated, invisible fixed-position strip flush
+  // with the true left edge of the viewport handles this (rendered below) —
+  // not the page's own content div, which sits 16px in from the edge behind
+  // app-shell's padding and would miss a gesture starting right at the edge,
+  // the whole point of an edge swipe. Pointer capture on that strip means a
+  // drag reported here keeps reporting here even once the finger moves well
+  // past the strip's own narrow width, out over the rest of the page.
+  const swipeStartXRef = useRef<number | null>(null)
+
+  const handleSwipeZonePointerDown = (event: React.PointerEvent) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    swipeStartXRef.current = event.clientX
+  }
+
+  const handleSwipeZonePointerMove = (event: React.PointerEvent) => {
+    if (swipeStartXRef.current === null) return
+    if (event.clientX - swipeStartXRef.current >= SWIPE_DISTANCE_PX) {
+      setConfirmingLeave(true)
+      swipeStartXRef.current = null
+    }
+  }
+
+  const handleSwipeZonePointerEnd = () => {
+    swipeStartXRef.current = null
+  }
+
+  const handleToggleLoop = () => {
+    if (!pad?.sampleId || !sample) return
+    if (pad.muted && !looping) return
+    engine.toggleLoop(pad, sample.buffer)
+  }
+
   if (!pad) return null
 
   return (
     <div className="page edit-pad-page">
+      <div
+        className="swipe-edge-zone"
+        onPointerDown={handleSwipeZonePointerDown}
+        onPointerMove={handleSwipeZonePointerMove}
+        onPointerUp={handleSwipeZonePointerEnd}
+        onPointerCancel={handleSwipeZonePointerEnd}
+        aria-hidden="true"
+      />
       <div className="edit-pad-header">
         <button type="button" className="back-btn" onClick={goBackFromEdit}>
           ← Back
@@ -79,6 +125,38 @@ export function PadEditPage() {
           {playing && !looping && <span className="tag tag-playing">playing</span>}
         </div>
       </div>
+
+      {confirmingLeave && (
+        <div className="confirm-overwrite">
+          <span>Leave this pad?</span>
+          <button type="button" className="btn" onClick={() => setConfirmingLeave(false)}>
+            Stay
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={goBackFromEdit}>
+            Leave
+          </button>
+        </div>
+      )}
+
+      <PadSwitcherStrip
+        pads={state.pads.slice(0, state.visiblePadCount)}
+        currentPadId={pad.id}
+        engine={engine}
+        onSwitch={goToEditPad}
+      />
+      <button
+        type="button"
+        className={
+          looping
+            ? 'action-btn action-loop on edit-pad-loop-btn'
+            : 'action-btn action-loop edit-pad-loop-btn'
+        }
+        onClick={handleToggleLoop}
+        disabled={!pad.sampleId}
+        aria-pressed={looping}
+      >
+        {looping ? 'Stop loop' : 'Loop this pad'}
+      </button>
 
       {looping && (
         <p className="muted dial-panel-hint">
@@ -126,6 +204,31 @@ export function PadEditPage() {
       )}
 
       <div className="panel">
+        <div className="dial-label-row">
+          <span className="dial-label-text">Presets</span>
+          <InfoTip label="About presets">
+            Quick-start combos across Filter, Grit, and Echo — the character dials. Applying one
+            only changes those three; Pitch, Speed, and Volume are left as they are.
+          </InfoTip>
+        </div>
+        <div className="effect-presets">
+          {EFFECT_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              className="btn btn-secondary preset-btn"
+              onClick={() => {
+                for (const effectId of ['filter', 'grit', 'echo'] as const) {
+                  const value = preset[effectId]
+                  dispatch({ type: 'SET_PAD_EFFECT', padId: pad.id, effectId, value })
+                  if (looping) engine.updateLoopingPadEffect(pad.id, effectId, value)
+                }
+              }}
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
         {EFFECT_IDS.map((effectId) => {
           const setting = pad.effects.find((effect) => effect.id === effectId)
           const value = setting?.value ?? 0
@@ -175,5 +278,77 @@ export function PadEditPage() {
         </button>
       </div>
     </div>
+  )
+}
+
+interface PadSwitcherStripProps {
+  pads: Pad[]
+  currentPadId: string
+  engine: AudioEngine
+  onSwitch: (padId: string) => void
+}
+
+/**
+ * Horizontally-scrollable strip of every visible pad, so you can flip between
+ * them while editing without backing out to the Pads page each time. Each
+ * swatch is purely a "jump to this pad" tap target plus a passive looping
+ * indicator (a small pulsing dot) — no per-swatch loop toggle here, since
+ * that would nest a second small interactive zone inside an already-small
+ * tile, the same touch-precision problem that got loop moved off the pad
+ * face in the first place. The one real Loop action for whichever pad is
+ * currently selected lives as its own full-sized button right below this
+ * strip instead.
+ */
+function PadSwitcherStrip({ pads, currentPadId, engine, onSwitch }: PadSwitcherStripProps) {
+  return (
+    <div className="pad-switcher-strip" role="tablist" aria-label="Switch pad">
+      {pads.map((pad, index) => (
+        <PadSwitcherSwatch
+          key={pad.id}
+          pad={pad}
+          index={index}
+          engine={engine}
+          current={pad.id === currentPadId}
+          onSwitch={onSwitch}
+        />
+      ))}
+    </div>
+  )
+}
+
+interface PadSwitcherSwatchProps {
+  pad: Pad
+  index: number
+  engine: AudioEngine
+  current: boolean
+  onSwitch: (padId: string) => void
+}
+
+function PadSwitcherSwatch({ pad, index, engine, current, onSwitch }: PadSwitcherSwatchProps) {
+  const looping = usePadLooping(engine, pad.id)
+  const filled = pad.sampleId !== null
+
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={current}
+      className={
+        current
+          ? 'pad-switcher-swatch current'
+          : filled
+            ? 'pad-switcher-swatch'
+            : 'pad-switcher-swatch empty'
+      }
+      style={{
+        borderColor: pad.color,
+        background: filled ? pad.color : 'transparent',
+        color: filled ? contrastingTextColor(pad.color) : undefined,
+      }}
+      onClick={() => onSwitch(pad.id)}
+    >
+      {index + 1}
+      {looping && <span className="pad-switcher-loop-dot" aria-hidden="true" />}
+    </button>
   )
 }

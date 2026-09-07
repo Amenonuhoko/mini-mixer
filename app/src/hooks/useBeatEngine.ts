@@ -62,6 +62,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
 
   useEffect(() => {
     schedulerRef.current?.setBpm(state.transport.bpm)
+    engineRef.current?.setBpm(state.transport.bpm)
   }, [state.transport.bpm])
 
   // The lookahead clock itself runs whenever *either* the sequencer is playing or

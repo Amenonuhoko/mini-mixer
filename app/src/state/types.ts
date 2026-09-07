@@ -57,6 +57,13 @@ export interface Transport {
   loopMode: LoopMode
   currentStep: number
   metronomeEnabled: boolean
+  /**
+   * Global mode switch for the pad grid: while on, tapping a pad toggles its
+   * loop instead of playing a one-shot. Lives here alongside metronomeEnabled
+   * — both are page-agnostic mode toggles, not sequencer-playback state, but
+   * this is the app's established home for that kind of global on/off switch.
+   */
+  padLoopModeEnabled: boolean
 }
 
 export interface AppState {

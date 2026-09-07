@@ -230,6 +230,25 @@ h2 {
   color: #fff;
 }
 
+.loop-mode-fab {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.loop-mode-fab.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .record-fab.active {
   background: var(--danger-strong);
   animation: fab-pulse 1s ease-in-out infinite;
@@ -538,6 +557,15 @@ h2 {
   gap: 12px;
 }
 
+/* A clear but non-intrusive signal that tapping a pad right now toggles its
+   loop instead of playing it — the mode itself is controlled by the global
+   LoopModeButton, not anything here, so this is purely informational. */
+.pad-grid-cells.loop-mode {
+  outline: 2px dashed var(--accent);
+  outline-offset: 8px;
+  border-radius: var(--radius-lg);
+}
+
 .pad {
   position: relative;
   aspect-ratio: 1;
@@ -709,6 +737,79 @@ h2 {
 
 .edit-pad-page {
   gap: 16px;
+}
+
+/* Flush with the true left edge of the viewport (not the page content, which
+   sits 16px in behind app-shell's padding) so a swipe starting right at the
+   physical edge is actually caught — see PadEditPage's swipe-back handlers. */
+.swipe-edge-zone {
+  position: fixed;
+  left: 0;
+  top: calc(var(--topnav-height) + var(--safe-top));
+  bottom: 0;
+  width: 24px;
+  z-index: 5;
+  touch-action: pan-y;
+}
+
+.pad-switcher-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px;
+  scrollbar-width: none;
+}
+
+.pad-switcher-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.pad-switcher-swatch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pad-switcher-swatch.empty {
+  color: var(--muted);
+}
+
+.pad-switcher-swatch.current {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pad-switcher-loop-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+
+.edit-pad-loop-btn {
+  width: 100%;
+}
+
+.effect-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.preset-btn {
+  padding: 8px 14px;
 }
 
 .edit-pad-header {

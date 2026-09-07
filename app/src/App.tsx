@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Library } from './components/Library'
+import { LoopModeButton } from './components/LoopModeButton'
 import { MetronomeButton } from './components/MetronomeButton'
 import { Nav } from './components/Nav'
 import { PadEditPage } from './components/PadEditPage'
@@ -62,6 +63,13 @@ function Shell() {
       </main>
       {showPlayBar && <PlayBar />}
       <div className="fab-cluster">
+        {/* The edit page gets its own pad-specific loop control (see the pad
+            switcher strip in PadEditPage) — the global toggle would be
+            redundant, even confusing, sitting right next to it, so it's the
+            one FAB hidden there. Record and Metronome stay reachable from
+            every page, unlike this one, per the app's established "always
+            reachable" principle for those two. */}
+        {page !== 'edit-pad' && <LoopModeButton />}
         <MetronomeButton />
         <RecordFAB
           sampleCount={Object.keys(state.samples).length}

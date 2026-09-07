@@ -23,6 +23,26 @@ export const EFFECT_STEP = 25
 // occasional "spice" character effects — least reached for of the six.
 export const EFFECT_IDS = ['volume', 'speed', 'pitch', 'filter', 'grit', 'echo'] as const
 
+/**
+ * Quick-start combos across Echo/Filter/Grit — the three "character" dials —
+ * so you don't have to hand-dial three sliders to get somewhere interesting.
+ * Applying one only touches these three; Pitch/Speed/Volume are left alone.
+ * All values land on the same 25-point anchors the dials themselves snap to.
+ */
+export interface EffectPreset {
+  name: string
+  filter: number
+  grit: number
+  echo: number
+}
+
+export const EFFECT_PRESETS: EffectPreset[] = [
+  { name: 'Telephone', filter: 75, grit: -25, echo: 0 },
+  { name: 'Underwater', filter: -75, grit: 0, echo: 50 },
+  { name: 'Vinyl', filter: -25, grit: -50, echo: -25 },
+  { name: 'Cavern', filter: -50, grit: 0, echo: 100 },
+]
+
 /** Trim handles can't collapse closer than this (fraction of the sample's duration). */
 export const MIN_TRIM_GAP = 0.02
 
