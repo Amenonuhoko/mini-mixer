@@ -125,3 +125,22 @@ Kept as one flat file, reverse-engineered from the actual conversation rather th
 
 ### Open questions / carried forward
 None — going forward, each subsequent working session (implementation or further planning) should append a new dated entry here before or alongside its commit, per the template.
+
+---
+
+## 2026-09-07 — Repo layout: app code lives in `app/`
+
+### Context
+User will handle CI/deploy setup themselves (GitHub Actions → Vercel) and specified the working directory for the actual application code.
+
+### Decision(s)
+The Vite/React/TS project will live under `app/` as a subdirectory, not at the repo root. `project.md` and `JOURNAL.md` stay at the repo root, alongside `app/`.
+
+### Alternatives considered
+Repo-root-as-app-root (Vite project files directly in `/`) — not chosen; user opted for the subdirectory split instead.
+
+### Reasoning
+Keeps planning/process docs (`project.md`, `JOURNAL.md`) visually and structurally separate from the app source, which matters more here than usual since this repo is explicitly tracking its own decision history alongside the code.
+
+### Open questions / carried forward
+When GitHub Actions / Vercel are wired up (user's side), the build root/working-directory setting on both needs to point at `app/`, not repo root, since `vite build` will run from inside it.
