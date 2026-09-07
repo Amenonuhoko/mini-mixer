@@ -29,6 +29,8 @@ export class AudioEngine {
    * pad making sound right now" across both playback styles for the UI.
    */
   private readonly activeInstanceCounts = new Map<string, number>()
+  /** Every currently-playing source — looping and one-shot alike — so stopAllSounds() can reach all of them. */
+  private readonly activeSources = new Set<AudioBufferSourceNode>()
   private readonly listeners = new Set<() => void>()
 
   /**
@@ -108,7 +110,11 @@ export class AudioEngine {
     filter.connect(ctx.destination)
 
     this.markStarted(padId)
-    source.onended = () => this.markEnded(padId)
+    this.activeSources.add(source)
+    source.onended = () => {
+      this.markEnded(padId)
+      this.activeSources.delete(source)
+    }
 
     const startTime = options.startTime ?? ctx.currentTime
     const window = trimToPlaybackWindow(trim.trimStart, trim.trimEnd, buffer.duration)
@@ -162,6 +168,7 @@ export class AudioEngine {
     const { source } = nodes
     source.onended = () => {
       this.markEnded(pad.id)
+      this.activeSources.delete(source)
       if (this.loopingNodes.get(pad.id)?.source === source) {
         this.loopingNodes.delete(pad.id)
         this.notify()
@@ -259,9 +266,22 @@ export class AudioEngine {
     this.notify()
   }
 
-  stopAll(): void {
-    for (const padId of Array.from(this.loopingNodes.keys())) {
-      this.stopPad(padId)
+  /**
+   * The panic-stop button's action: silences everything currently audible —
+   * every looping pad, every in-flight one-shot (a manual tap, a sequencer hit,
+   * a long recording still playing out), all at once. Deliberately stops
+   * `activeSources` directly rather than just `loopingNodes`, since a one-shot
+   * source is never itself stoppable any other way once started.
+   */
+  stopAllSounds(): void {
+    this.loopingNodes.clear()
+    for (const source of Array.from(this.activeSources)) {
+      try {
+        source.stop()
+      } catch {
+        // Already stopped/ended between the snapshot above and this call — fine.
+      }
     }
+    this.notify()
   }
 }

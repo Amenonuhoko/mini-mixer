@@ -10,7 +10,7 @@ export function SettingsPanel() {
   const [confirmClear, setConfirmClear] = useState(false)
 
   const handleClearAll = () => {
-    engine.stopAll()
+    engine.stopAllSounds()
     dispatch({ type: 'CLEAR_ALL' })
     setConfirmClear(false)
   }
@@ -20,6 +20,9 @@ export function SettingsPanel() {
   return (
     <section className="panel settings" aria-label="settings">
       <h2>Settings</h2>
+      <p className="muted">
+        Session-only — nothing is saved. Reload or Clear All for a blank slate.
+      </p>
 
       <div className="settings-row">
         <span className="settings-label">Pad count</span>

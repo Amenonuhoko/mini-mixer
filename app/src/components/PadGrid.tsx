@@ -95,6 +95,13 @@ function PadButton({ pad, index, engine, selected, onSelect }: PadButtonProps) {
     >
       <span className="pad-index">{index + 1}</span>
       {!filled && <span className="pad-empty-hint">empty</span>}
+      {playing && (
+        <span className="pad-eq" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      )}
       <span
         className={pad.muted ? 'mute-toggle on' : 'mute-toggle'}
         role="switch"

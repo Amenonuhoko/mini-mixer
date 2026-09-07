@@ -1,15 +1,19 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { DialPanel } from './components/DialPanel'
+import { useState, type ReactNode } from 'react'
 import { Library } from './components/Library'
-import { PadGrid } from './components/PadGrid'
+import { Nav } from './components/Nav'
+import { PadEditPage } from './components/PadEditPage'
+import { PadsPage } from './components/PadsPage'
 import { PlayBar } from './components/PlayBar'
-import { Recorder } from './components/Recorder'
+import { RecordFAB } from './components/RecordFAB'
+import { RecordingReviewOverlay } from './components/RecordingReviewOverlay'
+import type { PendingRecording } from './components/RecordingReview'
 import { Sequencer } from './components/Sequencer'
-import { SettingsPanel } from './components/SettingsPanel'
+import { SettingsOverlay } from './components/SettingsOverlay'
 import { useBeatEngine } from './hooks/useBeatEngine'
 import { useWarnBeforeUnload } from './hooks/useWarnBeforeUnload'
 import { AppStateProvider, useAppState } from './state/AppStateContext'
 import { EngineProvider } from './state/EngineContext'
+import { NavigationProvider, useNavigation } from './state/NavigationContext'
 
 function EngineBridge({ children }: { children: ReactNode }) {
   const { state, dispatch } = useAppState()
@@ -17,43 +21,41 @@ function EngineBridge({ children }: { children: ReactNode }) {
   return <EngineProvider engine={engine}>{children}</EngineProvider>
 }
 
+function CurrentPage() {
+  const { page } = useNavigation()
+  switch (page) {
+    case 'pads':
+      return <PadsPage />
+    case 'edit-pad':
+      return <PadEditPage />
+    case 'sequencer':
+      return <Sequencer />
+    case 'library':
+      return <Library />
+  }
+}
+
 function Shell() {
   const { state } = useAppState()
-  const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
+  const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   useWarnBeforeUnload(Object.keys(state.samples).length > 0)
-
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
-
-  // Keep a pad selected for the dial panel at all times, falling back to the
-  // first visible pad if none is selected yet or the selected one was hidden
-  // by shrinking the pad count.
-  useEffect(() => {
-    const stillVisible = visiblePads.some((pad) => pad.id === selectedPadId)
-    if (!stillVisible) {
-      setSelectedPadId(visiblePads[0]?.id ?? null)
-    }
-    // Only re-check when the set of visible pads changes, not on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visiblePads.map((pad) => pad.id).join(',')])
 
   return (
     <>
+      <Nav onOpenSettings={() => setSettingsOpen(true)} />
       <main className="app-shell">
-        <header>
-          <h1>Beat Maker</h1>
-          <p className="muted">
-            Session-only — nothing is saved. Reload or Clear All for a blank slate.
-          </p>
-        </header>
-
-        <Recorder />
-        <Library />
-        <PadGrid selectedPadId={selectedPadId} onSelectPad={setSelectedPadId} />
-        <DialPanel padId={selectedPadId} />
-        <Sequencer />
-        <SettingsPanel />
+        <CurrentPage />
       </main>
       <PlayBar />
+      <RecordFAB sampleCount={Object.keys(state.samples).length} onRecorded={setPendingRecording} />
+      {pendingRecording && (
+        <RecordingReviewOverlay
+          recording={pendingRecording}
+          onDone={() => setPendingRecording(null)}
+        />
+      )}
+      {settingsOpen && <SettingsOverlay onClose={() => setSettingsOpen(false)} />}
     </>
   )
 }
@@ -62,7 +64,9 @@ function App() {
   return (
     <AppStateProvider>
       <EngineBridge>
-        <Shell />
+        <NavigationProvider>
+          <Shell />
+        </NavigationProvider>
       </EngineBridge>
     </AppStateProvider>
   )

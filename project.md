@@ -2,7 +2,9 @@
 
 ## Summary
 
-A single-page web app that lets you record sound snippets from your mic, build up a library ("arsenal") of them, and turn them into a beat using dial-based controls. Casual, personal-use project — no saving/export needed, no offline requirement. Scope is expected to grow organically over time, so the foundation is built solid even though the current feature set is small.
+A phone-first web app that lets you record sound snippets from your mic, build up a library ("arsenal") of them, and turn them into a beat using dial-based controls. Casual, personal-use project — no saving/export needed, no offline requirement. Scope is expected to grow organically over time, so the foundation is built solid even though the current feature set is small.
+
+Originally built as one continuously-scrolling page; restructured into a small multi-page app shell once real use showed the dials and the sequencer needed to not compete for screen space with the pad grid or each other. See **Layout** below.
 
 ## Architecture Foundations
 
@@ -53,8 +55,15 @@ These are load-bearing decisions made deliberately so the base doesn't need to b
 
 ## Layout
 
-- Single page, everything visible at once — no separate record/edit/play screens.
-- Recording area, sample library (arsenal) shelf, pad/sample grid, dials, and sequencer all on one screen. The library shelf can be a compact strip/list (name + quick-assign) rather than full detail — it just needs to make "pick from arsenal" possible without leaving the page.
+A small app shell — persistent global chrome around four pages, no router library (a plain page/navigation React context is enough for four flat destinations with no need for URLs or browser history):
+
+- **Top nav** (fixed): three page tabs — **Pads** (home), **Sequencer**, **Library** — plus two utility actions reachable from anywhere: a panic **"stop all sounds"** button (silences every loop, every in-flight one-shot, and pauses the sequencer, all at once) and a **settings** gear (pad count, Clear All — opens as an overlay, tucked away since it's touched rarely).
+- **Bottom PlayBar** (fixed, global on every page): play/pause, BPM, loop-once-vs-continuous, metronome. Shapes *how* playback sounds; deliberately kept separate from the top nav's utility actions, which are about getting around and emergency control instead.
+- **Floating record button** (fixed, global on every page): press-and-hold to record — the hold itself *is* the recording gesture, release stops it, however long that was. Recording was never tied to one screen or page; a name/waveform-preview/assign-or-discard review appears as a modal overlay regardless of where you started recording from, so it's never blocked by which page happens to be open.
+- **Pads page (home)**: the pad grid is the hero content, full width, nothing sharing space with it. Casual interactions stay directly on the pad — tap to play (always one-shot), a loop toggle, a mute toggle, live "playing"/"looping" visual feedback. Tapping a pad also surfaces a small summary bar below the grid with an explicit **"Edit Sound"** action — the only way into the next page, so casual play/loop/mute never gets tangled up with deliberate editing.
+- **Pad edit page** (reached via "Edit Sound," not a nav tab — a drill-down detail view, not a top-level destination): the per-pad dials (pitch/speed/filter) and the trim editor get the entire page. A back button returns to Pads. Shows the pad's live playing/looping state at the top, since you're often adjusting a sound while it's audible.
+- **Sequencer page**: the 16-step grid gets its own page, meant to be visited once the pads are filled in and it's time to assemble a pattern — not something you're nudging past while trying to do something else. Each row shows a small pulsing badge (and a ring around its pad-number circle) whenever that pad is independently looping via the pad-page loop button, so the sequencer's own step pattern is never mistaken for — or silently coexisting unnoticed with — a separate loop already playing.
+- **Library page**: the sample list (rename, reorder, delete, assign, waveform thumbnails) gets its own page too, tucked out of the way of the pads — it's for occasional housekeeping, not something that needs to compete with the main pad-focused screen.
 
 ## Data Model
 
@@ -183,13 +192,13 @@ interface AppState {
 
 ### Step 1 — Opening the app
 
-- Pads show a clear empty/filled state (icon changes once a pad has a sample assigned).
-- One global record button — hit record, then you're prompted to assign the new snippet to a pad; either way it lands in the library.
+- Lands on the Pads page. Pads show a clear empty/filled state (icon changes once a pad has a sample assigned).
+- A floating record button, reachable from every page — recording was never meant to require being on a particular screen.
 
 ### Step 2 — Recording a sound
 
-- No max length, stop whenever you tap stop.
-- Live waveform/level display while recording for visual feedback.
+- Press and hold the record button to record; release to stop. No max length — however long you hold it. The hold gesture is the record/stop control; there's no separate start/stop tap to remember.
+- Live waveform display while holding, for visual feedback.
 
 ### Step 3 — Reviewing, naming, and assigning (or discarding)
 
@@ -199,7 +208,8 @@ interface AppState {
 
 ### Step 4 — Testing a pad / dials
 
-- Tapping a pad body always just plays it once. A separate loop button on the pad starts or stops a continuous loop, in one tap each way.
+- Tapping a pad body always just plays it once. A separate loop button on the pad starts or stops a continuous loop, in one tap each way — its on/off look always matches whether the pad is actually looping right now.
+- Tapping a pad surfaces an "Edit Sound" action, opening its own dedicated page for dials/trim — not sharing space with the pad grid.
 - Each dial is a slider (-100..100, snapping to 25-point anchors) with its signed value shown alongside — e.g. "+50", not "75%", so it's clear which direction and how far from neutral you are.
 - Drag the trim handles on the waveform to choose which part of the recording this pad plays — non-destructive, and independent per pad even when pads share a sample.
 - A small tap-to-open info icon next to each dial and the trim control explains what it does.
@@ -207,12 +217,14 @@ interface AppState {
 
 ### Step 5 — Building a rhythm
 
+- Once the pads are filled in, switch to the Sequencer page (its own dedicated screen, meant to be visited when it's time to assemble — not shared with anything else).
 - Active steps show the pad's own color/icon (each pad gets a distinct color/icon when created, for quick visual ID — stable per pad regardless of which sample it currently references).
+- Each row shows a small badge whenever that pad is independently looping (via its pad-page loop button), so the sequencer's programmed pattern is never confused with a separate loop already playing.
 - Moving playhead highlights the current step across all rows as the sequencer plays.
 
 ### Step 6 — Repeating for other pads
 
-- Repeat steps 2–5 (record, assign, dial in effects, set pattern) for each additional pad — or skip recording and assign an existing library sample directly.
+- Repeat steps 2–4 (record, review/assign, dial in effects) for each additional pad — or skip recording and assign an existing library sample directly from the Library page. Recording works the same from any page, so this doesn't require navigating back to Pads first.
 
 ### Step 7 — Setting the tempo
 
@@ -228,10 +240,11 @@ interface AppState {
 
 - Dial and step changes apply instantly, even mid-loop (no waiting for the next beat).
 
-### Step 10 — Resetting
+### Step 10 — Resetting and stopping
 
 - Browser warns before reload/close if there's in-progress work.
-- Explicit "Clear All" button in-app for when you actually want a blank slate, instead of relying on reload.
+- Explicit "Clear All" button in the settings overlay (gear icon in the top nav) for when you actually want a blank slate, instead of relying on reload.
+- A dedicated "stop all sounds" button in the top nav — reachable from every page — panic-stops everything at once: every looping pad, every in-flight one-shot (including a long recording still playing out), and pauses the sequencer if it's running.
 
 ## Open Questions (deferred, not blocking)
 
