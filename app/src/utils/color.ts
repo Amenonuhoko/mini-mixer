@@ -1,13 +1,18 @@
 /**
  * Picks readable text color (near-black or near-white) against a given hex
- * background, via relative luminance (WCAG-style approximation). Needed because
- * pad colors span the full palette — white text reads fine on the reds/blues/purples
- * but is illegible on the yellow.
+ * background, via WCAG relative luminance. The threshold (~0.179) is the exact
+ * crossover point where white-vs-black contrast ratios against the background
+ * are equal — not an eyeballed 0.5, which reads plausible but is wrong for the
+ * gamma-corrected luminance formula actually used here. For this app's vivid,
+ * saturated pad palette, every current color falls under that threshold, so
+ * near-black wins across the board — vivid colors "look bright" perceptually
+ * while staying low in gamma-corrected luminance.
  */
 export function contrastingTextColor(hex: string): '#12121a' | '#ffffff' {
   const { r, g, b } = hexToRgb(hex)
   const luminance = relativeLuminance(r, g, b)
-  return luminance > 0.55 ? '#12121a' : '#ffffff'
+  const whiteVsBlackCrossover = Math.sqrt(1.05 * 0.05) - 0.05
+  return luminance > whiteVsBlackCrossover ? '#12121a' : '#ffffff'
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {

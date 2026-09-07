@@ -1,8 +1,16 @@
-import type { EffectSetting, Pad } from '../state/types'
-import { dialToDetuneCents, dialToFilterFrequencyHz, dialToPlaybackRate } from './dialMapping'
+import type { EffectId, EffectSetting, Pad } from '../state/types'
+import { dialToDetuneCents, dialToFilterParams, dialToPlaybackRate } from './dialMapping'
 
-function effectValue(effects: EffectSetting[], id: EffectSetting['id']): number {
-  return effects.find((effect) => effect.id === id)?.value ?? 50
+function effectValue(effects: EffectSetting[], id: EffectId): number {
+  return effects.find((effect) => effect.id === id)?.value ?? 0
+}
+
+/** A short param ramp time (seconds) so live dial changes don't click/zipper. */
+const PARAM_RAMP_SECONDS = 0.015
+
+interface PlayingNodes {
+  source: AudioBufferSourceNode
+  filter: BiquadFilterNode
 }
 
 /**
@@ -13,14 +21,20 @@ function effectValue(effects: EffectSetting[], id: EffectSetting['id']): number 
 export class AudioEngine {
   private ctx: AudioContext | null = null
   /** Pads currently looping, keyed by pad id — present only while actively playing. */
-  private readonly loopingSources = new Map<string, AudioBufferSourceNode>()
+  private readonly loopingNodes = new Map<string, PlayingNodes>()
+  /**
+   * How many instances of each pad are currently audible (looping sustain counts as
+   * one; each one-shot/sequencer hit counts for its own duration). Unifies "is this
+   * pad making sound right now" across both playback styles for the UI.
+   */
+  private readonly activeInstanceCounts = new Map<string, number>()
   private readonly listeners = new Set<() => void>()
 
   /**
-   * Subscribe to changes in engine-side playback state (currently: which pads are
-   * looping). Returns an unsubscribe function. Intended for React's
-   * useSyncExternalStore, so the UI can reflect engine state without the engine
-   * knowing anything about React.
+   * Subscribe to changes in engine-side playback state (which pads are looping,
+   * which are audibly playing). Returns an unsubscribe function. Intended for
+   * React's useSyncExternalStore, so the UI can reflect engine state without the
+   * engine knowing anything about React.
    */
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
@@ -29,6 +43,21 @@ export class AudioEngine {
 
   private notify(): void {
     for (const listener of this.listeners) listener()
+  }
+
+  private markStarted(padId: string): void {
+    this.activeInstanceCounts.set(padId, (this.activeInstanceCounts.get(padId) ?? 0) + 1)
+    this.notify()
+  }
+
+  private markEnded(padId: string): void {
+    const next = (this.activeInstanceCounts.get(padId) ?? 1) - 1
+    if (next <= 0) {
+      this.activeInstanceCounts.delete(padId)
+    } else {
+      this.activeInstanceCounts.set(padId, next)
+    }
+    this.notify()
   }
 
   getContext(): AudioContext {
@@ -48,14 +77,19 @@ export class AudioEngine {
   }
 
   isPadLooping(padId: string): boolean {
-    return this.loopingSources.has(padId)
+    return this.loopingNodes.has(padId)
+  }
+
+  isPadPlaying(padId: string): boolean {
+    return (this.activeInstanceCounts.get(padId) ?? 0) > 0
   }
 
   private playBuffer(
+    padId: string,
     buffer: AudioBuffer,
     effects: EffectSetting[],
     options: { loop: boolean; startTime?: number },
-  ): AudioBufferSourceNode {
+  ): PlayingNodes {
     const ctx = this.getContext()
     const source = ctx.createBufferSource()
     source.buffer = buffer
@@ -64,13 +98,18 @@ export class AudioEngine {
     source.detune.value = dialToDetuneCents(effectValue(effects, 'pitch'))
 
     const filter = ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = dialToFilterFrequencyHz(effectValue(effects, 'filter'))
+    const filterParams = dialToFilterParams(effectValue(effects, 'filter'))
+    filter.type = filterParams.type
+    filter.frequency.value = filterParams.frequencyHz
 
     source.connect(filter)
     filter.connect(ctx.destination)
+
+    this.markStarted(padId)
+    source.onended = () => this.markEnded(padId)
+
     source.start(options.startTime ?? ctx.currentTime)
-    return source
+    return { source, filter }
   }
 
   /**
@@ -84,16 +123,50 @@ export class AudioEngine {
       return
     }
 
-    const source = this.playBuffer(buffer, pad.effects, { loop: pad.loop })
+    const nodes = this.playBuffer(pad.id, buffer, pad.effects, { loop: pad.loop })
 
     if (pad.loop) {
-      this.loopingSources.set(pad.id, source)
+      this.loopingNodes.set(pad.id, nodes)
       this.notify()
+      const { source } = nodes
       source.onended = () => {
-        if (this.loopingSources.get(pad.id) === source) {
-          this.loopingSources.delete(pad.id)
+        this.markEnded(pad.id)
+        if (this.loopingNodes.get(pad.id)?.source === source) {
+          this.loopingNodes.delete(pad.id)
           this.notify()
         }
+      }
+    }
+  }
+
+  /**
+   * Live-update one effect param on a pad that's currently looping, so dragging a
+   * dial is audible immediately on the sustained sound rather than only affecting
+   * the next trigger. No-op if the pad isn't currently looping — one-shot instances
+   * already in flight aren't retroactively editable (there could be several
+   * overlapping ones from layering, with no single "the" instance to update).
+   */
+  updateLoopingPadEffect(padId: string, effectId: EffectId, value: number): void {
+    const nodes = this.loopingNodes.get(padId)
+    if (!nodes) return
+    const ctx = this.getContext()
+    const { source, filter } = nodes
+    switch (effectId) {
+      case 'pitch':
+        source.detune.setTargetAtTime(dialToDetuneCents(value), ctx.currentTime, PARAM_RAMP_SECONDS)
+        break
+      case 'speed':
+        source.playbackRate.setTargetAtTime(
+          dialToPlaybackRate(value),
+          ctx.currentTime,
+          PARAM_RAMP_SECONDS,
+        )
+        break
+      case 'filter': {
+        const params = dialToFilterParams(value)
+        filter.type = params.type
+        filter.frequency.setTargetAtTime(params.frequencyHz, ctx.currentTime, PARAM_RAMP_SECONDS)
+        break
       }
     }
   }
@@ -107,19 +180,37 @@ export class AudioEngine {
    * retrigger, so it's untouched by manual play/stop state on the same pad.
    */
   triggerStep(pad: Pad, buffer: AudioBuffer, time: number): void {
-    this.playBuffer(buffer, pad.effects, { loop: false, startTime: time })
+    this.playBuffer(pad.id, buffer, pad.effects, { loop: false, startTime: time })
+  }
+
+  /** A short synthetic click for the metronome — no sample/asset needed. */
+  playMetronomeClick(time: number, accent: boolean): void {
+    const ctx = this.getContext()
+    const osc = ctx.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.value = accent ? 1500 : 1000
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, time)
+    gain.gain.linearRampToValueAtTime(accent ? 0.5 : 0.3, time + 0.002)
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05)
+
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(time)
+    osc.stop(time + 0.06)
   }
 
   stopPad(padId: string): void {
-    const source = this.loopingSources.get(padId)
-    if (!source) return
-    this.loopingSources.delete(padId)
-    source.stop()
+    const nodes = this.loopingNodes.get(padId)
+    if (!nodes) return
+    this.loopingNodes.delete(padId)
+    nodes.source.stop()
     this.notify()
   }
 
   stopAll(): void {
-    for (const padId of Array.from(this.loopingSources.keys())) {
+    for (const padId of Array.from(this.loopingNodes.keys())) {
       this.stopPad(padId)
     }
   }

@@ -1,39 +1,29 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type RefObject } from 'react'
 
 interface UseRecorderResult {
   isRecording: boolean
-  /** 0-1 RMS level of the live mic input, for a level meter. */
-  level: number
   error: string | null
+  /** Live analyser node while recording — null otherwise. For LiveWaveform to draw from directly. */
+  analyserRef: RefObject<AnalyserNode | null>
   start: () => Promise<void>
   /** Resolves with the recorded audio once MediaRecorder has fully flushed. */
   stop: () => Promise<ArrayBuffer>
 }
 
 /**
- * Wraps MediaRecorder + a live level meter. No max length — the caller decides
- * when to stop. Kept out of AudioEngine since it's a capture concern, not playback.
+ * Wraps MediaRecorder + exposes a live AnalyserNode for a waveform visualizer.
+ * No max length — the caller decides when to stop. Kept out of AudioEngine since
+ * it's a capture concern, not playback.
  */
 export function useRecorder(): UseRecorderResult {
   const [isRecording, setIsRecording] = useState(false)
-  const [level, setLevel] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
   const meterCtxRef = useRef<AudioContext | null>(null)
-  const rafRef = useRef<number | null>(null)
-
-  const stopLevelMeter = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-    void meterCtxRef.current?.close()
-    meterCtxRef.current = null
-    setLevel(0)
-  }, [])
+  const analyserRef = useRef<AnalyserNode | null>(null)
 
   const start = useCallback(async () => {
     setError(null)
@@ -59,21 +49,9 @@ export function useRecorder(): UseRecorderResult {
     meterCtxRef.current = meterCtx
     const source = meterCtx.createMediaStreamSource(stream)
     const analyser = meterCtx.createAnalyser()
-    analyser.fftSize = 512
+    analyser.fftSize = 1024
     source.connect(analyser)
-    const data = new Uint8Array(analyser.frequencyBinCount)
-
-    const tick = () => {
-      analyser.getByteTimeDomainData(data)
-      let sumSquares = 0
-      for (const sample of data) {
-        const normalized = (sample - 128) / 128
-        sumSquares += normalized * normalized
-      }
-      setLevel(Math.sqrt(sumSquares / data.length))
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    tick()
+    analyserRef.current = analyser
   }, [])
 
   const stop = useCallback((): Promise<ArrayBuffer> => {
@@ -89,14 +67,16 @@ export function useRecorder(): UseRecorderResult {
           const arrayBuffer = await blob.arrayBuffer()
           streamRef.current?.getTracks().forEach((track) => track.stop())
           streamRef.current = null
-          stopLevelMeter()
+          analyserRef.current = null
+          void meterCtxRef.current?.close()
+          meterCtxRef.current = null
           setIsRecording(false)
           resolve(arrayBuffer)
         })()
       }
       mediaRecorder.stop()
     })
-  }, [stopLevelMeter])
+  }, [])
 
-  return { isRecording, level, error, start, stop }
+  return { isRecording, error, analyserRef, start, stop }
 }

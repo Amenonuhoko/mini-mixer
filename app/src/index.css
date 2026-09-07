@@ -186,21 +186,14 @@ header h1 {
   font-weight: 600;
 }
 
-.level-meter {
+.live-waveform {
   margin-top: 12px;
-  display: flex;
-  gap: 3px;
-  height: 20px;
-}
-
-.meter-segment {
-  flex: 1;
-  border-radius: 2px;
-  background: var(--border);
-}
-
-.meter-segment.lit {
-  background: var(--danger);
+  width: 100%;
+  height: 56px;
+  display: block;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  border: 1px solid var(--border);
 }
 
 /* Library */
@@ -218,8 +211,7 @@ header h1 {
 
 .library-list li {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 10px;
   padding: 10px 12px;
   border-radius: var(--radius-md);
@@ -227,17 +219,92 @@ header h1 {
   border: 1px solid var(--border);
 }
 
+.library-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.static-waveform {
+  flex-shrink: 0;
+  width: 64px;
+  height: 24px;
+}
+
 .library-item-info {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  flex: 1;
+}
+
+.library-item-label {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  min-height: 28px;
+}
+
+.library-rename-input {
+  font: inherit;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--panel-bg);
+  color: var(--text);
+  min-height: 32px;
 }
 
 .library-item-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.library-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reorder-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reorder-btn {
+  width: 28px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--muted);
+  font-size: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.reorder-btn:disabled {
+  opacity: 0.35;
+}
+
+.btn-icon-only {
+  padding: 8px 10px;
+}
+
+.confirm-inline {
+  margin: 0;
 }
 
 .tag {
@@ -260,6 +327,32 @@ header h1 {
 .assign-prompt {
   margin-top: 12px;
   background: var(--bg);
+}
+
+.assign-prompt .static-waveform {
+  width: 100%;
+  height: 32px;
+  margin-bottom: 8px;
+}
+
+.assign-prompt-name-label {
+  display: block;
+  font-size: 0.8em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.assign-prompt-name {
+  width: 100%;
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  min-height: 40px;
+  margin-bottom: 10px;
 }
 
 .pad-picker {
@@ -322,12 +415,17 @@ header h1 {
   transform: scale(0.96);
 }
 
-.pad.flashing {
-  filter: brightness(1.5);
+.pad.playing {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .pad.empty {
   color: var(--muted);
+}
+
+.pad.muted {
+  opacity: 0.45;
+  filter: grayscale(0.6);
 }
 
 .pad-empty-hint {
@@ -358,10 +456,10 @@ header h1 {
   }
 }
 
-.loop-toggle {
+.loop-toggle,
+.mute-toggle {
   position: absolute;
   top: 6px;
-  right: 6px;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -372,8 +470,20 @@ header h1 {
   color: #fff;
 }
 
+.loop-toggle {
+  right: 6px;
+}
+
+.mute-toggle {
+  left: 6px;
+}
+
 .loop-toggle.on {
   background: var(--accent);
+}
+
+.mute-toggle.on {
+  background: var(--danger);
 }
 
 /* Dial panel */
@@ -387,6 +497,21 @@ header h1 {
 
 .dial-panel-header h2 {
   margin: 0;
+}
+
+.dial-panel-target {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-live {
+  background: var(--danger);
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+
+.dial-panel-hint {
+  margin: -4px 0 12px;
 }
 
 .dial-row {
@@ -506,13 +631,46 @@ input[type='range']::-moz-range-thumb {
 .settings-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
 }
 
-.settings-row label {
+.settings-label {
   font-size: 0.9em;
   white-space: nowrap;
+  font-weight: 600;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepper-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepper-btn:disabled {
+  opacity: 0.35;
+}
+
+.stepper-value {
+  min-width: 1.5em;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Sticky play bar */
@@ -577,6 +735,25 @@ input[type='range']::-moz-range-thumb {
 }
 
 .loop-mode-btn.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.metronome-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metronome-btn.on {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;

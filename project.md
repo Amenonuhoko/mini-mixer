@@ -34,15 +34,20 @@ These are load-bearing decisions made deliberately so the base doesn't need to b
 - **Looping pads**: tap to start, tap again to stop (same gesture toggles). One-shot pads always play to completion regardless of taps.
 - **Retriggering a one-shot pad**: layers freely — each tap fires a new overlapping playback instance, standard sampler behavior. This is also what naturally happens when a manual tap coincides with a sequencer step firing the same pad; no special-casing needed.
 - **Shrinking pad count**: purely a display/trigger-surface control. Data for pads above the new count is retained in state, not deleted, and reappears if the count is grown back. (No confirmation dialog needed since nothing is actually discarded — this only applies to pad *slots*; explicitly deleting a sample from the library or clearing a pad is a separate, deliberate action.)
+- **Mute**: independent of loop and of having a sample assigned — a muted pad produces no sound at all, from a manual tap or a sequencer step, without losing its sample assignment or its programmed steps. Visually dimmed so it's clear why tapping it does nothing. Distinct from "empty" (no sample) and from clearing a pad's data.
 
 ## Dials / Controls
 
 - Audio effect dials: pitch, speed, filter — per-pad (each pad has its own settings, independent of which library sample it currently references).
-  - **Speed → `AudioBufferSourceNode.playbackRate`.**
-  - **Pitch → `AudioBufferSourceNode.detune`.** Plain `playbackRate` changes pitch and speed together (it's just resampling) — using `detune` for pitch keeps the two dials genuinely independent without needing a phase vocoder or other heavy DSP. This only works within `detune`'s practical range (a few semitones/octaves); that's an accepted limitation, not a bug.
-  - **Filter → `BiquadFilterNode`** (frequency/cutoff mapped from the dial).
+  - **Range is bipolar: -100 (full one way) .. 0 (neutral, no change) .. +100 (full the other way)**, not 0–100 with 50 as an implicit midpoint — "50%" reads as "half speed," which is misleading when 50 actually meant neutral. 0 always means "no change" now. Dials snap to 25-point anchors (-100, -75, -50, ... 100), so a drag to 76 lands on 75.
+  - **Speed → `AudioBufferSourceNode.playbackRate`.** -100 = 0.5x, 0 = 1x (unchanged), +100 = 2x.
+  - **Pitch → `AudioBufferSourceNode.detune`.** Plain `playbackRate` changes pitch and speed together (it's just resampling) — using `detune` for pitch keeps the two dials genuinely independent without needing a phase vocoder or other heavy DSP. -1200..+1200 cents (one octave either way), 0 at dial 0. This only works within `detune`'s practical range; that's an accepted limitation, not a bug.
+  - **Filter → a bipolar tone control**, not a one-directional sweep: negative values progressively muffle (lowpass, cutoff dropping as the dial goes further negative), positive values progressively thin the sound out (highpass, cutoff rising), 0 is neutral (`allpass`, negligible audible effect — kept in the graph rather than removed, so the node topology never changes while a pad loops). A single `BiquadFilterNode` whose `type` and `frequency` both change with the dial.
+  - **Changes apply live to a pad that's currently looping** — dragging a dial audibly updates the sustained sound in real time (via `AudioParam.setTargetAtTime` for a click-free ramp), not just the next trigger. One-shot instances already in flight aren't retroactively editable (there's no single "the" instance once several are layered).
 - Rhythm dials: beat pattern / step sequencer controls, 16-step grid.
 - Tempo: adjustable BPM dial for the sequencer (range 40–240).
+- **Metronome**: an optional synthesized click (no sample/asset — a short oscillator blip) on quarter-note beats, accented on the pattern's downbeat, toggled independently of the pads.
+- Every slider in the app earns its place as a slider (BPM, the three dials) — continuous ranges where fine control matters. Discrete, coarse, rarely-adjusted settings (pad count) use a stepper (−/+ buttons) instead, since a slider is the wrong control for "occasionally nudge an integer between 1 and 16."
 
 ## Layout
 
@@ -58,7 +63,7 @@ type EffectId = 'pitch' | 'speed' | 'filter'; // extensible — more effect type
 
 interface EffectSetting {
   id: EffectId;
-  value: number; // 0–100 dial value, mapped internally to the real audio param
+  value: number; // -100..100, 0 = neutral/no change, mapped internally to the real audio param
 }
 
 interface Sample {
@@ -66,12 +71,14 @@ interface Sample {
   label: string;
   buffer: AudioBuffer;
   recordedAt: number;
+  peaks: number[];            // precomputed waveform thumbnail (0-1 amplitudes)
 }
 
 interface Pad {
   id: string;
   sampleId: string | null;   // reference into the library, not ownership
   loop: boolean;
+  muted: boolean;            // silences taps and sequencer steps alike, independent of loop/sample
   color: string;             // assigned at pad creation, stable identity
   icon: string;
   effects: EffectSetting[];  // ordered list, not fixed fields
@@ -88,10 +95,12 @@ interface Transport {
   isPlaying: boolean;
   loopMode: 'once' | 'continuous';
   currentStep: number;
+  metronomeEnabled: boolean;
 }
 
 interface AppState {
-  samples: Record<string, Sample>;   // the arsenal
+  samples: Record<string, Sample>;   // the arsenal, keyed by id
+  sampleOrder: string[];             // display/edit order for the library
   pads: Pad[];                       // every pad slot that has ever existed — never truncated
   visiblePadCount: number;           // how many pads (from the front of `pads`) are shown/triggerable
   patterns: Pattern[];               // only one is used/exposed today
@@ -182,8 +191,8 @@ interface AppState {
 
 ### Step 4 — Testing a pad / dials
 
-- Each dial is a slider with its % value shown alongside.
-- Per-pad reset button to snap all dials back to neutral (50%, no change) in one click.
+- Each dial is a slider (-100..100, snapping to 25-point anchors) with its signed value shown alongside — e.g. "+50", not "75%", so it's clear which direction and how far from neutral you are.
+- Per-pad reset button to snap all dials back to neutral (0, no change) in one click.
 
 ### Step 5 — Building a rhythm
 
@@ -215,7 +224,7 @@ interface AppState {
 
 ## Open Questions (deferred, not blocking)
 
-- How much library-shelf UI to build in v1 (a simple assign-from-list vs. a fuller browsable arsenal with search/rename/delete) — left to grow naturally rather than decided upfront, per the project's own philosophy.
+- Library search (by name) is still open — rename/reorder/delete are in, search isn't yet needed at current library sizes.
 - Cross-browser `MediaRecorder` quirks (Safari/iOS codec support) — not a concern unless this ends up used outside one browser.
 
 ## Notes

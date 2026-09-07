@@ -31,12 +31,18 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         if (pattern) {
           const visiblePads = current.pads.slice(0, current.visiblePadCount)
           for (const pad of visiblePads) {
+            if (pad.muted) continue
             const isOn = pattern.steps[pad.id]?.[stepIndex] ?? false
             if (!isOn || !pad.sampleId) continue
             const sample = current.samples[pad.sampleId]
             if (!sample) continue
             engine.triggerStep(pad, sample.buffer, time)
           }
+        }
+        // Metronome clicks on quarter notes (every 4th step of the 16-step grid),
+        // accented on the downbeat (step 0).
+        if (current.transport.metronomeEnabled && stepIndex % 4 === 0) {
+          engine.playMetronomeClick(time, stepIndex === 0)
         }
         dispatch({ type: 'SET_CURRENT_STEP', stepIndex })
         if (current.transport.loopMode === 'once' && stepIndex === STEP_COUNT - 1) {

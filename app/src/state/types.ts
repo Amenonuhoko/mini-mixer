@@ -2,7 +2,7 @@ export type EffectId = 'pitch' | 'speed' | 'filter'
 
 export interface EffectSetting {
   id: EffectId
-  /** 0-100 dial value; mapped to the real audio param by src/engine/dialMapping.ts */
+  /** -100..100 dial value, 0 = neutral/no change; mapped to the real audio param by src/engine/dialMapping.ts */
   value: number
 }
 
@@ -11,6 +11,8 @@ export interface Sample {
   label: string
   buffer: AudioBuffer
   recordedAt: number
+  /** Precomputed peak amplitudes (0-1) for a static waveform thumbnail — see src/utils/waveform.ts. */
+  peaks: number[]
 }
 
 export interface Pad {
@@ -18,6 +20,8 @@ export interface Pad {
   /** Reference into AppState.samples; the pad does not own the buffer. */
   sampleId: string | null
   loop: boolean
+  /** Silences the pad entirely — manual taps and sequencer steps alike — without losing its sample or pattern. */
+  muted: boolean
   color: string
   icon: string
   effects: EffectSetting[]
@@ -37,11 +41,14 @@ export interface Transport {
   isPlaying: boolean
   loopMode: LoopMode
   currentStep: number
+  metronomeEnabled: boolean
 }
 
 export interface AppState {
   /** The sample library ("arsenal") — first-class, independent of pad assignment. */
   samples: Record<string, Sample>
+  /** Display/edit order for the library — samples themselves stay keyed by id in `samples`. */
+  sampleOrder: string[]
   /** Every pad slot that has ever existed. Shrinking the visible count never removes entries here. */
   pads: Pad[]
   /**

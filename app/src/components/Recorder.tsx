@@ -3,14 +3,16 @@ import { formatElapsed, useElapsedSeconds } from '../hooks/useElapsedSeconds'
 import { useRecorder } from '../hooks/useRecorder'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import { computePeaks } from '../utils/waveform'
 import { PadAssignPrompt } from './PadAssignPrompt'
+import { LiveWaveform } from './Waveform'
 
-const METER_SEGMENTS = 12
+const WAVEFORM_BUCKETS = 80
 
 export function Recorder() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const { isRecording, level, error, start, stop } = useRecorder()
+  const { isRecording, error, analyserRef, start, stop } = useRecorder()
   const elapsed = useElapsedSeconds(isRecording)
   const [pendingSample, setPendingSample] = useState<{ id: string; label: string } | null>(null)
 
@@ -21,15 +23,17 @@ export function Recorder() {
         const buffer = await engine.decodeSample(arrayBuffer)
         const id = `sample_${Math.random().toString(36).slice(2, 10)}`
         const label = `Sample ${Object.keys(state.samples).length + 1}`
-        dispatch({ type: 'ADD_SAMPLE', sample: { id, label, buffer, recordedAt: Date.now() } })
+        const peaks = computePeaks(buffer, WAVEFORM_BUCKETS)
+        dispatch({
+          type: 'ADD_SAMPLE',
+          sample: { id, label, buffer, recordedAt: Date.now(), peaks },
+        })
         setPendingSample({ id, label })
       })
     } else {
       void start()
     }
   }
-
-  const litSegments = Math.round(Math.min(1, level * 2.2) * METER_SEGMENTS)
 
   return (
     <section className="panel recorder" aria-label="recording">
@@ -45,13 +49,7 @@ export function Recorder() {
         </button>
         {isRecording && <span className="recorder-elapsed">{formatElapsed(elapsed)}</span>}
       </div>
-      {isRecording && (
-        <div className="level-meter" aria-hidden="true">
-          {Array.from({ length: METER_SEGMENTS }, (_, i) => (
-            <span key={i} className={i < litSegments ? 'meter-segment lit' : 'meter-segment'} />
-          ))}
-        </div>
-      )}
+      {isRecording && <LiveWaveform analyserRef={analyserRef} active={isRecording} />}
       {error && <p className="error-text">{error}</p>}
       {pendingSample && (
         <PadAssignPrompt

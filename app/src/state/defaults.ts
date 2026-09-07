@@ -21,6 +21,7 @@ export function createPad(index: number): Pad {
     id: createId('pad'),
     sampleId: null,
     loop: false,
+    muted: false,
     // Modulo guarantees this index is in bounds; the palette is a fixed, non-empty array.
     color: PAD_COLOR_PALETTE[index % PAD_COLOR_PALETTE.length]!,
     icon: String(index + 1),
@@ -50,6 +51,7 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
 
   return {
     samples: {},
+    sampleOrder: [],
     pads,
     visiblePadCount: padCount,
     patterns: [pattern],
@@ -59,6 +61,7 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
       isPlaying: false,
       loopMode: 'continuous',
       currentStep: 0,
+      metronomeEnabled: false,
     },
   }
 }

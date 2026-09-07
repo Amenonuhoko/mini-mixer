@@ -1,12 +1,15 @@
-import { BPM_MIN, BPM_MAX, STEP_COUNT } from './constants'
+import { BPM_MIN, BPM_MAX, EFFECT_MAX, EFFECT_MIN, MIN_PAD_COUNT, STEP_COUNT } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
 import type { AppState, EffectId, LoopMode, Pattern, Sample } from './types'
 
 export type Action =
   | { type: 'ADD_SAMPLE'; sample: Sample }
   | { type: 'REMOVE_SAMPLE'; sampleId: string }
+  | { type: 'RENAME_SAMPLE'; sampleId: string; label: string }
+  | { type: 'MOVE_SAMPLE'; sampleId: string; direction: 'up' | 'down' }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
   | { type: 'SET_PAD_LOOP'; padId: string; loop: boolean }
+  | { type: 'SET_PAD_MUTED'; padId: string; muted: boolean }
   | { type: 'SET_PAD_EFFECT'; padId: string; effectId: EffectId; value: number }
   | { type: 'RESET_PAD_EFFECTS'; padId: string }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number }
@@ -14,6 +17,7 @@ export type Action =
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
+  | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
 
@@ -51,6 +55,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         samples: { ...state.samples, [action.sample.id]: action.sample },
+        sampleOrder: [...state.sampleOrder, action.sample.id],
       }
 
     case 'REMOVE_SAMPLE': {
@@ -58,10 +63,32 @@ export function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         samples: remainingSamples,
+        sampleOrder: state.sampleOrder.filter((id) => id !== action.sampleId),
         pads: state.pads.map((pad) =>
           pad.sampleId === action.sampleId ? { ...pad, sampleId: null } : pad,
         ),
       }
+    }
+
+    case 'RENAME_SAMPLE': {
+      const sample = state.samples[action.sampleId]
+      if (!sample) return state
+      const label = action.label.trim()
+      if (!label) return state
+      return {
+        ...state,
+        samples: { ...state.samples, [action.sampleId]: { ...sample, label } },
+      }
+    }
+
+    case 'MOVE_SAMPLE': {
+      const index = state.sampleOrder.indexOf(action.sampleId)
+      const targetIndex = action.direction === 'up' ? index - 1 : index + 1
+      if (index < 0 || targetIndex < 0 || targetIndex >= state.sampleOrder.length) return state
+      const sampleOrder = state.sampleOrder.slice()
+      const [moved] = sampleOrder.splice(index, 1)
+      sampleOrder.splice(targetIndex, 0, moved!)
+      return { ...state, sampleOrder }
     }
 
     case 'ASSIGN_SAMPLE_TO_PAD':
@@ -70,12 +97,15 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'SET_PAD_LOOP':
       return updatePad(state, action.padId, (pad) => ({ ...pad, loop: action.loop }))
 
+    case 'SET_PAD_MUTED':
+      return updatePad(state, action.padId, (pad) => ({ ...pad, muted: action.muted }))
+
     case 'SET_PAD_EFFECT':
       return updatePad(state, action.padId, (pad) => ({
         ...pad,
         effects: pad.effects.map((effect) =>
           effect.id === action.effectId
-            ? { ...effect, value: clamp(action.value, 0, 100) }
+            ? { ...effect, value: clamp(action.value, EFFECT_MIN, EFFECT_MAX) }
             : effect,
         ),
       }))
@@ -92,7 +122,7 @@ export function reducer(state: AppState, action: Action): AppState {
       })
 
     case 'SET_VISIBLE_PAD_COUNT': {
-      const count = Math.max(1, action.count)
+      const count = Math.max(MIN_PAD_COUNT, action.count)
       if (count <= state.pads.length) {
         // Shrinking is display-only: existing pad slots and their data are retained,
         // not truncated from `pads`. Visibility is derived at read-time from this count.
@@ -130,6 +160,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_LOOP_MODE':
       return { ...state, transport: { ...state.transport, loopMode: action.loopMode } }
+
+    case 'SET_METRONOME_ENABLED':
+      return { ...state, transport: { ...state.transport, metronomeEnabled: action.enabled } }
 
     case 'SET_CURRENT_STEP':
       return { ...state, transport: { ...state.transport, currentStep: action.stepIndex } }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 
@@ -14,22 +15,35 @@ export function SettingsPanel() {
     setConfirmClear(false)
   }
 
+  const setPadCount = (count: number) => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count })
+
   return (
     <section className="panel settings" aria-label="settings">
       <h2>Settings</h2>
 
       <div className="settings-row">
-        <label htmlFor="pad-count">Pad count: {state.visiblePadCount}</label>
-        <input
-          id="pad-count"
-          type="range"
-          min={1}
-          max={16}
-          value={state.visiblePadCount}
-          onChange={(event) =>
-            dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: Number(event.target.value) })
-          }
-        />
+        <span className="settings-label">Pad count</span>
+        <div className="stepper">
+          <button
+            type="button"
+            className="stepper-btn"
+            onClick={() => setPadCount(state.visiblePadCount - 1)}
+            disabled={state.visiblePadCount <= MIN_PAD_COUNT}
+            aria-label="Fewer pads"
+          >
+            −
+          </button>
+          <span className="stepper-value">{state.visiblePadCount}</span>
+          <button
+            type="button"
+            className="stepper-btn"
+            onClick={() => setPadCount(state.visiblePadCount + 1)}
+            disabled={state.visiblePadCount >= MAX_PAD_COUNT}
+            aria-label="More pads"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {confirmClear ? (
