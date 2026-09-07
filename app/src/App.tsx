@@ -1,56 +1,47 @@
+import { useState, type ReactNode } from 'react'
+import { DialPanel } from './components/DialPanel'
+import { Library } from './components/Library'
+import { PadGrid } from './components/PadGrid'
+import { Recorder } from './components/Recorder'
+import { Sequencer } from './components/Sequencer'
+import { TransportBar } from './components/TransportBar'
+import { useBeatEngine } from './hooks/useBeatEngine'
+import { useWarnBeforeUnload } from './hooks/useWarnBeforeUnload'
 import { AppStateProvider, useAppState } from './state/AppStateContext'
-import { BPM_MAX, BPM_MIN } from './state/constants'
+import { EngineProvider } from './state/EngineContext'
+
+function EngineBridge({ children }: { children: ReactNode }) {
+  const { state, dispatch } = useAppState()
+  const engine = useBeatEngine(state, dispatch)
+  return <EngineProvider engine={engine}>{children}</EngineProvider>
+}
 
 function Shell() {
-  const { state, dispatch } = useAppState()
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const { state } = useAppState()
+  const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
+  useWarnBeforeUnload(Object.keys(state.samples).length > 0)
 
   return (
-    <main style={{ padding: 24, maxWidth: 640, margin: '0 auto' }}>
-      <h1>Beat Maker</h1>
-      <p>
-        Scaffold online — data model, reducer, and audio engine are wired up. Recording, dials, and
-        the sequencer grid are still to come.
-      </p>
+    <main className="app-shell">
+      <header>
+        <h1>Beat Maker</h1>
+        <p className="muted">
+          Session-only — nothing is saved. Reload or Clear All for a blank slate.
+        </p>
+      </header>
 
-      <section aria-label="tempo">
-        <label htmlFor="bpm">
-          BPM: {state.transport.bpm} ({BPM_MIN}-{BPM_MAX})
-        </label>
-        <input
-          id="bpm"
-          type="range"
-          min={BPM_MIN}
-          max={BPM_MAX}
-          value={state.transport.bpm}
-          onChange={(event) => dispatch({ type: 'SET_BPM', bpm: Number(event.target.value) })}
-        />
-      </section>
+      <div className="row">
+        <Recorder />
+        <Library />
+      </div>
 
-      <section aria-label="pads">
-        <h2>Pads ({state.visiblePadCount})</h2>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {visiblePads.map((pad, index) => (
-            <div
-              key={pad.id}
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 8,
-                background: pad.color,
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 600,
-              }}
-              title={pad.sampleId ? 'Assigned' : 'Empty'}
-            >
-              {index + 1}
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="row">
+        <PadGrid selectedPadId={selectedPadId} onSelectPad={setSelectedPadId} />
+        <DialPanel padId={selectedPadId} />
+      </div>
+
+      <Sequencer />
+      <TransportBar />
     </main>
   )
 }
@@ -58,7 +49,9 @@ function Shell() {
 function App() {
   return (
     <AppStateProvider>
-      <Shell />
+      <EngineBridge>
+        <Shell />
+      </EngineBridge>
     </AppStateProvider>
   )
 }

@@ -173,3 +173,43 @@ Committed to `claude/beat-maker-project-review-hrbucr` — `app/` scaffold (Vite
 ### Open questions / carried forward
 - Build steps 4 onward (layout, recording, pad-to-sample wiring, dials UI, sequencer grid UI, BPM/pad-count UI, polish) are still ahead.
 - The `react/only-export-components` oxlint warning on `AppStateContext.tsx` is expected and accepted for context+hook files; not something to "fix" later.
+
+---
+
+## 2026-09-07 — Working prototype: build steps 4–10 (full feature loop)
+
+### Context
+Vercel was connected and the site was live at `mini-mixer.vercel.app`, still showing only the step-1 wiring shell. User asked for "a good clean working prototype" — time to build the actual feature loop: recording, the library, pad assignment, dials, the sequencer grid, and transport, covering `project.md`'s remaining build steps (4 through 10).
+
+### Decision(s)
+- **Engine extended**, not redesigned: added `AudioEngine.playBuffer` (private, shared node-building logic) and split playback into two callers — `triggerPad` (manual tap; tap-toggle for looping pads, free-layering for one-shots, as already decided) and a new `triggerStep(pad, buffer, time)` for the sequencer.
+- **Sequencer steps always play as one-shots, regardless of a pad's manual loop-toggle setting.** This wasn't explicitly decided earlier — it surfaced while wiring the scheduler's `onStep` callback to actual playback. A 16-step grid re-triggering an indefinite loop on every active step would be incoherent (each step would toggle the loop on/off rather than hit a beat). Resolution: the loop toggle governs manual "hold a continuous layer" performance use only; programmed steps are always discrete hits, scheduled at the precise lookahead time the Scheduler hands back — this is also what makes sample-accurate step timing possible (`source.start(time)` instead of `source.start()`).
+- **Engine-side playback state (which pads are looping) needed a proper subscription mechanism**, not ad hoc polling. `PadGrid` needs to show a looping pad differently, but `AudioEngine.isPadLooping()` reads internal mutable state React has no way to know changed. Added a minimal `subscribe`/`notify` pub-sub to `AudioEngine` and a `usePadLooping` hook built on `useSyncExternalStore` — this is the intended shape of "React subscribes to engine state" from the original architecture decision, not a new pattern bolted on.
+- **Pad selection (which pad's dials are shown) is local component state, not reducer state.** It's pure UI/ephemeral, not part of the beat itself, and doesn't need to survive a `CLEAR_ALL` or be modeled for future growth the way samples/pads/patterns do.
+- **Library UI kept intentionally minimal** per the standing open question from the architecture round: a flat list with an "Assign…" action per sample, reusing one `PadAssignPrompt` component from both the post-recording flow and the library — no search/rename/delete yet.
+- **`useWarnBeforeUnload`**: a plain native `beforeunload` handler. Modern browsers no longer allow a custom warning message (an accepted, unavoidable platform limitation, not a shortfall in the implementation).
+- Wired transport (play/pause, loop-mode toggle, BPM, pad count, Clear All-with-confirm) into one `TransportBar`, all writing through the reducer as already designed.
+
+### A real bug the browser check caught that Vitest could not
+After wiring everything, a full browser exercise of the golden path (record → assign → trigger → dial → sequence → play), using a headless Chromium with a fake mic device, hit a hard crash on pressing Play: `TypeError: Illegal invocation`, and the whole transport bar vanished from the DOM.
+
+Root cause: `Scheduler`'s constructor stored the bare global `setInterval`/`clearInterval` as instance properties (`this.setIntervalFn = options.setIntervalFn ?? setInterval`). Calling them later as `this.setIntervalFn(...)` invokes them with the `Scheduler` instance as `this` instead of `window`. Real browsers implement `setInterval`/`clearInterval` as branded `Window` methods that reject being called with the wrong receiver — but **Node/jsdom's implementations don't enforce that**, so all 19 Vitest tests (including the ones that call `scheduler.start()`) passed cleanly despite the bug being real and 100% reproducible in an actual browser.
+
+Fixed by binding both to `globalThis` at construction (`setInterval.bind(globalThis)`). Left a comment on the fix explaining why, specifically so a future "let's just trust the test suite" instinct doesn't reintroduce something like this.
+
+This is the concrete reason the workflow's "test UI changes in an actual browser, not just the test suite" rule exists — it's recorded here as a real example, not a hypothetical one. No unit test could have caught this class of bug in this environment; jsdom's `setInterval` doesn't have the receiver check to trip.
+
+### Alternatives considered
+- Making `AudioEngine.triggerStep` respect `pad.loop` the same way `triggerPad` does — rejected once it became clear this would make a looping pad's sequencer row behave as a toggle rather than a rhythm, which isn't what a step grid means.
+- Polling `engine.isPadLooping()` on an interval or on every dispatch, instead of a subscribe/notify mechanism — rejected as exactly the kind of ad hoc coupling the decoupled-engine decision was meant to avoid.
+- Putting `selectedPadId` in the reducer as `AppState` headroom (consistent with the "leave room to grow" data-model decision) — rejected specifically because it's not beat data; the headroom decision was about the domain model (samples/pads/patterns/effects), not UI-only state.
+
+### Reasoning
+Almost everything here followed directly from decisions already on record — the one place this entry adds genuinely new information is the sequencer/loop interaction (a gap the earlier functional-gap round didn't anticipate because it wasn't visible until the scheduler and the pad's manual playback path had to share the same `AudioEngine`) and the `Illegal invocation` bug, which is a lesson about test-environment fidelity worth keeping on record rather than letting it look like it always worked.
+
+### Outcome
+Full feature loop verified end-to-end in a real headless-Chromium browser (fake mic device, `--use-fake-ui-for-media-stream`): record → decode → library entry → assign to pad → pad shows filled/colored → manual trigger plays → dial drag updates and audibly affects playback → sequencer steps toggle and light up in the pad's color → Play starts the scheduler, the playhead (`.step.current`) advances and highlights the same column across all rows simultaneously as designed → pad count control reflows the grid → all with zero console errors after the Scheduler fix. `tsc -b`, `vite build`, `oxlint`, `vitest run` (19/19), and `prettier --check` all clean. Playwright was reinstalled only for this verification pass and removed again afterward, consistent with the earlier session.
+
+### Open questions / carried forward
+- Deferred UI polish: a fuller library (search/rename/delete), a live waveform during recording (currently a simple RMS level meter, not a waveform — a reasonable, smaller stand-in), and general visual refinement are all still open, per the standing "grow naturally, not as a goal" instruction.
+- The two `react/only-export-components` oxlint warnings (`AppStateContext.tsx`, `EngineContext.tsx`) remain expected/accepted.

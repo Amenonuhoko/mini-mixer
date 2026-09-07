@@ -52,8 +52,12 @@ export class Scheduler {
     this.stepCount = options.stepCount ?? STEP_COUNT
     this.scheduleAheadSeconds = options.scheduleAheadSeconds ?? 0.1
     this.lookaheadIntervalMs = options.lookaheadIntervalMs ?? 25
-    this.setIntervalFn = options.setIntervalFn ?? setInterval
-    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval
+    // Bound to globalThis: calling the bare functions as `this.setIntervalFn(...)`
+    // invokes them with the Scheduler instance as `this`, which real browsers reject
+    // ("Illegal invocation") since setInterval/clearInterval are branded Window
+    // methods — Node/jsdom don't enforce that, so this only surfaces in a real browser.
+    this.setIntervalFn = options.setIntervalFn ?? setInterval.bind(globalThis)
+    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval.bind(globalThis)
   }
 
   get isRunning(): boolean {
