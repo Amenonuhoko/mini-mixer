@@ -92,12 +92,15 @@ interface Transport {
 
 interface AppState {
   samples: Record<string, Sample>;   // the arsenal
-  pads: Pad[];                       // adjustable count; length can shrink/grow without touching `samples`
+  pads: Pad[];                       // every pad slot that has ever existed — never truncated
+  visiblePadCount: number;           // how many pads (from the front of `pads`) are shown/triggerable
   patterns: Pattern[];               // only one is used/exposed today
   activePatternId: string;
   transport: Transport;
 }
 ```
+
+`pads.length` and `visiblePadCount` are deliberately separate: shrinking the pad count only lowers `visiblePadCount` (display-only), while `pads` itself only ever grows — this is what makes "shrink retains hidden data" representable without a separate archive structure.
 
 ## Saving
 

@@ -144,3 +144,32 @@ Keeps planning/process docs (`project.md`, `JOURNAL.md`) visually and structural
 
 ### Open questions / carried forward
 When GitHub Actions / Vercel are wired up (user's side), the build root/working-directory setting on both needs to point at `app/`, not repo root, since `vite build` will run from inside it.
+
+---
+
+## 2026-09-07 — Scaffold: build steps 1–3 (project setup, data model, engine)
+
+### Context
+User set up GitHub Actions and was waiting on the app scaffold to connect to Vercel. Time to actually build, covering the first three items of `project.md`'s build-steps list: project setup, data model + reducer, and the audio engine module — the pieces every later feature builds on.
+
+### Decision(s)
+- Scaffolded via `npm create vite@latest app -- --template react-ts` into `app/`. The current create-vite (v9) template defaults to **oxlint** instead of ESLint, with no Prettier. Rather than fighting the scaffold back to the originally-planned ESLint setup, kept oxlint (it's a fast, modern, actively-maintained choice and lints the same categories of things) and added **Prettier** on top for formatting, since oxlint doesn't format. This is a deviation from `project.md`'s literal "ESLint + Prettier" line — recorded here rather than silently diverging; not worth updating `project.md` over, since the intent (lint + format tooling in place) is what mattered, not the specific linter package.
+- The scaffold's `tsconfig.app.json`/`tsconfig.node.json` did not actually set `"strict": true` despite having several strict-adjacent flags individually enabled — added `strict: true` explicitly to both, plus `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` for a stricter baseline than the template default, since "strict mode" was a committed decision, not a vague aspiration.
+- Implemented `src/state/` (`types.ts`, `constants.ts`, `defaults.ts`, `reducer.ts`, `AppStateContext.tsx`) matching the data model from `project.md`, plus one refinement discovered while implementing the "silent retention" pad-shrink decision: `AppState` needed a separate `visiblePadCount: number` field, distinct from `pads.length`. `pads` now means "every pad slot that has ever existed" (append-only) and `visiblePadCount` controls what's shown/triggerable — shrinking only lowers the latter. Without this split there was no way to represent "hidden but retained" data with a plain array. `project.md`'s data model section was updated to match.
+- Implemented `src/engine/`: `dialMapping.ts` (pure functions for the detune/playbackRate/filter-frequency mappings decided in the earlier review), `Scheduler.ts` (the lookahead scheduler — clock and timer both injectable so it's testable with a fake clock and no real `AudioContext`), and `AudioEngine.ts` (the decoupled class owning the lazy `AudioContext`, sample decoding, and the tap-toggle-loop / free-layering-retrigger playback semantics decided earlier).
+- Built a minimal `App.tsx` shell (title, BPM slider, pad color swatches) — just enough to prove the reducer/context/engine wiring compiles and renders; not real feature UI. Recording, dials, and the sequencer grid remain future build steps.
+- Verified with a full check pass: `tsc -b` (typecheck), `vite build` (production build), `oxlint` (lint — one harmless `react/only-export-components` warning on the context+hook file, a standard and accepted pattern), `vitest run` (19 tests across reducer/dialMapping/Scheduler, all passing), `prettier --check` (clean), and a real browser check (dev server + Playwright screenshot, zero console errors, pads and BPM control render and are interactive) before removing the Playwright dependency again since it was only needed for this one verification pass.
+
+### Alternatives considered
+- Fighting the create-vite scaffold to use ESLint instead of the oxlint it shipped with — rejected as churn for no real benefit; oxlint covers the same problem space.
+- Representing pad-shrink retention by keeping a separate "archived pads" structure instead of an append-only `pads` array + `visiblePadCount` — rejected; the single-array-plus-count approach is simpler and keeps `Pattern.steps` (keyed by pad id) valid without any pruning/restoration logic.
+
+### Reasoning
+This entry is mostly "build exactly what was already decided," which is the point — the architecture and functional-behavior decisions from the earlier entries translated into code without needing to be re-litigated, except for the one genuine gap (`visiblePadCount`) that only became visible once the shrink/grow logic had to actually be written down as a reducer case.
+
+### Outcome
+Committed to `claude/beat-maker-project-review-hrbucr` — `app/` scaffold (Vite + React 19 + TypeScript strict), `src/state/*`, `src/engine/*`, and the two doc updates (`project.md` data model, this entry) together. Pushed.
+
+### Open questions / carried forward
+- Build steps 4 onward (layout, recording, pad-to-sample wiring, dials UI, sequencer grid UI, BPM/pad-count UI, polish) are still ahead.
+- The `react/only-export-components` oxlint warning on `AppStateContext.tsx` is expected and accepted for context+hook files; not something to "fix" later.
