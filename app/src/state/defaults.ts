@@ -59,6 +59,8 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
   return {
     samples: {},
     sampleOrder: [],
+    instruments: {},
+    instrumentOrder: [],
     pads,
     visiblePadCount: padCount,
     patterns: [pattern],

@@ -48,6 +48,14 @@ export interface Pad {
   trimEnd: number
 }
 
+export interface Instrument {
+  id: string
+  name: string
+  source: 'preset' | 'recording'
+  /** Ordered low to high pitch (semitone 0 first); references into AppState.samples. */
+  keySampleIds: string[]
+}
+
 export interface Pattern {
   id: string
   name: string
@@ -77,6 +85,10 @@ export interface AppState {
   samples: Record<string, Sample>
   /** Display/edit order for the library — samples themselves stay keyed by id in `samples`. */
   sampleOrder: string[]
+  /** Named groups of samples pitch-spread across a keyboard — see Instrument. */
+  instruments: Record<string, Instrument>
+  /** Display order for the library's instrument list, same idea as sampleOrder. */
+  instrumentOrder: string[]
   /** Every pad slot that has ever existed. Shrinking the visible count never removes entries here. */
   pads: Pad[]
   /**

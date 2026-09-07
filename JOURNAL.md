@@ -625,3 +625,38 @@ Full verification: `tsc -b`, `vite build`, `oxlint` (same three expected warning
 
 ### Open questions / carried forward
 - Everything from the previous entry (mixer, instruments, bounce-to-pad, FAB overlap, autosave re-encode, and all earlier carried items) remains open and unchanged.
+
+---
+
+## 2026-09-07 — Instruments (synth presets + pitch-mapped recordings)
+
+### Context
+The largest piece of the earlier feature wave, prioritized first at the user's explicit request ("that seems the longest task"). Two decisions from an earlier clarifying round shaped this: instruments draw from both bundled presets and pitch-mapped recordings ("Both"), and picking one "takes over the whole grid as a mini-keyboard" (assigns notes to pads in order, replacing what's there).
+
+### Decision(s)
+**Every instrument key is a real library `Sample`, not a new playback concept.** An `Instrument` (`id`, `name`, `source: 'preset' | 'recording'`, `keySampleIds: string[]`) is just a named group of 16 sample ids — `INSTRUMENT_KEY_COUNT = MAX_PAD_COUNT` (16), so "use in pads" never runs short regardless of the current pad count. This was the load-bearing design choice: since keys are ordinary samples, "apply an instrument to the grid" is exactly `ASSIGN_SAMPLE_TO_PAD` repeated across the visible pads, and every key immediately gets full trim/effects/loop/mute for free — no new playback path needed anywhere in `AudioEngine`.
+
+**New engine module `engine/synth.ts`**, fully decoupled from `AudioEngine`/React — offline rendering needs neither a live `AudioContext` nor any app state:
+- `renderSynthNote(frequencyHz, patch)`: one oscillator (+ optional octave-up overtone oscillator, used for Piano's richer tone) through a gain envelope (attack/decay/sustain/release) and an optional lowpass, rendered via `OfflineAudioContext` into a standalone `AudioBuffer`.
+- `renderPitchShiftedCopy(source, semitones)`: bakes a pitch shift permanently into a new buffer via an offline `detune`d playback — the exact same mechanism the live pitch dial already uses, just rendered once. Semitones are always `>= 0` here (keys only ascend from the root), which matters: a pitched-up source plays faster/shorter, never longer, so `source.length` samples of offline context is always enough — no truncation risk, which wouldn't hold for a downward shift.
+- `INSTRUMENT_PRESETS`: Piano (triangle + sine overtone), Bass (sine, lowpassed), Lead (sawtooth, lowpassed) — deliberately simple patches, not attempting to sound like real instruments, just distinct enough starting points without any audio assets.
+- `buildInstrumentKeysFromPreset`/`buildInstrumentKeysFromRecording` run all 16 renders via `Promise.all` (each is independent) rather than sequentially, keeping the "Building…" wait short.
+
+**Reducer**: `ADD_INSTRUMENT` (registers the instrument and its key samples into the library in one action), `APPLY_INSTRUMENT_TO_PADS` (maps `keySampleIds[i]` onto `pads[i]` for every visible pad, resetting trim same as any reassignment), `REMOVE_INSTRUMENT` (deletes the instrument *and* its generated key samples from the library, unassigning any pad using one — otherwise deleting an instrument would leave 16 orphaned, meaninglessly-named samples behind).
+
+**UI**: new `InstrumentLibrary.tsx`, rendered above the existing sample list on the Library page. Lists existing instruments (name, source tag, Use in Pads / Delete, both confirmed since they're destructive — Use in Pads overwrites the whole grid, Delete removes samples). "New from preset" is three one-tap buttons. "New from a recording" opens a small picker listing library samples — **deliberately excluding samples that are themselves already-generated instrument keys**, a bug caught by the browser verification pass below (picking a Bass key as the "root" for a new instrument produced an instrument named "Bass 1" instead of using the actual new recording), fixed by filtering `state.instruments`' combined `keySampleIds` out of the picker's list.
+
+### Alternatives considered
+- **A dedicated recording flow specifically for instrument roots** (its own hold-to-record UI inside the Instruments section) — rejected in favor of picking from existing library samples. The app already has one robust, global recording mechanism (`RecordFAB`); reusing it means no duplicated recording UI, and lets you decide "turn this into an instrument" after the fact rather than having to commit to that intent at record time.
+- **A real-time synth engine** (a Web Audio voice you could play polyphonically, tune live) instead of pre-rendering 16 fixed keys — rejected as substantially more engineering for a casual project, and it would've meant instruments couldn't reuse the pad/sample/effects pipeline at all. Baking 16 keys once, up front, means everything downstream (trim, effects, loop, mute, save/load, autosave) already works on them with zero new code.
+- **A no-rename policy for instruments** (unlike samples, which support rename) — accepted as a scope cut; an instrument's name comes from its preset or its root recording's label, fixed at creation. Not a hard technical constraint, just left out of this round.
+
+### Reasoning
+The "every key is a real Sample" decision is the one that made this tractable as "the longest task" without it becoming disproportionately larger — it meant zero new engine playback code, zero new pad-assignment UI (reused `ASSIGN_SAMPLE_TO_PAD`'s semantics via a bulk variant), and automatic interop with everything built in every prior round (save/load, autosave, effects, trim, loop, gate/hold). The only genuinely new engineering was the offline audio rendering itself, which turned out to be self-contained and testable independent of the rest of the app's architecture.
+
+### Outcome
+Full verification: `tsc -b`, `vite build`, `oxlint` (same three expected warnings), `vitest run` (60/60 — 4 new reducer tests for `ADD_INSTRUMENT`/`APPLY_INSTRUMENT_TO_PADS`/`REMOVE_INSTRUMENT`, plus one closing a gap from last round for `SET_PAD_EFFECTS_BYPASSED` that hadn't gotten a reducer test yet). Comprehensive mobile-viewport Playwright pass: built the Bass preset (confirmed 16 new key samples appear in the library within ~2s), applied it to all 9 pads and played one with no errors, recorded a new sample and built a second instrument from it, confirmed both instruments list correctly with the right source tags, deleted the Bass instrument and confirmed exactly its 16 key samples vanished from the library (not the other instrument's), and along the way caught and fixed the root-picker bug described above. Zero console errors throughout. `project.md` updated: a new Instruments subsection under Core Features, the Library-page Layout bullet, and the illustrative `Instrument`/`Pad.effectsBypassed`/`Transport.padLoopModeEnabled`/`AppState.instruments` additions to the Data Model (the latter two were missing from a prior round's doc update — caught and fixed here too).
+
+### Open questions / carried forward
+- The volume mixer and bounce-to-pad, from the same original request wave, remain queued — next up per the user's stated priority order.
+- The FAB-over-dial-content overlap on the Edit page, autosave's per-write full re-encode, and everything else carried from prior entries remain open and unchanged.

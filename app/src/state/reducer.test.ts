@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BPM_MAX, BPM_MIN, EFFECT_MAX, EFFECT_MIN, MIN_TRIM_GAP } from './constants'
 import { createInitialState } from './defaults'
 import { reducer } from './reducer'
-import type { Sample } from './types'
+import type { Instrument, Sample } from './types'
 
 function makeSample(id: string): Sample {
   return {
@@ -12,6 +12,10 @@ function makeSample(id: string): Sample {
     recordedAt: 0,
     peaks: [],
   }
+}
+
+function makeInstrument(id: string, keySampleIds: string[]): Instrument {
+  return { id, name: id, source: 'preset', keySampleIds }
 }
 
 describe('reducer', () => {
@@ -183,6 +187,85 @@ describe('reducer', () => {
     expect(state.transport.metronomeEnabled).toBe(false)
     const on = reducer(state, { type: 'SET_METRONOME_ENABLED', enabled: true })
     expect(on.transport.metronomeEnabled).toBe(true)
+  })
+
+  it('toggles per-pad effects bypass without touching the stored dial values', () => {
+    const state = createInitialState(1)
+    const padId = state.pads[0]!.id
+    const dialed = reducer(state, { type: 'SET_PAD_EFFECT', padId, effectId: 'filter', value: 75 })
+
+    const bypassed = reducer(dialed, { type: 'SET_PAD_EFFECTS_BYPASSED', padId, bypassed: true })
+    expect(bypassed.pads[0]!.effectsBypassed).toBe(true)
+    expect(bypassed.pads[0]!.effects.find((e) => e.id === 'filter')!.value).toBe(75)
+
+    const restored = reducer(bypassed, { type: 'SET_PAD_EFFECTS_BYPASSED', padId, bypassed: false })
+    expect(restored.pads[0]!.effectsBypassed).toBe(false)
+    expect(restored.pads[0]!.effects.find((e) => e.id === 'filter')!.value).toBe(75)
+  })
+
+  it('adding an instrument registers its key samples in the library and the instrument itself', () => {
+    const state = createInitialState(2)
+    const keySamples = [makeSample('key_0'), makeSample('key_1')]
+    const instrument = makeInstrument(
+      'inst_1',
+      keySamples.map((s) => s.id),
+    )
+
+    const next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
+
+    expect(next.instruments[instrument.id]).toBe(instrument)
+    expect(next.instrumentOrder).toEqual([instrument.id])
+    expect(next.samples['key_0']).toBe(keySamples[0])
+    expect(next.samples['key_1']).toBe(keySamples[1])
+    expect(next.sampleOrder).toEqual(['key_0', 'key_1'])
+  })
+
+  it('applying an instrument lays its keys across the visible pads in order, resetting trim', () => {
+    const state = createInitialState(2)
+    const keySamples = [makeSample('key_0'), makeSample('key_1'), makeSample('key_2')]
+    const instrument = makeInstrument(
+      'inst_1',
+      keySamples.map((s) => s.id),
+    )
+    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
+    next = reducer(next, {
+      type: 'SET_PAD_TRIM',
+      padId: next.pads[0]!.id,
+      trimStart: 0.3,
+      trimEnd: 0.7,
+    })
+
+    const applied = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
+
+    expect(applied.pads[0]!.sampleId).toBe('key_0')
+    expect(applied.pads[1]!.sampleId).toBe('key_1')
+    expect(applied.pads[0]!.trimStart).toBe(0)
+    expect(applied.pads[0]!.trimEnd).toBe(1)
+    // Only visiblePadCount (2) pads are touched, even though the instrument has a 3rd key.
+    expect(applied.pads).toHaveLength(2)
+  })
+
+  it('removing an instrument deletes its key samples too and unassigns any pad using one', () => {
+    const state = createInitialState(1)
+    const keySamples = [makeSample('key_0'), makeSample('key_1')]
+    const instrument = makeInstrument(
+      'inst_1',
+      keySamples.map((s) => s.id),
+    )
+    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
+    next = reducer(next, {
+      type: 'ASSIGN_SAMPLE_TO_PAD',
+      padId: next.pads[0]!.id,
+      sampleId: 'key_0',
+    })
+
+    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
+
+    expect(removed.instruments[instrument.id]).toBeUndefined()
+    expect(removed.instrumentOrder).toEqual([])
+    expect(removed.samples['key_0']).toBeUndefined()
+    expect(removed.samples['key_1']).toBeUndefined()
+    expect(removed.pads[0]!.sampleId).toBeNull()
   })
 
   it('shrinking pad count hides pads without discarding their data', () => {

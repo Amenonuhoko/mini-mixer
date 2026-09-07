@@ -1,0 +1,225 @@
+import { useState } from 'react'
+import {
+  buildInstrumentKeysFromPreset,
+  buildInstrumentKeysFromRecording,
+  INSTRUMENT_PRESETS,
+  type InstrumentPreset,
+} from '../engine/synth'
+import { useAppState } from '../state/AppStateContext'
+import { createId, timestampNow } from '../state/defaults'
+import { computePeaks } from '../utils/waveform'
+import type { Instrument, Sample } from '../state/types'
+
+/** Matches the resolution RecordFAB/projectFile use for their own waveform thumbnails. */
+const WAVEFORM_BUCKETS = 80
+
+function buildKeySamples(buffers: AudioBuffer[], namePrefix: string): Sample[] {
+  return buffers.map((buffer, i) => ({
+    id: createId('sample'),
+    label: `${namePrefix} ${i + 1}`,
+    buffer,
+    recordedAt: timestampNow(),
+    peaks: computePeaks(buffer, WAVEFORM_BUCKETS),
+  }))
+}
+
+/**
+ * Instruments live in the Library, above the raw sample list — a place to
+ * build a 16-key keyboard from either a bundled synth preset or one of your
+ * own recordings (pitch-mapped across a range, the same detune mechanism the
+ * live pitch dial already uses, just baked in once via an offline render).
+ * Each key is a real library Sample under the hood, so "use in pads" is just
+ * ASSIGN_SAMPLE_TO_PAD applied to a whole grid at once — no new playback path.
+ */
+export function InstrumentLibrary() {
+  const { state, dispatch } = useAppState()
+  const [building, setBuilding] = useState<string | null>(null)
+  const [pickingRoot, setPickingRoot] = useState(false)
+  const [confirmApplyId, setConfirmApplyId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  const instruments = state.instrumentOrder
+    .map((id) => state.instruments[id])
+    .filter((instrument): instrument is Instrument => instrument !== undefined)
+  // Excludes samples that are themselves generated instrument keys (e.g. "Bass
+  // 3") — picking one of those as a root would build an instrument out of a
+  // synthesized/pitch-shifted note rather than an actual recording, which is
+  // confusing more than useful.
+  const instrumentKeyIds = new Set(instruments.flatMap((instrument) => instrument.keySampleIds))
+  const recordableSamples = state.sampleOrder
+    .map((id) => state.samples[id])
+    .filter((sample): sample is Sample => sample !== undefined && !instrumentKeyIds.has(sample.id))
+
+  const addInstrument = (name: string, source: Instrument['source'], keySamples: Sample[]) => {
+    dispatch({
+      type: 'ADD_INSTRUMENT',
+      instrument: {
+        id: createId('instrument'),
+        name,
+        source,
+        keySampleIds: keySamples.map((s) => s.id),
+      },
+      keySamples,
+    })
+  }
+
+  const handleBuildFromPreset = async (preset: InstrumentPreset) => {
+    setBuilding(preset.name)
+    try {
+      const buffers = await buildInstrumentKeysFromPreset(preset)
+      addInstrument(preset.name, 'preset', buildKeySamples(buffers, preset.name))
+    } finally {
+      setBuilding(null)
+    }
+  }
+
+  const handleBuildFromRecording = async (rootSample: Sample) => {
+    setPickingRoot(false)
+    setBuilding(rootSample.label)
+    try {
+      const buffers = await buildInstrumentKeysFromRecording(rootSample.buffer)
+      addInstrument(rootSample.label, 'recording', buildKeySamples(buffers, rootSample.label))
+    } finally {
+      setBuilding(null)
+    }
+  }
+
+  return (
+    <section className="panel instrument-library" aria-label="instruments">
+      <h2>Instruments ({instruments.length})</h2>
+      <p className="muted">
+        Build a 16-key keyboard from a synth preset or one of your recordings, then lay it across
+        the pads in one tap.
+      </p>
+
+      {instruments.length > 0 && (
+        <ul className="instrument-list">
+          {instruments.map((instrument) => (
+            <li key={instrument.id} className="instrument-row">
+              <div className="instrument-row-info">
+                <span className="instrument-name">{instrument.name}</span>
+                <span className="tag tag-instrument-source">
+                  {instrument.source === 'preset' ? 'preset' : 'from recording'}
+                </span>
+              </div>
+              <div className="instrument-row-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setConfirmApplyId(instrument.id)}
+                >
+                  Use in Pads
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-icon-only"
+                  onClick={() => setConfirmDeleteId(instrument.id)}
+                  aria-label={`Delete ${instrument.name}`}
+                >
+                  🗑
+                </button>
+              </div>
+              {confirmApplyId === instrument.id && (
+                <div className="confirm-overwrite">
+                  <span>
+                    Apply "{instrument.name}" to all {state.visiblePadCount} pads? This replaces
+                    every pad's current sound.
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => {
+                      dispatch({ type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
+                      setConfirmApplyId(null)
+                    }}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setConfirmApplyId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+              {confirmDeleteId === instrument.id && (
+                <div className="confirm-overwrite">
+                  <span>Delete "{instrument.name}"? This removes its generated samples too.</span>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => {
+                      dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
+                      setConfirmDeleteId(null)
+                    }}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setConfirmDeleteId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="instrument-build-actions">
+        <span className="settings-label">New from preset</span>
+        <div className="instrument-preset-buttons">
+          {INSTRUMENT_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              className="btn btn-secondary preset-btn"
+              onClick={() => void handleBuildFromPreset(preset)}
+              disabled={building !== null}
+            >
+              {building === preset.name ? 'Building…' : preset.name}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => setPickingRoot(true)}
+          disabled={building !== null || recordableSamples.length === 0}
+        >
+          New from a recording…
+        </button>
+        {recordableSamples.length === 0 && (
+          <p className="muted">Record something first to build an instrument from it.</p>
+        )}
+      </div>
+
+      {pickingRoot && (
+        <div className="panel instrument-root-picker">
+          <p>Pick a recording to spread across a keyboard:</p>
+          <ul className="instrument-root-picker-list">
+            {recordableSamples.map((sample) => (
+              <li key={sample.id}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void handleBuildFromRecording(sample)}
+                >
+                  {sample.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn btn-secondary" onClick={() => setPickingRoot(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}

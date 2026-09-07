@@ -8,13 +8,16 @@ import {
   STEP_COUNT,
 } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
-import type { AppState, EffectId, LoopMode, Pattern, Sample } from './types'
+import type { AppState, EffectId, Instrument, LoopMode, Pattern, Sample } from './types'
 
 export type Action =
   | { type: 'ADD_SAMPLE'; sample: Sample }
   | { type: 'REMOVE_SAMPLE'; sampleId: string }
   | { type: 'RENAME_SAMPLE'; sampleId: string; label: string }
   | { type: 'MOVE_SAMPLE'; sampleId: string; direction: 'up' | 'down' }
+  | { type: 'ADD_INSTRUMENT'; instrument: Instrument; keySamples: Sample[] }
+  | { type: 'REMOVE_INSTRUMENT'; instrumentId: string }
+  | { type: 'APPLY_INSTRUMENT_TO_PADS'; instrumentId: string }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
   | { type: 'SET_PAD_MUTED'; padId: string; muted: boolean }
   | { type: 'SET_PAD_EFFECTS_BYPASSED'; padId: string; bypassed: boolean }
@@ -100,6 +103,50 @@ export function reducer(state: AppState, action: Action): AppState {
       const [moved] = sampleOrder.splice(index, 1)
       sampleOrder.splice(targetIndex, 0, moved!)
       return { ...state, sampleOrder }
+    }
+
+    case 'ADD_INSTRUMENT': {
+      const keySamplesById = Object.fromEntries(action.keySamples.map((s) => [s.id, s]))
+      return {
+        ...state,
+        samples: { ...state.samples, ...keySamplesById },
+        sampleOrder: [...state.sampleOrder, ...action.keySamples.map((s) => s.id)],
+        instruments: { ...state.instruments, [action.instrument.id]: action.instrument },
+        instrumentOrder: [...state.instrumentOrder, action.instrument.id],
+      }
+    }
+
+    case 'REMOVE_INSTRUMENT': {
+      const instrument = state.instruments[action.instrumentId]
+      if (!instrument) return state
+      const keyIds = new Set(instrument.keySampleIds)
+      const remainingSamples = { ...state.samples }
+      for (const id of instrument.keySampleIds) delete remainingSamples[id]
+      const { [action.instrumentId]: _removed, ...remainingInstruments } = state.instruments
+      return {
+        ...state,
+        samples: remainingSamples,
+        sampleOrder: state.sampleOrder.filter((id) => !keyIds.has(id)),
+        instruments: remainingInstruments,
+        instrumentOrder: state.instrumentOrder.filter((id) => id !== action.instrumentId),
+        pads: state.pads.map((pad) =>
+          pad.sampleId && keyIds.has(pad.sampleId) ? { ...pad, sampleId: null } : pad,
+        ),
+      }
+    }
+
+    case 'APPLY_INSTRUMENT_TO_PADS': {
+      const instrument = state.instruments[action.instrumentId]
+      if (!instrument) return state
+      return {
+        ...state,
+        pads: state.pads.map((pad, index) => {
+          if (index >= state.visiblePadCount) return pad
+          const keySampleId = instrument.keySampleIds[index]
+          if (!keySampleId) return pad
+          return { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 }
+        }),
+      }
     }
 
     case 'ASSIGN_SAMPLE_TO_PAD':

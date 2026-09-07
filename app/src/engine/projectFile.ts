@@ -1,5 +1,13 @@
 import { computePeaks } from '../utils/waveform'
-import type { AppState, LoopMode, Pad, Pattern, Sample, Transport } from '../state/types'
+import type {
+  AppState,
+  Instrument,
+  LoopMode,
+  Pad,
+  Pattern,
+  Sample,
+  Transport,
+} from '../state/types'
 import type { AudioEngine } from './AudioEngine'
 
 /** Matches the resolution RecordFAB uses for its own waveform thumbnails. */
@@ -89,6 +97,8 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
  */
 export interface ProjectMeta {
   sampleOrder: string[]
+  instruments: Record<string, Instrument>
+  instrumentOrder: string[]
   pads: Pad[]
   visiblePadCount: number
   patterns: Pattern[]
@@ -104,6 +114,8 @@ export interface ProjectMeta {
 export function extractProjectMeta(state: AppState): ProjectMeta {
   return {
     sampleOrder: state.sampleOrder,
+    instruments: state.instruments,
+    instrumentOrder: state.instrumentOrder,
     pads: state.pads,
     visiblePadCount: state.visiblePadCount,
     patterns: state.patterns,
@@ -189,6 +201,10 @@ export async function deserializeProject(
   return {
     samples,
     sampleOrder: project.sampleOrder,
+    // Older saved projects/files predate instruments — default them in rather
+    // than requiring every saved project to have carried the field.
+    instruments: project.instruments ?? {},
+    instrumentOrder: project.instrumentOrder ?? [],
     pads: project.pads,
     visiblePadCount: project.visiblePadCount,
     patterns: project.patterns,

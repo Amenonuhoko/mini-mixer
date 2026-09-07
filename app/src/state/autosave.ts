@@ -92,6 +92,10 @@ export async function loadAutosave(engine: AudioEngine): Promise<AppState | null
   return {
     samples,
     sampleOrder: record.sampleOrder,
+    // An autosave written before instruments existed won't have these — default
+    // them in rather than requiring a migration for old browser-stored records.
+    instruments: record.instruments ?? {},
+    instrumentOrder: record.instrumentOrder ?? [],
     pads: record.pads,
     visiblePadCount: record.visiblePadCount,
     patterns: record.patterns,

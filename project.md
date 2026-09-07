@@ -31,6 +31,15 @@ These are load-bearing decisions made deliberately so the base doesn't need to b
 - Pads triggered by click/tap (no keyboard shortcuts).
 - Pad count: adjustable, default 9 (fills the 3-column pad grid to a clean 3×3, no partial row).
 
+### Instruments
+
+- Lives in the Library, above the raw sample list — a place to build a **16-key keyboard** from either a bundled synth preset or one of your own recordings, then lay it across the pads in one tap.
+- **Bundled presets**: Piano, Bass, Lead — simple oscillator-plus-envelope synth patches (triangle/sine/sawtooth with an ADSR-ish envelope, no audio assets), not attempting to sound like a real instrument, just distinct enough starting points. Rendered offline (via `OfflineAudioContext`, no live `AudioContext` needed) at 16 ascending semitones from a root frequency.
+- **From a recording**: pick any existing library sample as the root note; the app pitch-maps it across the same 16-key range by baking a `detune`d offline render into a new buffer per key — the same mechanism the live pitch dial already uses, just rendered once instead of applied at playback time. The picker excludes samples that are themselves already-generated instrument keys, so you can't accidentally build an instrument out of a synthesized note.
+- **Every key is a real library Sample** — no separate instrument-playback path. This means an instrument's keys get full trim/effects/loop/mute once on a pad, exactly like any recording.
+- **"Use in Pads"** lays the instrument's keys across the current grid in pad order (pad 1 = key 0/root, pad 2 = key 1, …), replacing whatever was on those pads — confirmed first, since it overwrites the whole visible grid at once.
+- Deleting an instrument removes its generated key samples from the library too (unassigning any pad using one), so building a few instruments to try out doesn't leave a trail of orphaned samples behind.
+
 ### Pad Playback Behavior
 
 - **Two global modes govern what a pad tap does — loop mode, off by default.** With loop mode off, a pad always plays: a quick tap plays the sample through in full, and holding past ~200ms gates it — the sound follows your finger, stopping the instant you release, wherever it is. A quick tap's behavior is unchanged from before gating existed; gating only kicks in on a deliberate hold. With loop mode on (toggled by its own button in the floating record/metronome cluster — see Layout), tapping a pad instead toggles its loop on or off directly; gating doesn't apply there, since a loop toggle is a discrete on/off, not something to gate. Multiple pads loop together freely (see Sync below). This replaced an even earlier design where a pad had its own dedicated Loop button in the action bar — loop mode makes every pad a loop toggle at once instead of requiring a separate control per pad, and removed the last on-pad-adjacent control (mute/edit already live in the action bar; the pad face itself is now a single undivided tap target either way, still only carrying purely-informational visual feedback that needs no touch precision).
@@ -67,7 +76,7 @@ A small app shell — persistent global chrome around four pages, no router libr
 - **Pads page (home)**: the pad grid is the hero content, full width, nothing sharing space with it, laid out 3-per-row so each pad is a generous ~100×100px tap target (default pad count 9 fills this to a clean 3×3). The pad itself is a single undivided tap-to-play/tap-to-loop zone (see Pad Playback Behavior above) showing only live "playing"/"looping"/"muted" visual feedback — no nested controls. Tapping a pad selects it and surfaces a summary bar below the grid with three full-sized actions: **Mute** and **Effects** stacked in one column, **Edit →** spanning both rows beside them (the only way into the next page). Loop used to live here too; it's now driven by the global loop-mode toggle instead, so a dedicated per-pad button would be redundant. Moving these off the pad face and into generously-sized buttons fixed a real touch-precision problem: a small icon crowded into the corner of an already-small tile was hard to hit reliably.
 - **Pad edit page** (reached via "Edit Sound," not a nav tab — a drill-down detail view, not a top-level destination): the per-pad dials (volume/speed/pitch/filter/grit/echo, most-used first, with a row of quick-start presets across filter/grit/echo above them) and the trim editor get the entire page. The header is a 3-column layout — back button left, the "Pad N" heading centered, live playing/looping status tags right — so the heading reads as a page title centered in its own row rather than drifting depending on whether a status tag happens to be present. Below the header, a horizontally-scrollable strip of every pad (a small swatch each, current one highlighted, a pulsing dot on any that's looping) lets you flip between pads without leaving the editor, paired with one full-sized Loop button that always acts on whichever pad the strip currently has selected. Leaving the page: the explicit "← Back" button goes instantly, but an edge swipe from the true left edge of the screen (not just the page content, which sits in from app-shell's padding) shows a "Leave this pad?" confirmation first, defaulting to Stay — a deliberate tap is trusted, an easy-to-trigger-by-accident gesture isn't.
 - **Sequencer page**: the 16-step grid gets its own page, meant to be visited once the pads are filled in and it's time to assemble a pattern — not something you're nudging past while trying to do something else. Each row shows a small pulsing badge (and a ring around its pad-number circle) whenever that pad is independently looping via the pad-page loop button, so the sequencer's own step pattern is never mistaken for — or silently coexisting unnoticed with — a separate loop already playing. The PlayBar (play/pause, BPM, loop-mode) appears only here, since those controls exist to run the pattern this page is for.
-- **Library page**: the sample list (rename, reorder, delete, assign, waveform thumbnails) gets its own page too, tucked out of the way of the pads — it's for occasional housekeeping, not something that needs to compete with the main pad-focused screen.
+- **Library page**: instruments (build from a preset or a recording, apply to the grid, delete) sit above the raw sample list (rename, reorder, delete, assign, waveform thumbnails) — both get their own page, tucked out of the way of the pads, for occasional housekeeping rather than competing with the main pad-focused screen.
 
 ## Data Model
 
@@ -96,11 +105,19 @@ interface Pad {
   // (AudioEngine.isPadLooping), not a persisted mode. Tapping the pad body
   // always plays a one-shot; the loop button starts/stops an actual loop.
   muted: boolean;            // silences taps and sequencer steps alike, independent of sample
+  effectsBypassed: boolean;  // reversible: plays as if every effect were neutral, values untouched
   color: string;             // assigned at pad creation, stable identity
   icon: string;
   effects: EffectSetting[];  // ordered list, not fixed fields
   trimStart: number;         // 0-1, non-destructive playback window into the sample
   trimEnd: number;           // resets to (0, 1) whenever a different sample is assigned
+}
+
+interface Instrument {
+  id: string;
+  name: string;
+  source: 'preset' | 'recording';
+  keySampleIds: string[];    // 16 keys, ascending semitones from the root; each is a real Sample id
 }
 
 interface Pattern {
@@ -115,11 +132,14 @@ interface Transport {
   loopMode: 'once' | 'continuous';
   currentStep: number;
   metronomeEnabled: boolean;
+  padLoopModeEnabled: boolean;          // global: tapping a pad toggles its loop instead of playing it
 }
 
 interface AppState {
-  samples: Record<string, Sample>;   // the arsenal, keyed by id
+  samples: Record<string, Sample>;   // the arsenal, keyed by id — includes instrument-generated keys
   sampleOrder: string[];             // display/edit order for the library
+  instruments: Record<string, Instrument>;
+  instrumentOrder: string[];         // display order for the library's instrument list
   pads: Pad[];                       // every pad slot that has ever existed — never truncated
   visiblePadCount: number;           // how many pads (from the front of `pads`) are shown/triggerable
   patterns: Pattern[];               // only one is used/exposed today
