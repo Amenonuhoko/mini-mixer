@@ -13,6 +13,9 @@ const EFFECT_LABELS: Record<EffectId, string> = {
   pitch: 'Pitch',
   speed: 'Speed',
   filter: 'Filter',
+  volume: 'Volume',
+  grit: 'Grit',
+  echo: 'Echo',
 }
 
 const EFFECT_DESCRIPTIONS: Record<EffectId, string> = {
@@ -22,6 +25,10 @@ const EFFECT_DESCRIPTIONS: Record<EffectId, string> = {
     'Changes how fast the sample plays — and its pitch along with it, like slowing or speeding up a turntable. 0 is normal speed.',
   filter:
     'A tone control: negative muffles the sound (like turning down the treble), positive thins it out, 0 leaves it untouched.',
+  volume:
+    "Turns this pad up or down on its own. 0 is normal volume, -100 is silent, +100 is a loud boost that can distort if you push it — that's a feature, not a bug.",
+  grit: 'A character dial: negative crushes the sound into a harsh, digital lo-fi crunch, positive drives it into warm analog-style saturation. 0 is clean.',
+  echo: 'Adds a repeating echo: negative is a tight, quick slapback, positive is a longer, spacier delay. 0 is dry, no echo at all.',
 }
 
 /** Anchor points the dial snaps to, e.g. [-100, -75, -50, ... 100]. */

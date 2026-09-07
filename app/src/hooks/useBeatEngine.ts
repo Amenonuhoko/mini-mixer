@@ -27,6 +27,14 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
       { now: () => engine.getContext().currentTime },
       (stepIndex, time) => {
         const current = stateRef.current
+        // The metronome runs off this same lookahead clock so it locks to the same
+        // grid as the sequencer whenever both happen to be on, but it's gated on
+        // its own toggle, not on whether the pattern itself is playing — see the
+        // isPlaying/metronomeEnabled effect below for why the clock keeps running.
+        if (current.transport.metronomeEnabled && stepIndex % 4 === 0) {
+          engine.playMetronomeClick(time, stepIndex === 0)
+        }
+        if (!current.transport.isPlaying) return
         const pattern = current.patterns.find((p) => p.id === current.activePatternId)
         if (pattern) {
           const visiblePads = current.pads.slice(0, current.visiblePadCount)
@@ -39,14 +47,8 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             engine.triggerStep(pad, sample.buffer, time)
           }
         }
-        // Metronome clicks on quarter notes (every 4th step of the 16-step grid),
-        // accented on the downbeat (step 0).
-        if (current.transport.metronomeEnabled && stepIndex % 4 === 0) {
-          engine.playMetronomeClick(time, stepIndex === 0)
-        }
         dispatch({ type: 'SET_CURRENT_STEP', stepIndex })
         if (current.transport.loopMode === 'once' && stepIndex === STEP_COUNT - 1) {
-          scheduler.stop()
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
       },
@@ -62,13 +64,32 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     schedulerRef.current?.setBpm(state.transport.bpm)
   }, [state.transport.bpm])
 
+  // The lookahead clock itself runs whenever *either* the sequencer is playing or
+  // the metronome is on — the metronome toggle starts/stops it independently of
+  // the play/pause button, per its own explicit control, while still sharing one
+  // clock with the sequencer so the two never drift out of phase when both are on.
+  // A fresh press of Play always (re)starts the clock at step 0 — even if the
+  // metronome was already ticking on its own — so the pattern reliably begins at
+  // its first step every time, resyncing the metronome's phase to that downbeat
+  // as a side effect. Toggling the metronome mid-playback, or pausing while it
+  // stays on, must NOT restart the clock, or it'd glitch the running pattern —
+  // wasPlayingRef exists solely to tell "just pressed play" apart from those.
+  const wasPlayingRef = useRef(false)
   useEffect(() => {
-    if (state.transport.isPlaying) {
-      schedulerRef.current?.start()
+    const scheduler = schedulerRef.current
+    if (!scheduler) return
+    const isPlaying = state.transport.isPlaying
+    const metronomeEnabled = state.transport.metronomeEnabled
+    if (isPlaying && !wasPlayingRef.current) {
+      scheduler.stop()
+      scheduler.start()
+    } else if (isPlaying || metronomeEnabled) {
+      scheduler.start() // no-op if the clock is already running
     } else {
-      schedulerRef.current?.stop()
+      scheduler.stop()
     }
-  }, [state.transport.isPlaying])
+    wasPlayingRef.current = isPlaying
+  }, [state.transport.isPlaying, state.transport.metronomeEnabled])
 
   return engineRef.current
 }

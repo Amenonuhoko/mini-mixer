@@ -17,7 +17,7 @@ export const NEUTRAL_EFFECT_VALUE = 0
 /** Dials snap to these increments (drag to 76 -> lands on 75). */
 export const EFFECT_STEP = 25
 
-export const EFFECT_IDS = ['pitch', 'speed', 'filter'] as const
+export const EFFECT_IDS = ['pitch', 'speed', 'filter', 'volume', 'grit', 'echo'] as const
 
 /** Trim handles can't collapse closer than this (fraction of the sample's duration). */
 export const MIN_TRIM_GAP = 0.02

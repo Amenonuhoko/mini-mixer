@@ -57,3 +57,91 @@ export function dialToFilterParams(value: number): FilterParams {
   const normalized = value / 100 // ~0 -> ~0 (barely filtered), 100 -> 1 (thinnest)
   return { type: 'highpass', frequencyHz: 20 * Math.pow(2000 / 20, normalized) }
 }
+
+/**
+ * Volume is mapped to a GainNode's gain. Range: silent (dial -100) to a loud 2x
+ * boost (dial +100, can drive the signal into clipping if pushed hard — that's an
+ * accepted, even occasionally desirable, side effect rather than a bug), unity
+ * (unchanged) at dial 0.
+ */
+export function dialToGain(value: number): number {
+  return 1 + value / 100
+}
+
+export type GritMode = 'clean' | 'crush' | 'drive'
+
+export interface GritParams {
+  mode: GritMode
+  /** 0 (no effect) .. 1 (maximum). */
+  amount: number
+}
+
+/**
+ * Grit is a bipolar character dial, not a one-directional "amount of distortion"
+ * knob: negative crushes the sound into a harsh, quantized, digital lo-fi texture;
+ * positive drives it into a warmer, analog-style soft-clip saturation. 0 is clean —
+ * same "two different characters either side of neutral" idea as Filter.
+ */
+export function dialToGritParams(value: number): GritParams {
+  if (value === 0) return { mode: 'clean', amount: 0 }
+  if (value < 0) return { mode: 'crush', amount: -value / 100 }
+  return { mode: 'drive', amount: value / 100 }
+}
+
+const GRIT_CURVE_LENGTH = 1024
+
+/**
+ * Builds a WaveShaperNode curve for the given grit params — a plain Float32Array
+ * of output-for-input samples, so this is pure and testable with no AudioContext.
+ */
+export function buildGritCurve(params: GritParams): Float32Array<ArrayBuffer> {
+  // Explicit ArrayBuffer-backed construction — WaveShaperNode.curve is typed as
+  // Float32Array<ArrayBuffer>, stricter than the ArrayBufferLike TS infers from
+  // `new Float32Array(length)` alone.
+  const curve = new Float32Array(
+    new ArrayBuffer(GRIT_CURVE_LENGTH * Float32Array.BYTES_PER_ELEMENT),
+  )
+  for (let i = 0; i < GRIT_CURVE_LENGTH; i++) {
+    const x = (i / (GRIT_CURVE_LENGTH - 1)) * 2 - 1 // -1..1
+    curve[i] = shapeGritSample(x, params)
+  }
+  return curve
+}
+
+function shapeGritSample(x: number, { mode, amount }: GritParams): number {
+  if (mode === 'clean' || amount <= 0) return x
+  if (mode === 'drive') {
+    // Soft-clip saturation via tanh — increasing drive pushes more of the
+    // waveform into the curve's shoulder, adding warmth, then outright grind.
+    const drive = 1 + amount * 12
+    return Math.tanh(x * drive) / Math.tanh(drive)
+  }
+  // Crush: quantize to progressively fewer steps for a harsh, digital lo-fi
+  // character. amount 0 -> 32 steps (barely audible), amount 1 -> 4 steps (harsh).
+  const steps = Math.round(32 - amount * 28)
+  return Math.round(x * steps) / steps
+}
+
+export interface EchoParams {
+  delaySeconds: number
+  /** How much of the echoed signal feeds back into itself, 0..~0.45. */
+  feedback: number
+  /** How loud the echo is mixed in alongside the dry signal, 0..~0.5. */
+  wetMix: number
+}
+
+/**
+ * Echo is a bipolar space dial, one delay-based effect with two textures rather
+ * than a wet-dry-only knob: negative is a tight, quick slapback (a short delay,
+ * closer to doubling than a distinct echo); positive is a longer, spacier delay
+ * with more audible repeats. 0 is fully dry — no echo at all.
+ */
+export function dialToEchoParams(value: number): EchoParams {
+  const amount = Math.abs(value) / 100 // 0..1
+  const delaySeconds = value < 0 ? 0.06 + amount * 0.09 : 0.15 + amount * 0.35
+  return {
+    delaySeconds,
+    feedback: amount * 0.45,
+    wetMix: amount * 0.5,
+  }
+}

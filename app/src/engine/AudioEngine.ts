@@ -1,5 +1,13 @@
 import type { EffectId, EffectSetting, Pad } from '../state/types'
-import { dialToDetuneCents, dialToFilterParams, dialToPlaybackRate } from './dialMapping'
+import {
+  buildGritCurve,
+  dialToDetuneCents,
+  dialToEchoParams,
+  dialToFilterParams,
+  dialToGain,
+  dialToGritParams,
+  dialToPlaybackRate,
+} from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
@@ -12,6 +20,11 @@ const PARAM_RAMP_SECONDS = 0.015
 interface PlayingNodes {
   source: AudioBufferSourceNode
   filter: BiquadFilterNode
+  shaper: WaveShaperNode
+  gain: GainNode
+  delay: DelayNode
+  feedback: GainNode
+  wet: GainNode
 }
 
 /**
@@ -106,8 +119,35 @@ export class AudioEngine {
     filter.type = filterParams.type
     filter.frequency.value = filterParams.frequencyHz
 
+    // Grit: a WaveShaper whose curve is recomputed on every trigger/update. Kept
+    // in the graph at all times (identity curve when clean) so the topology never
+    // changes, the same reasoning as Filter's always-present allpass at 0.
+    const shaper = ctx.createWaveShaper()
+    shaper.curve = buildGritCurve(dialToGritParams(effectValue(effects, 'grit')))
+    shaper.oversample = '2x'
+
+    const gain = ctx.createGain()
+    gain.gain.value = dialToGain(effectValue(effects, 'volume'))
+
+    // Echo: delay + feedback loop, always wired up (feedback/wet at 0 when the
+    // dial is neutral) so it too never needs graph surgery to turn on later.
+    const delay = ctx.createDelay(1)
+    const feedback = ctx.createGain()
+    const wet = ctx.createGain()
+    const echoParams = dialToEchoParams(effectValue(effects, 'echo'))
+    delay.delayTime.value = echoParams.delaySeconds
+    feedback.gain.value = echoParams.feedback
+    wet.gain.value = echoParams.wetMix
+
     source.connect(filter)
-    filter.connect(ctx.destination)
+    filter.connect(shaper)
+    shaper.connect(gain)
+    gain.connect(ctx.destination)
+    gain.connect(delay)
+    delay.connect(feedback)
+    feedback.connect(delay)
+    delay.connect(wet)
+    wet.connect(ctx.destination)
 
     this.markStarted(padId)
     this.activeSources.add(source)
@@ -125,7 +165,7 @@ export class AudioEngine {
     } else {
       source.start(startTime, window.offset, window.duration)
     }
-    return { source, filter }
+    return { source, filter, shaper, gain, delay, feedback, wet }
   }
 
   /**
@@ -187,7 +227,7 @@ export class AudioEngine {
     const nodes = this.loopingNodes.get(padId)
     if (!nodes) return
     const ctx = this.getContext()
-    const { source, filter } = nodes
+    const { source, filter, shaper, gain, delay, feedback, wet } = nodes
     switch (effectId) {
       case 'pitch':
         source.detune.setTargetAtTime(dialToDetuneCents(value), ctx.currentTime, PARAM_RAMP_SECONDS)
@@ -203,6 +243,23 @@ export class AudioEngine {
         const params = dialToFilterParams(value)
         filter.type = params.type
         filter.frequency.setTargetAtTime(params.frequencyHz, ctx.currentTime, PARAM_RAMP_SECONDS)
+        break
+      }
+      case 'volume':
+        gain.gain.setTargetAtTime(dialToGain(value), ctx.currentTime, PARAM_RAMP_SECONDS)
+        break
+      case 'grit':
+        // WaveShaper's curve isn't an AudioParam, so this is a plain reassignment
+        // rather than a click-free ramp — a small departure from the other dials'
+        // smoothness, accepted since grit is inherently a "character" jump, not a
+        // continuous sweep.
+        shaper.curve = buildGritCurve(dialToGritParams(value))
+        break
+      case 'echo': {
+        const params = dialToEchoParams(value)
+        delay.delayTime.setTargetAtTime(params.delaySeconds, ctx.currentTime, PARAM_RAMP_SECONDS)
+        feedback.gain.setTargetAtTime(params.feedback, ctx.currentTime, PARAM_RAMP_SECONDS)
+        wet.gain.setTargetAtTime(params.wetMix, ctx.currentTime, PARAM_RAMP_SECONDS)
         break
       }
     }
