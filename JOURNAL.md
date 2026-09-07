@@ -765,3 +765,26 @@ Full verification: `tsc -b`, `vite build`, `oxlint` (same three pre-existing war
 ### Open questions / carried forward
 - Still queued from the new request batch: the Library grid redesign (waveform-forward, showing kind/duration/loudness at a glance), the Sequencer redesign (continuous-timeline restyle, per-row library swap, add-row), and the whole-app responsive layout (Pads + Sequencer side by side on wide screens) — next up, in that order, since the Library grid is now unblocked by this round's `kind` taxonomy.
 - The volume mixer, bounce-to-pad-from-the-sequencer, autosave's per-write full re-encode, and everything else carried from prior entries remain open and unchanged.
+
+---
+
+## 2026-09-07 — Library grid redesign
+
+### Context
+Second chunk of the new request batch, unblocked by the previous round's `Sample.kind` taxonomy: "make a nice easily navigable UI that showcases at a glance: nature/length/characteristics/type of sound" plus "I like the grid thing going on so maybe a grid to choose from" and "use the waveform to add more information."
+
+### Decision(s)
+Replaced `.library-list` (a plain vertical list of rows) with `.library-grid`, a `repeat(auto-fill, minmax(150px, 1fr))` grid of cards. Each card leads with a large `StaticWaveform` (reusing the exact peaks data already computed at record time — no new analysis) above a compact facts row: a kind badge (🎤 Recording / 🎹 Note / 🥁 Sequence, from last round's `Sample.kind`), duration (`sample.buffer.duration`, already on hand), and a loudness descriptor. New `utils/sampleInfo.ts` holds the small, pure helpers for all of this — `sampleKindIcon`/`sampleKindLabel`, `formatSampleDuration`, and `sampleLoudness` (a three-bucket Quiet/Medium/Loud threshold over `Math.max(...peaks)`, per the "derive from what we already know" decision from two rounds ago — no waveform-analysis library, no new dependency). Rename, reorder, Assign…, and Delete are unchanged in behavior, just laid out inside a card instead of a row.
+
+### Alternatives considered
+- **A richer "characteristics" descriptor** (e.g. attempting to distinguish percussive vs. tonal content) — stayed rejected per the earlier decision; loudness-from-peaks is honest about what it actually measures rather than implying more analysis than exists.
+
+### Reasoning
+Nothing here needed new data — `kind` (last round), `buffer.duration` (always been on the `AudioBuffer`), and `peaks` (computed at record time for the old list's thumbnails already) were all already sitting in `Sample`. The whole round was a presentation change, which is exactly why it could ship fast right after the taxonomy round that unblocked it.
+
+### Outcome
+Full verification: `tsc -b`, `vite build`, `oxlint` (same three pre-existing warnings), `vitest run` (62/62, unchanged — no reducer/data changes this round). Playwright pass: recorded a mic sample and built a Piano instrument, confirmed 17 cards rendered in the grid, confirmed both "Recording" and "Note" kind badges appear with their icons, confirmed duration/loudness facts render on every card. Visual check via screenshot confirmed the 2-column card layout, prominent waveforms, and readable facts row. Zero console errors. `project.md`'s Library-page Layout bullet rewritten for the card grid.
+
+### Open questions / carried forward
+- Still queued: the Sequencer redesign (continuous-timeline restyle, per-row library swap, add-row) and the whole-app responsive layout (Pads + Sequencer side by side on wide screens) — next up.
+- The volume mixer, bounce-to-pad-from-the-sequencer, autosave's per-write full re-encode, and everything else carried from prior entries remain open and unchanged.

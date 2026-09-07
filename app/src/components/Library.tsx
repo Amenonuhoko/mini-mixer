@@ -1,9 +1,18 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
+import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
 import { InstrumentLibrary } from './InstrumentLibrary'
 import { PadAssignPrompt } from './PadAssignPrompt'
 import { StaticWaveform } from './Waveform'
 
+/**
+ * A grid of cards, not a list — each card leads with a big waveform (the
+ * fastest way for a human to recognize a sound they've already heard) and a
+ * row of at-a-glance facts: what kind of sample it is (recording/note/
+ * sequence — see SampleKind), how long it is, and roughly how loud. All three
+ * are derived from data the app already has (how the sample was made, its
+ * buffer duration, its precomputed peaks) rather than any new audio analysis.
+ */
 export function Library() {
   const { state, dispatch } = useAppState()
   const [assigningSampleId, setAssigningSampleId] = useState<string | null>(null)
@@ -33,7 +42,7 @@ export function Library() {
         {samples.length === 0 ? (
           <p className="muted">Nothing recorded yet — hit Record to start your arsenal.</p>
         ) : (
-          <ul className="library-list">
+          <div className="library-grid">
             {samples.map((sample, index) => {
               const assignedPads = state.pads
                 .map((pad, padIndex) => ({ pad, padIndex }))
@@ -42,48 +51,59 @@ export function Library() {
               const isDeleting = deletingSampleId === sample.id
 
               return (
-                <li key={sample.id}>
-                  <div className="library-item-main">
+                <div className="library-card" key={sample.id}>
+                  <div className="library-card-waveform">
                     <StaticWaveform peaks={sample.peaks} color="#6c5ce7" />
-                    <div className="library-item-info">
-                      {isRenaming ? (
-                        <input
-                          type="text"
-                          className="library-rename-input"
-                          value={renameDraft}
-                          autoFocus
-                          onChange={(event) => setRenameDraft(event.target.value)}
-                          onBlur={() => commitRename(sample.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') commitRename(sample.id)
-                            if (event.key === 'Escape') setRenamingSampleId(null)
-                          }}
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          className="library-item-label"
-                          onClick={() => startRename(sample.id, sample.label)}
-                          title="Tap to rename"
-                        >
-                          {sample.label}
-                        </button>
-                      )}
-                      <span className="library-item-tags">
-                        {assignedPads.length === 0 ? (
-                          <span className="tag tag-unassigned">unassigned</span>
-                        ) : (
-                          assignedPads.map(({ pad, padIndex }) => (
-                            <span key={pad.id} className="tag" style={{ background: pad.color }}>
-                              Pad {padIndex + 1}
-                            </span>
-                          ))
-                        )}
-                      </span>
-                    </div>
                   </div>
 
-                  <div className="library-item-actions">
+                  <div className="library-card-facts">
+                    <span className="tag library-kind-badge">
+                      <span aria-hidden="true">{sampleKindIcon(sample.kind)}</span>
+                      {sampleKindLabel(sample.kind)}
+                    </span>
+                    <span className="muted library-card-fact">
+                      {formatSampleDuration(sample.buffer.duration)}
+                    </span>
+                    <span className="muted library-card-fact">{sampleLoudness(sample.peaks)}</span>
+                  </div>
+
+                  {isRenaming ? (
+                    <input
+                      type="text"
+                      className="library-rename-input"
+                      value={renameDraft}
+                      autoFocus
+                      onChange={(event) => setRenameDraft(event.target.value)}
+                      onBlur={() => commitRename(sample.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') commitRename(sample.id)
+                        if (event.key === 'Escape') setRenamingSampleId(null)
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="library-item-label"
+                      onClick={() => startRename(sample.id, sample.label)}
+                      title="Tap to rename"
+                    >
+                      {sample.label}
+                    </button>
+                  )}
+
+                  <span className="library-item-tags">
+                    {assignedPads.length === 0 ? (
+                      <span className="tag tag-unassigned">unassigned</span>
+                    ) : (
+                      assignedPads.map(({ pad, padIndex }) => (
+                        <span key={pad.id} className="tag" style={{ background: pad.color }}>
+                          Pad {padIndex + 1}
+                        </span>
+                      ))
+                    )}
+                  </span>
+
+                  <div className="library-card-actions">
                     <div className="reorder-buttons">
                       <button
                         type="button"
@@ -146,10 +166,10 @@ export function Library() {
                       </button>
                     )}
                   </div>
-                </li>
+                </div>
               )
             })}
-          </ul>
+          </div>
         )}
         {assigningSampleId && (
           <PadAssignPrompt
