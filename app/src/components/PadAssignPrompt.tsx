@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
+import { contrastingTextColor } from '../utils/color'
 
 interface PadAssignPromptProps {
   sampleId: string
@@ -43,7 +44,7 @@ export function PadAssignPrompt({ sampleId, sampleLabel, onDone }: PadAssignProm
               key={pad.id}
               type="button"
               className="pad-swatch"
-              style={{ background: pad.color }}
+              style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
               onClick={() => handlePadClick(pad.id, occupied)}
               title={occupied ? 'Already has a sound — tap to replace' : 'Empty'}
             >
@@ -56,10 +57,10 @@ export function PadAssignPrompt({ sampleId, sampleLabel, onDone }: PadAssignProm
       {confirmPadId && (
         <div className="confirm-overwrite">
           <p>That pad already has a sound. Replace it?</p>
-          <button type="button" onClick={() => assign(confirmPadId)}>
+          <button type="button" className="btn btn-danger" onClick={() => assign(confirmPadId)}>
             Replace
           </button>
-          <button type="button" onClick={() => setConfirmPadId(null)}>
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirmPadId(null)}>
             Cancel
           </button>
         </div>

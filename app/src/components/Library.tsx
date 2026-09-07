@@ -14,14 +14,36 @@ export function Library() {
         <p className="muted">Nothing recorded yet — hit Record to start your arsenal.</p>
       ) : (
         <ul className="library-list">
-          {samples.map((sample) => (
-            <li key={sample.id}>
-              <span>{sample.label}</span>
-              <button type="button" onClick={() => setAssigningSampleId(sample.id)}>
-                Assign…
-              </button>
-            </li>
-          ))}
+          {samples.map((sample) => {
+            const assignedPads = state.pads
+              .map((pad, index) => ({ pad, index }))
+              .filter(({ pad }) => pad.sampleId === sample.id)
+            return (
+              <li key={sample.id}>
+                <div className="library-item-info">
+                  <span>{sample.label}</span>
+                  <span className="library-item-tags">
+                    {assignedPads.length === 0 ? (
+                      <span className="tag tag-unassigned">unassigned</span>
+                    ) : (
+                      assignedPads.map(({ pad, index }) => (
+                        <span key={pad.id} className="tag" style={{ background: pad.color }}>
+                          Pad {index + 1}
+                        </span>
+                      ))
+                    )}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setAssigningSampleId(sample.id)}
+                >
+                  Assign…
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
       {assigningSampleId && (

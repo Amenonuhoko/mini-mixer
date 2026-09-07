@@ -1,6 +1,8 @@
+import { useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import { contrastingTextColor } from '../utils/color'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Pad } from '../state/types'
 
@@ -45,6 +47,8 @@ function PadButton({ pad, index, engine, selected, onSelect }: PadButtonProps) {
   const { state, dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
   const filled = pad.sampleId !== null
+  const [flashing, setFlashing] = useState(false)
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleTrigger = () => {
     onSelect(pad.id)
@@ -52,6 +56,10 @@ function PadButton({ pad, index, engine, selected, onSelect }: PadButtonProps) {
     const sample = state.samples[pad.sampleId]
     if (!sample) return
     engine.triggerPad(pad, sample.buffer)
+
+    if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current)
+    setFlashing(true)
+    flashTimeoutRef.current = setTimeout(() => setFlashing(false), 140)
   }
 
   const handleToggleLoop = (event: React.MouseEvent) => {
@@ -67,13 +75,19 @@ function PadButton({ pad, index, engine, selected, onSelect }: PadButtonProps) {
         filled ? 'filled' : 'empty',
         selected ? 'selected' : '',
         looping ? 'looping' : '',
+        flashing ? 'flashing' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      style={{ borderColor: pad.color, background: filled ? pad.color : 'transparent' }}
+      style={{
+        borderColor: pad.color,
+        background: filled ? pad.color : 'transparent',
+        color: filled ? contrastingTextColor(pad.color) : undefined,
+      }}
       onClick={handleTrigger}
     >
       <span className="pad-index">{index + 1}</span>
+      {!filled && <span className="pad-empty-hint">empty</span>}
       <span
         className={pad.loop ? 'loop-toggle on' : 'loop-toggle'}
         role="switch"
@@ -81,8 +95,22 @@ function PadButton({ pad, index, engine, selected, onSelect }: PadButtonProps) {
         aria-label="loop this pad"
         onClick={handleToggleLoop}
       >
-        ↻
+        <LoopGlyph />
       </span>
     </button>
+  )
+}
+
+function LoopGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <path
+        d="M4 12a8 8 0 0 1 13.66-5.66L20 8M20 8V3M20 8h-5M20 12a8 8 0 0 1-13.66 5.66L4 16M4 16v5M4 16h5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }

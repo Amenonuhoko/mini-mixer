@@ -14,13 +14,23 @@ interface DialPanelProps {
 
 export function DialPanel({ padId }: DialPanelProps) {
   const { state, dispatch } = useAppState()
-  const pad = padId ? state.pads.find((p) => p.id === padId) : undefined
+  const padIndex = padId ? state.pads.findIndex((p) => p.id === padId) : -1
+  const pad = padIndex >= 0 ? state.pads[padIndex] : undefined
 
   return (
     <section className="panel dial-panel" aria-label="pad dials">
-      <h2>Dials</h2>
+      <div className="dial-panel-header">
+        <h2>Dials</h2>
+        {pad && (
+          <span className="dial-panel-target">
+            <span className="tag" style={{ background: pad.color }}>
+              Pad {padIndex + 1}
+            </span>
+          </span>
+        )}
+      </div>
       {!pad ? (
-        <p className="muted">Select a pad to tweak its sound.</p>
+        <p className="muted">Tap a pad to tweak its sound.</p>
       ) : (
         <>
           {EFFECT_IDS.map((effectId) => {
@@ -34,6 +44,8 @@ export function DialPanel({ padId }: DialPanelProps) {
                 <input
                   id={`dial-${effectId}`}
                   type="range"
+                  className="dial-slider"
+                  style={{ '--dial-color': pad.color } as React.CSSProperties}
                   min={0}
                   max={100}
                   value={value}
@@ -51,6 +63,7 @@ export function DialPanel({ padId }: DialPanelProps) {
           })}
           <button
             type="button"
+            className="btn btn-secondary"
             onClick={() => dispatch({ type: 'RESET_PAD_EFFECTS', padId: pad.id })}
           >
             Reset dials

@@ -213,3 +213,48 @@ Full feature loop verified end-to-end in a real headless-Chromium browser (fake 
 ### Open questions / carried forward
 - Deferred UI polish: a fuller library (search/rename/delete), a live waveform during recording (currently a simple RMS level meter, not a waveform — a reasonable, smaller stand-in), and general visual refinement are all still open, per the standing "grow naturally, not as a goal" instruction.
 - The two `react/only-export-components` oxlint warnings (`AppStateContext.tsx`, `EngineContext.tsx`) remain expected/accepted.
+
+---
+
+## 2026-09-07 — UX/UI polish pass, retargeted to mobile
+
+### Context
+Asked to "keep going, give it a good polish in terms of UX and UI." Mid-pass, a second message landed: **"this is supposed to be a phone app btw consider the design."** That arrived after the polish work had already started (a contrast-aware pad-text utility was in progress) but before any layout decisions were locked in, so it reset the direction of the whole pass rather than being a follow-on note — the desktop two-column layout from the prototype session was never the right target to begin with.
+
+### Decision(s)
+- **Layout rebuilt mobile-first, single column.** The `.row` grid pairing (Recorder+Library side by side, PadGrid+DialPanel side by side) from the prototype session is gone. Everything stacks vertically: header → Recorder → Library → PadGrid → DialPanel → Sequencer → Settings. This isn't a responsive breakpoint bolted onto a desktop design — it's designed for a phone viewport as the primary target, per the "single page, everything visible" spec, on a screen where "visible" means "reachable by scrolling," not "on screen at once."
+- **Transport split into two pieces by touch frequency.** `TransportBar` (built in the prior session) is gone, replaced by:
+  - `PlayBar` — fixed to the bottom of the viewport (`position: fixed`, safe-area-inset-aware padding for notched phones): play/pause, BPM, loop-mode toggle. These are the controls a hand rests on while performing; they now stay reachable regardless of scroll position, which is the standard pattern in phone music apps (GarageBand, Caustic, etc.) and wasn't something the desktop layout needed.
+  - `SettingsPanel` — pad count and Clear All, which are occasional actions and stayed in the normal document flow.
+- **Touch targets resized against real minimums, not eyeballed.** Pads went from a desktop-appropriate size to 74×74px (checked in-browser, comfortably above the ~44px touch-target guideline). The sequencer's 16-step grid is the one deliberate compromise — at 34×34px it's below the ideal minimum, but 16 columns at 44px+ each doesn't fit a phone width at all; the tradeoff taken is a horizontally-scrollable row (with a sticky, color-coded pad-index label so you always know which row you're on while scrolled) plus an explicit "Swipe sideways for all 16 steps" hint, rather than shrinking pads/other controls to force-fit all 16 steps on screen.
+- **Custom range slider styling.** Native `<input type="range">` thumbs are too small to drag reliably with a finger and don't carry any of the app's identity. Restyled via `::-webkit-slider-thumb`/`::-moz-range-thumb` to a 26px colored thumb, with dial sliders taking their color from the pad they're editing (`--dial-color` custom property) so a glance at the dial panel tells you whose sound you're shaping.
+- **Contrast-aware pad text** (`src/utils/color.ts`, `contrastingTextColor`): pad number/tags now compute white-vs-near-black text via relative luminance instead of hardcoded white, since the pad palette includes yellow, where white text was becoming close to unreadable. Small pure function, unit-tested-worthy but not yet covered by a test — noted below.
+- **First pad auto-selected for the dial panel**, with a `useEffect` in `App.tsx` that falls back to the first visible pad whenever the currently-selected one is hidden by shrinking pad count. Removes the "select a pad" dead-end that existed in the prototype (dials were unreachable without knowing to tap a pad first) and keeps selection valid across pad-count changes without adding selection to the reducer (still local UI state, per the earlier session's reasoning).
+- **Recorder polish**: added an elapsed mm:ss timer (`useElapsedSeconds`) and swapped the single-bar level meter for a 12-segment LED-style meter — both closer to what "live waveform/level display" in the original spec was gesturing at, without building an actual waveform renderer (still an open/deferred item).
+- **Library rows now show which pad(s) a sample is assigned to** (or "unassigned"), as colored tag pills — makes the "arsenal" concept from the second journal entry actually visible in the UI for the first time, not just present in the data model.
+- **Viewport meta tightened for an app-like feel**: `maximum-scale=1.0` (pinch-zoom disabled) plus `viewport-fit=cover`, `theme-color`, and `apple-mobile-web-app-*` meta tags. Disabling pinch-zoom is a real accessibility tradeoff, taken deliberately here because the app is full of drag-based controls (sliders, pads) where accidental pinch-zoom during a gesture is actively disruptive — a common, accepted tradeoff for instrument-like touch apps, but worth naming rather than leaving implicit.
+- **Favicon replaced** with a simple 2×2 rounded-square pad-grid glyph in the accent color, in place of the generic Vite template mark.
+
+### A rendering artifact investigated and ruled out
+During the mobile-viewport browser check, one screenshot showed what looked like a stray purple rounded-square outline around the sequencer's row-label circles. Investigated properly rather than dismissed or silently patched around:
+1. Pulled computed styles (`outline`, `boxShadow`, `border`, `filter`) on the element directly — all `none`, ruling out a real CSS rule.
+2. Bisected the exact interaction sequence that produced it, screenshotting after each step — the artifact did not reproduce at any step.
+3. Re-ran the original script that had produced it, unmodified — came back clean.
+
+Conclusion: a one-off headless-Chromium screenshot/compositing glitch (likely a rasterization seam tied to a `position: sticky` element at a specific sub-pixel scroll offset during that one capture), not a reproducible bug in the app. Recorded here rather than left unmentioned, since "investigated and ruled out" is a different claim than "didn't look."
+
+### Alternatives considered
+- Keeping the two-column desktop layout and only adding a mobile breakpoint — rejected once "this is a phone app" landed; a breakpoint retrofit tends to leave the primary-target layout as an afterthought, whereas building mobile-first meant the desktop experience (which still works fine at wider widths via the same single column, just with more whitespace) was never treated as the design center to begin with.
+- Making all 16 sequencer steps shrink to fit one phone-width screen with no scrolling — rejected; touch accuracy would suffer badly at that size, and horizontal-scroll-per-row is an established, well-understood pattern on mobile sequencers.
+- Leaving pinch-zoom enabled — considered, but the drag-heavy control surface (dials, pads, BPM slider) makes accidental zoom during a gesture a worse experience than losing zoom entirely; noted as a tradeoff rather than a silent default.
+
+### Reasoning
+The mid-task pivot didn't require throwing away work — the contrast utility, flash-on-trigger feedback, and button/tag styling groundwork already in progress were all still correct regardless of layout — but it did mean the layout and transport-control decisions needed to be made for the actual target device before going further, rather than polishing a desktop arrangement that would need redoing anyway.
+
+### Outcome
+Verified in a real Playwright-driven Chromium session emulating an iPhone 13 viewport, using `tap()` (not `click()`) throughout: full golden path (record → assign → trigger → dial → sequence → play) works via touch, pad/play-button touch targets measured in-browser at 74×74 and 56×56px, the play bar stays pinned to the viewport bottom after scrolling to the end of the page, zero console errors. Along the way, fixed a real accessibility bug the check surfaced: the loop-mode button had no `aria-label` and its accessible name was falling back to a long `title` string that happened to contain the word "play," colliding with the Play button's own accessible name. `tsc -b`, `vite build`, `oxlint`, `vitest run` (19/19), and `prettier --check` all clean. Playwright reinstalled for this session's verification only, removed again afterward.
+
+### Open questions / carried forward
+- `contrastingTextColor` (`src/utils/color.ts`) is a pure function with no dedicated unit test yet, despite the project's stated testing philosophy of covering pure logic — worth adding alongside the next engine-adjacent change rather than as a drive-by here.
+- A real waveform (vs. the current segmented level meter) and a fuller library UI (search/rename/delete) remain open, per the standing "grow naturally" instruction.
+- The two `react/only-export-components` oxlint warnings remain expected/accepted, unchanged from prior entries.
