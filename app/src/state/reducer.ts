@@ -28,6 +28,7 @@ export type Action =
   | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
+  | { type: 'LOAD_PROJECT'; state: AppState }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -189,6 +190,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'CLEAR_ALL':
       return createInitialState(state.visiblePadCount)
+
+    case 'LOAD_PROJECT':
+      return action.state
 
     default: {
       const exhaustiveCheck: never = action

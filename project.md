@@ -60,7 +60,7 @@ These are load-bearing decisions made deliberately so the base doesn't need to b
 
 A small app shell — persistent global chrome around four pages, no router library (a plain page/navigation React context is enough for four flat destinations with no need for URLs or browser history):
 
-- **Top nav** (fixed): three page tabs — **Pads** (home), **Sequencer**, **Library** — plus two utility actions reachable from anywhere: a panic **"stop all sounds"** button (silences every loop, every in-flight one-shot, and pauses the sequencer, all at once) and a **settings** gear (pad count, Clear All — opens as an overlay, tucked away since it's touched rarely).
+- **Top nav** (fixed): three page tabs — **Pads** (home), **Sequencer**, **Library** — plus two utility actions reachable from anywhere: a panic **"stop all sounds"** button (silences every loop, every in-flight one-shot, and pauses the sequencer, all at once) and a **settings** gear (pad count, project Save/Load, Clear All — opens as an overlay, tucked away since it's touched rarely).
 - **Bottom PlayBar — Sequencer page only, not global chrome**: play/pause, BPM, loop-once-vs-continuous. These are all specifically about sequencer pattern playback and meaningless while just tapping/looping pads by hand, so the bar only exists on the Sequencer page rather than floating over every page reserving space for controls that don't apply there. Playback keeps running in the background if you navigate away — pausing just means coming back to Sequencer, an accepted trade-off for reclaiming that space everywhere else. The metronome used to live here too but moved out — see the record FAB bullet below — since it's independent of play/pause and belongs with the app's other page-agnostic utilities, not the sequencer transport.
 - **Floating record + metronome cluster** (fixed, global on every page, bottom-right): press-and-hold the record button to record — the hold itself *is* the recording gesture, release stops it, however long that was. Recording was never tied to one screen or page; a name/waveform-preview/assign-or-discard review appears as a modal overlay regardless of where you started recording from, so it's never blocked by which page happens to be open. A smaller metronome toggle sits beside it — grouped together because both are global utilities independent of transport state, unlike everything in the PlayBar.
 - **Pads page (home)**: the pad grid is the hero content, full width, nothing sharing space with it, laid out 3-per-row so each pad is a generous ~100×100px tap target (default pad count 9 fills this to a clean 3×3). The pad itself is a single undivided tap-to-play zone showing only live "playing"/"looping"/"muted" visual feedback — no nested controls. Tapping a pad selects it and surfaces a summary bar below the grid with three full-sized actions: **Loop**, **Mute**, and **Edit →** (the only way into the next page). Moving loop/mute off the pad face and into generously-sized buttons fixed a real touch-precision problem: a small icon crowded into the corner of an already-small tile was hard to hit reliably, especially loop, which gets tapped rhythmically during play.
@@ -131,7 +131,12 @@ interface AppState {
 
 ## Saving
 
-- None needed. Session-only, resets on reload. This is for messing around, not producing/exporting finished tracks.
+Reversed from the original "session-only, no persistence" decision once real use showed losing work on every reload was actually a problem worth solving.
+
+- **Autosave to the browser (IndexedDB)**: every change — a new recording, a dial tweak, a step toggle — is written back automatically, debounced (~1.2s after the last change) so a dragged dial doesn't hammer the database on every tick. Reload picks up right where you left off, no action needed. Tied to one browser on one device; clearing site data or switching browsers loses it, same as any browser-storage-based persistence.
+- **Explicit export/import as a project file**: a "Save" button in Settings downloads a self-contained JSON file (`beat-maker-<timestamp>.json`) with every sample's audio embedded as base64-encoded WAV, plus pads/patterns/transport. A "Load" button reads one back in (with a confirm step, since it replaces the current session) — portable across browsers and devices, and safe from autosave getting cleared. This is the deliberate backup/sharing mechanism; autosave is the "just don't lose my work" safety net.
+- **Format**: one JSON object, `version: 1`, samples embedded inline as WAV rather than a separate zip/multi-file bundle — keeps the whole project in one file with no extra library (no ZIP dependency) and no separate-file-management UX. `AudioContext.decodeAudioData` reads WAV natively, so loading a sample back in reuses the exact same decode path recording already uses — no new audio-decode code needed.
+- Transient playback state (is it currently playing, which step the sequencer is on) is deliberately excluded from both the autosave record and the exported file — only project *data* is saved, not moment-to-moment playback state, so loading a project always starts paused at step 0 rather than resuming mid-playback.
 
 ## Platform
 
@@ -149,7 +154,7 @@ interface AppState {
 - **Audio engine**: a standalone module owning one `AudioContext`. Each library sample is decoded once into an `AudioBuffer` (`MediaRecorder` → `decodeAudioData`); pads trigger playback by looking up their referenced sample and building a fresh `AudioBufferSourceNode` → effect chain → destination at trigger time.
 - **Dials**: bipolar -100..100 sliders per pad, mapped internally to audio params as described above (detune for pitch, playbackRate for speed, filter frequency for filter, gain for volume, a WaveShaper curve for grit, delay/feedback/wet for echo).
 - **Scheduler — lookahead pattern, not naive `setInterval`.** A naive `setInterval` that fires audio directly drifts and jitters against the main thread (GC pauses, re-renders). Instead: a `setTimeout`-based polling loop runs frequently (e.g. every 25ms) and, on each poll, schedules any step events that fall within a short lookahead window (e.g. next 100ms) against `AudioContext.currentTime` — the actual sound-triggering is scheduled on the audio clock, not fired synchronously from the timer. BPM changes just change the interval math; nothing else about the pattern changes.
-- **No persistence**: state lives in memory only, resets on page reload.
+- **Persistence**: autosaved to IndexedDB (debounced) plus explicit JSON-file export/import — see **Saving** above for the full design.
 
 ## Build Steps
 
@@ -245,8 +250,8 @@ interface AppState {
 
 ### Step 10 — Resetting and stopping
 
-- Browser warns before reload/close if there's in-progress work.
-- Explicit "Clear All" button in the settings overlay (gear icon in the top nav) for when you actually want a blank slate, instead of relying on reload.
+- No reload/close warning — autosave means a reload just picks the session back up, so there's nothing to lose and nothing to warn about.
+- Explicit "Clear All" button in the settings overlay (gear icon in the top nav) for when you actually want a blank slate — clears the autosave record too, so the cleared state stays cleared on the next reload rather than autosave silently restoring what you just cleared.
 - A dedicated "stop all sounds" button in the top nav — reachable from every page — panic-stops everything at once: every looping pad, every in-flight one-shot (including a long recording still playing out), and pauses the sequencer if it's running.
 
 ## Open Questions (deferred, not blocking)

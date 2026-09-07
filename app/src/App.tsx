@@ -10,10 +10,10 @@ import { RecordingReviewOverlay } from './components/RecordingReviewOverlay'
 import type { PendingRecording } from './components/RecordingReview'
 import { Sequencer } from './components/Sequencer'
 import { SettingsOverlay } from './components/SettingsOverlay'
+import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
-import { useWarnBeforeUnload } from './hooks/useWarnBeforeUnload'
 import { AppStateProvider, useAppState } from './state/AppStateContext'
-import { EngineProvider } from './state/EngineContext'
+import { EngineProvider, useEngine } from './state/EngineContext'
 import { NavigationProvider, useNavigation } from './state/NavigationContext'
 
 function EngineBridge({ children }: { children: ReactNode }) {
@@ -37,11 +37,12 @@ function CurrentPage() {
 }
 
 function Shell() {
-  const { state } = useAppState()
+  const { state, dispatch } = useAppState()
   const { page } = useNavigation()
+  const engine = useEngine()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  useWarnBeforeUnload(Object.keys(state.samples).length > 0)
+  useAutosave(state, dispatch, engine)
 
   // Play/pause, BPM, and loop-mode are all specifically about sequencer pattern
   // playback — meaningless while just tapping/looping pads by hand — so the play

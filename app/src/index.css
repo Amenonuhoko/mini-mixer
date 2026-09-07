@@ -1067,6 +1067,22 @@ input[type='range']::-moz-range-thumb {
   justify-content: center;
 }
 
+.settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+
+.settings-file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-error {
+  color: var(--danger);
+  margin: -6px 0 10px;
+}
+
 .stepper-btn:disabled {
   opacity: 0.35;
 }
