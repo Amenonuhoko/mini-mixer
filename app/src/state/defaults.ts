@@ -73,6 +73,7 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
       metronomeEnabled: false,
       padLoopModeEnabled: false,
       padInstrumentModeEnabled: false,
+      playthroughRecordingEnabled: false,
     },
   }
 }

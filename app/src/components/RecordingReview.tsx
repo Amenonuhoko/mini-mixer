@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
+import { useEngine } from '../state/EngineContext'
 import { createId, timestampNow } from '../state/defaults'
 import { contrastingTextColor } from '../utils/color'
+import type { SampleKind } from '../state/types'
 import { StaticWaveform } from './Waveform'
 
 export interface PendingRecording {
   label: string
   buffer: AudioBuffer
   peaks: number[]
+  /** How this recording was made — see SampleKind. Defaults to 'recording' (a plain mic take) if omitted. */
+  kind?: SampleKind
 }
 
 interface RecordingReviewProps {
@@ -21,12 +25,31 @@ interface RecordingReviewProps {
  * keep it (assign to a pad, or "keep in library only"). Discarding just
  * clears local state and calls onDone; the reducer is never touched, so a
  * throwaway take never clutters the library even momentarily.
+ *
+ * Loops the recording back immediately, by default — hearing it on repeat is
+ * how you actually judge a fresh take, rather than having to assign it to a
+ * pad first just to hit play. A bare preview loop (see AudioEngine.previewLoop),
+ * not a real pad trigger — no effects, no library entry until you commit.
  */
 export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
   const { state, dispatch } = useAppState()
+  const engine = useEngine()
   const [confirmPadId, setConfirmPadId] = useState<string | null>(null)
   const [label, setLabel] = useState(recording.label)
+  const [previewPlaying, setPreviewPlaying] = useState(true)
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
+
+  useEffect(() => {
+    if (!previewPlaying) return
+    const source = engine.previewLoop(recording.buffer)
+    return () => {
+      try {
+        source.stop()
+      } catch {
+        // Already stopped (e.g. by the panic "stop all sounds" button) — fine.
+      }
+    }
+  }, [engine, recording.buffer, previewPlaying])
 
   const commit = (): string => {
     const id = createId('sample')
@@ -37,6 +60,7 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
         label: label.trim() || recording.label,
         buffer: recording.buffer,
         recordedAt: timestampNow(),
+        kind: recording.kind ?? 'recording',
         peaks: recording.peaks,
       },
     })
@@ -64,7 +88,17 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
 
   return (
     <div className="panel assign-prompt" role="dialog" aria-label="Review the recording">
-      <StaticWaveform peaks={recording.peaks} color="#6c5ce7" />
+      <div className="review-preview-row">
+        <StaticWaveform peaks={recording.peaks} color="#6c5ce7" />
+        <button
+          type="button"
+          className="btn btn-secondary btn-icon-only preview-toggle-btn"
+          onClick={() => setPreviewPlaying((playing) => !playing)}
+          aria-label={previewPlaying ? 'Pause preview loop' : 'Play preview loop'}
+        >
+          {previewPlaying ? <PauseGlyph /> : <PlayGlyph />}
+        </button>
+      </div>
       <label className="assign-prompt-name-label" htmlFor="recording-review-name">
         Name it
       </label>
@@ -114,5 +148,22 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
         </button>
       </div>
     </div>
+  )
+}
+
+function PlayGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M6 4l14 8-14 8V4z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function PauseGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <rect x="6" y="4" width="4" height="16" fill="currentColor" />
+      <rect x="14" y="4" width="4" height="16" fill="currentColor" />
+    </svg>
   )
 }

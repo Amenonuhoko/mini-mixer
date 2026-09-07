@@ -19,6 +19,7 @@ function buildKeySamples(buffers: AudioBuffer[], namePrefix: string): Sample[] {
     label: `${namePrefix} ${i + 1}`,
     buffer,
     recordedAt: timestampNow(),
+    kind: 'note',
     peaks: computePeaks(buffer, WAVEFORM_BUCKETS),
   }))
 }

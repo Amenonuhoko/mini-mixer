@@ -6,11 +6,22 @@ export interface EffectSetting {
   value: number
 }
 
+/**
+ * What produced a sample — drives the Library's at-a-glance "type" badge.
+ * Deliberately derived from how the sample was made, not from analyzing its
+ * audio content (unreliable for a lightweight app): 'recording' is a plain
+ * mic take, 'note' is one key of a built Instrument, 'sequence' is a bounced
+ * multi-hit performance (either the Instrument Mode hit-capture or a full
+ * loops-and-gates playthrough).
+ */
+export type SampleKind = 'recording' | 'note' | 'sequence'
+
 export interface Sample {
   id: string
   label: string
   buffer: AudioBuffer
   recordedAt: number
+  kind: SampleKind
   /** Precomputed peak amplitudes (0-1) for a static waveform thumbnail — see src/utils/waveform.ts. */
   peaks: number[]
 }
@@ -86,6 +97,16 @@ export interface Transport {
    * pad presses as a performance instead of recording from the microphone.
    */
   padInstrumentModeEnabled: boolean
+  /**
+   * Independent of the two pad-grid modes above: while on, holding the record
+   * FAB captures a live "playthrough" of whatever's actually audible (every
+   * looping pad plus every manual tap/gate) instead of recording from the
+   * microphone — see AudioEngine.startPlaythroughRecording. Deliberately not
+   * mutually exclusive with loop/instrument mode: recording a playthrough of
+   * loops you've already started, or of an instrument you're playing live, is
+   * the whole point.
+   */
+  playthroughRecordingEnabled: boolean
 }
 
 export interface AppState {

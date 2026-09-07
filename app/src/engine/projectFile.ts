@@ -6,6 +6,7 @@ import type {
   Pad,
   Pattern,
   Sample,
+  SampleKind,
   Transport,
 } from '../state/types'
 import type { AudioEngine } from './AudioEngine'
@@ -109,6 +110,7 @@ export interface ProjectMeta {
     metronomeEnabled: boolean
     padLoopModeEnabled: boolean
     padInstrumentModeEnabled: boolean
+    playthroughRecordingEnabled: boolean
   }
 }
 
@@ -127,6 +129,7 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
       metronomeEnabled: state.transport.metronomeEnabled,
       padLoopModeEnabled: state.transport.padLoopModeEnabled,
       padInstrumentModeEnabled: state.transport.padInstrumentModeEnabled,
+      playthroughRecordingEnabled: state.transport.playthroughRecordingEnabled,
     },
   }
 }
@@ -135,8 +138,9 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
 export function buildTransport(meta: ProjectMeta['transport']): Transport {
   return {
     ...meta,
-    // Older saved projects/autosave records predate instrument mode — default it in.
+    // Older saved projects/autosave records predate these — default them in.
     padInstrumentModeEnabled: meta.padInstrumentModeEnabled ?? false,
+    playthroughRecordingEnabled: meta.playthroughRecordingEnabled ?? false,
     isPlaying: false,
     currentStep: 0,
   }
@@ -147,14 +151,16 @@ export function buildSample(
   label: string,
   recordedAt: number,
   buffer: AudioBuffer,
+  kind: SampleKind = 'recording',
 ): Sample {
-  return { id, label, recordedAt, buffer, peaks: computePeaks(buffer, WAVEFORM_BUCKETS) }
+  return { id, label, recordedAt, kind, buffer, peaks: computePeaks(buffer, WAVEFORM_BUCKETS) }
 }
 
 export interface SerializedSample {
   id: string
   label: string
   recordedAt: number
+  kind: SampleKind
   audioBase64: string
 }
 
@@ -176,6 +182,7 @@ export function serializeProject(state: AppState, savedAt: number): SerializedPr
         id: sample.id,
         label: sample.label,
         recordedAt: sample.recordedAt,
+        kind: sample.kind,
         audioBase64: arrayBufferToBase64(encodeWav(sample.buffer)),
       })),
   }
@@ -204,7 +211,8 @@ export async function deserializeProject(
   const samples: Record<string, Sample> = {}
   for (const s of project.samples) {
     const buffer = await engine.decodeSample(base64ToArrayBuffer(s.audioBase64))
-    samples[s.id] = buildSample(s.id, s.label, s.recordedAt, buffer)
+    // Older saved files predate the kind field — default to 'recording'.
+    samples[s.id] = buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording')
   }
   return {
     samples,

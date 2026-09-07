@@ -32,6 +32,7 @@ export type Action =
   | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_LOOP_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED'; enabled: boolean }
+  | { type: 'SET_PLAYTHROUGH_RECORDING_ENABLED'; enabled: boolean }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
   | { type: 'LOAD_PROJECT'; state: AppState }
@@ -261,6 +262,12 @@ export function reducer(state: AppState, action: Action): AppState {
           padInstrumentModeEnabled: action.enabled,
           padLoopModeEnabled: action.enabled ? false : state.transport.padLoopModeEnabled,
         },
+      }
+
+    case 'SET_PLAYTHROUGH_RECORDING_ENABLED':
+      return {
+        ...state,
+        transport: { ...state.transport, playthroughRecordingEnabled: action.enabled },
       }
 
     case 'SET_CURRENT_STEP':

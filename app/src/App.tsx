@@ -6,6 +6,7 @@ import { Nav } from './components/Nav'
 import { PadEditOverlay } from './components/PadEditOverlay'
 import { PadsPage } from './components/PadsPage'
 import { PlayBar } from './components/PlayBar'
+import { PlaythroughToggle } from './components/PlaythroughToggle'
 import { RecordFAB } from './components/RecordFAB'
 import { RecordingReviewOverlay } from './components/RecordingReviewOverlay'
 import type { PendingRecording } from './components/RecordingReview'
@@ -69,6 +70,7 @@ function Shell() {
             principle for those two. */}
         {editingPadId === null && <GridModeButton />}
         <MetronomeButton />
+        <PlaythroughToggle />
         <RecordFAB
           sampleCount={Object.keys(state.samples).length}
           onRecorded={setPendingRecording}

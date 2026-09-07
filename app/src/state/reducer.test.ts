@@ -10,6 +10,7 @@ function makeSample(id: string): Sample {
     label: id,
     buffer: {} as AudioBuffer,
     recordedAt: 0,
+    kind: 'recording',
     peaks: [],
   }
 }
@@ -200,6 +201,20 @@ describe('reducer', () => {
     const backToLoop = reducer(instrumentOn, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
     expect(backToLoop.transport.padLoopModeEnabled).toBe(true)
     expect(backToLoop.transport.padInstrumentModeEnabled).toBe(false)
+  })
+
+  it('toggles playthrough recording independently of loop/instrument mode', () => {
+    const state = createInitialState(1)
+    expect(state.transport.playthroughRecordingEnabled).toBe(false)
+
+    const loopOn = reducer(state, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
+    const playthroughOn = reducer(loopOn, {
+      type: 'SET_PLAYTHROUGH_RECORDING_ENABLED',
+      enabled: true,
+    })
+    expect(playthroughOn.transport.playthroughRecordingEnabled).toBe(true)
+    // Not mutually exclusive with the grid mode — loop mode stays on.
+    expect(playthroughOn.transport.padLoopModeEnabled).toBe(true)
   })
 
   it('toggles the metronome', () => {

@@ -1,6 +1,5 @@
 import { DEFAULT_BPM, EFFECT_IDS, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
-import type { PerformanceHit } from './bounce'
 import {
   buildGritCurve,
   dialToDetuneCents,
@@ -69,11 +68,11 @@ export class AudioEngine {
    */
   private loopEpoch: number | null = null
 
-  /** True while the record FAB is capturing a performance instead of the mic — see startPerformanceCapture. */
-  private capturing = false
-  /** Wall-clock (performance.now()) reference point for offsetting captured hits — not audio-clock time, since capture can start before any AudioContext resume completes. */
-  private captureStartMs = 0
-  private captureHits: PerformanceHit[] = []
+  /** Every playback node routes through this instead of ctx.destination directly, so a playthrough recording (see startPlaythroughRecording) can tap the same signal everything else hears. */
+  private masterBus: GainNode | null = null
+  private recordTap: MediaStreamAudioDestinationNode | null = null
+  private playthroughRecorder: MediaRecorder | null = null
+  private playthroughChunks: Blob[] = []
 
   /**
    * Subscribe to changes in engine-side playback state (which pads are looping,
@@ -124,6 +123,16 @@ export class AudioEngine {
       void this.ctx.resume()
     }
     return this.ctx
+  }
+
+  /** Lazily-created hub every playback node connects to instead of ctx.destination directly. */
+  private getMasterBus(): GainNode {
+    const ctx = this.getContext()
+    if (!this.masterBus) {
+      this.masterBus = ctx.createGain()
+      this.masterBus.connect(ctx.destination)
+    }
+    return this.masterBus
   }
 
   async decodeSample(data: ArrayBuffer): Promise<AudioBuffer> {
@@ -179,15 +188,16 @@ export class AudioEngine {
     feedback.gain.value = echoParams.feedback
     wet.gain.value = echoParams.wetMix
 
+    const masterBus = this.getMasterBus()
     source.connect(filter)
     filter.connect(shaper)
     shaper.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(masterBus)
     gain.connect(delay)
     delay.connect(feedback)
     feedback.connect(delay)
     delay.connect(wet)
-    wet.connect(ctx.destination)
+    wet.connect(masterBus)
 
     this.markStarted(padId)
     this.activeSources.add(source)
@@ -372,7 +382,34 @@ export class AudioEngine {
     nodes.source.loopEnd = window.loopEnd
   }
 
-  /** A short synthetic click for the metronome — no sample/asset needed. */
+  /**
+   * A bare, effects-free looping preview of a not-yet-committed recording —
+   * used by RecordingReview so you can hear what you just recorded, looped,
+   * while deciding whether to keep it. Connects straight to ctx.destination
+   * (like the metronome) rather than the master bus: a preview is monitoring,
+   * not part of the project, so it shouldn't bleed into a playthrough
+   * recording running at the same time. Tracked in activeSources so the
+   * panic "stop all sounds" button can also silence it.
+   */
+  previewLoop(buffer: AudioBuffer): AudioBufferSourceNode {
+    const ctx = this.getContext()
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.loop = true
+    source.connect(ctx.destination)
+    this.activeSources.add(source)
+    source.onended = () => this.activeSources.delete(source)
+    source.start()
+    return source
+  }
+
+  /**
+   * A short synthetic click for the metronome — no sample/asset needed.
+   * Deliberately connects straight to ctx.destination, not the master bus: a
+   * click track is a monitoring aid for the performer, not part of the beat
+   * itself, so a playthrough recording (which taps the master bus) should
+   * never pick it up.
+   */
   playMetronomeClick(time: number, accent: boolean): void {
     const ctx = this.getContext()
     const osc = ctx.createOscillator()
@@ -399,66 +436,61 @@ export class AudioEngine {
   }
 
   /**
+   * "Playthrough recording" (see RecordFAB / the transport toggle): instead of
+   * recording from the microphone, holding the record FAB captures whatever's
+   * actually audible from the app itself for the duration of the hold — every
+   * currently-looping pad plus every manual tap/gate, mixed exactly as heard,
+   * regardless of which pad-grid mode is active. Taps the master bus with a
+   * MediaStreamAudioDestinationNode and records that stream with MediaRecorder
+   * — the same mechanism useRecorder.ts already uses for the mic, just fed a
+   * synthetic Web Audio stream instead of getUserMedia, so it needs no
+   * microphone permission at all.
+   */
+  startPlaythroughRecording(): void {
+    const ctx = this.getContext()
+    const masterBus = this.getMasterBus()
+    const recordTap = ctx.createMediaStreamDestination()
+    masterBus.connect(recordTap)
+    this.recordTap = recordTap
+    this.playthroughChunks = []
+
+    const recorder = new MediaRecorder(recordTap.stream)
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) this.playthroughChunks.push(event.data)
+    }
+    recorder.start()
+    this.playthroughRecorder = recorder
+  }
+
+  stopPlaythroughRecording(): Promise<ArrayBuffer> {
+    return new Promise((resolve) => {
+      const recorder = this.playthroughRecorder
+      if (!recorder) {
+        resolve(new ArrayBuffer(0))
+        return
+      }
+      recorder.onstop = () => {
+        void (async () => {
+          const blob = new Blob(this.playthroughChunks, { type: recorder.mimeType })
+          const arrayBuffer = await blob.arrayBuffer()
+          if (this.recordTap) this.masterBus?.disconnect(this.recordTap)
+          this.recordTap = null
+          this.playthroughRecorder = null
+          this.playthroughChunks = []
+          resolve(arrayBuffer)
+        })()
+      }
+      recorder.stop()
+    })
+  }
+
+  /**
    * The panic-stop button's action: silences everything currently audible —
    * every looping pad, every in-flight one-shot (a manual tap, a sequencer hit,
    * a long recording still playing out), all at once. Deliberately stops
    * `activeSources` directly rather than just `loopingNodes`, since a one-shot
    * source is never itself stoppable any other way once started.
    */
-  isCapturingPerformance(): boolean {
-    return this.capturing
-  }
-
-  /**
-   * Instrument mode's alternative to mic recording (see RecordFAB): while the
-   * record FAB is held, pad presses are logged instead of audio being captured
-   * from the microphone, then bounced offline into a single sample — see
-   * engine/bounce.ts. Uses wall-clock time, not the audio context's clock, so
-   * capture can start the instant the FAB is pressed without waiting on the
-   * context to resume.
-   */
-  startPerformanceCapture(): void {
-    this.capturing = true
-    this.captureStartMs = performance.now()
-    this.captureHits = []
-  }
-
-  stopPerformanceCapture(): PerformanceHit[] {
-    this.capturing = false
-    const hits = this.captureHits
-    this.captureHits = []
-    return hits
-  }
-
-  /** Seconds since capture started — call on press to timestamp a hit's offset. */
-  performanceElapsedSeconds(): number {
-    return (performance.now() - this.captureStartMs) / 1000
-  }
-
-  /**
-   * Logs one pad press for the in-progress performance capture. No-op if
-   * capture isn't active — callers can call this unconditionally on every
-   * press without checking isCapturingPerformance() themselves first, though
-   * they still need it to know whether to timestamp an offset in the first place.
-   */
-  logPerformanceHit(
-    pad: Pad,
-    buffer: AudioBuffer,
-    offsetSeconds: number,
-    durationSeconds: number | null,
-  ): void {
-    if (!this.capturing) return
-    this.captureHits.push({
-      padId: pad.id,
-      buffer,
-      effects: effectiveEffects(pad),
-      trimStart: pad.trimStart,
-      trimEnd: pad.trimEnd,
-      offsetSeconds,
-      durationSeconds,
-    })
-  }
-
   stopAllSounds(): void {
     this.loopingNodes.clear()
     for (const source of Array.from(this.activeSources)) {

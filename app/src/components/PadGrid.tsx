@@ -6,6 +6,7 @@ import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Instrument, Pad } from '../state/types'
+import { StaticWaveform } from './Waveform'
 
 /**
  * How long a press has to be held before it's treated as "gating" the sound
@@ -102,15 +103,11 @@ function PadButton({
   const looping = usePadLooping(engine, pad.id)
   const playing = usePadPlaying(engine, pad.id)
   const filled = pad.sampleId !== null
+  const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
 
   const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const gatedRef = useRef(false)
   const gateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Set on press only while a performance is being captured (see RecordFAB /
-  // AudioEngine.startPerformanceCapture) — null the rest of the time, so
-  // finishPress() knows whether there's anything to log on release.
-  const downAtMsRef = useRef(0)
-  const captureOffsetRef = useRef<number | null>(null)
 
   const clearGateTimer = () => {
     if (gateTimerRef.current !== null) {
@@ -140,26 +137,6 @@ function PadButton({
     gateTimerRef.current = setTimeout(() => {
       gatedRef.current = true
     }, GATE_HOLD_THRESHOLD_MS)
-
-    downAtMsRef.current = performance.now()
-    captureOffsetRef.current = engine.isCapturingPerformance()
-      ? engine.performanceElapsedSeconds()
-      : null
-  }
-
-  // Logs this press as a performance hit, if a capture is in progress —
-  // shared by pointerup and pointercancel, since a dropped gesture is still
-  // an audible hit worth keeping in the recording.
-  const finishCapture = () => {
-    if (captureOffsetRef.current === null || !pad.sampleId) return
-    const sample = state.samples[pad.sampleId]
-    if (sample) {
-      const durationSeconds = gatedRef.current
-        ? (performance.now() - downAtMsRef.current) / 1000
-        : null
-      engine.logPerformanceHit(pad, sample.buffer, captureOffsetRef.current, durationSeconds)
-    }
-    captureOffsetRef.current = null
   }
 
   const handlePointerUp = () => {
@@ -185,7 +162,6 @@ function PadButton({
       }
     }
     activeSourceRef.current = null
-    finishCapture()
     gatedRef.current = false
   }
 
@@ -202,7 +178,6 @@ function PadButton({
       }
     }
     activeSourceRef.current = null
-    finishCapture()
     gatedRef.current = false
   }
 
@@ -231,6 +206,11 @@ function PadButton({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
+      {sample && sample.peaks.length > 0 && (
+        <span className="pad-waveform-backdrop" aria-hidden="true">
+          <StaticWaveform peaks={sample.peaks} color={contrastingTextColor(pad.color)} />
+        </span>
+      )}
       <span className="pad-index">{index + 1}</span>
       {instrumentKeyNumber !== undefined && (
         <span className="pad-instrument-badge" aria-hidden="true">
