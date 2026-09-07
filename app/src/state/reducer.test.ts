@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BPM_MAX, BPM_MIN, EFFECT_MAX, EFFECT_MIN } from './constants'
+import { BPM_MAX, BPM_MIN, EFFECT_MAX, EFFECT_MIN, MIN_TRIM_GAP } from './constants'
 import { createInitialState } from './defaults'
 import { reducer } from './reducer'
 import type { Sample } from './types'
@@ -30,6 +30,45 @@ describe('reducer', () => {
     expect(afterAssign.samples[sample.id]).toBe(sample)
     expect(afterAssign.pads[0]!.sampleId).toBe(sample.id)
     expect(afterAssign.sampleOrder).toEqual([sample.id])
+  })
+
+  it('resets a pad trim to (0, 1) whenever a sample is (re)assigned', () => {
+    const state = createInitialState(1)
+    const padId = state.pads[0]!.id
+    const sample = makeSample('s1')
+
+    let next = reducer(state, { type: 'ADD_SAMPLE', sample })
+    next = reducer(next, { type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId: sample.id })
+    next = reducer(next, { type: 'SET_PAD_TRIM', padId, trimStart: 0.2, trimEnd: 0.8 })
+    expect(next.pads[0]!.trimStart).toBe(0.2)
+    expect(next.pads[0]!.trimEnd).toBe(0.8)
+
+    const second = makeSample('s2')
+    next = reducer(next, { type: 'ADD_SAMPLE', sample: second })
+    next = reducer(next, { type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId: second.id })
+    expect(next.pads[0]!.trimStart).toBe(0)
+    expect(next.pads[0]!.trimEnd).toBe(1)
+  })
+
+  it('clamps pad trim and keeps at least MIN_TRIM_GAP between start and end', () => {
+    const state = createInitialState(1)
+    const padId = state.pads[0]!.id
+
+    const collapsed = reducer(state, { type: 'SET_PAD_TRIM', padId, trimStart: 0.5, trimEnd: 0.5 })
+    expect(collapsed.pads[0]!.trimEnd - collapsed.pads[0]!.trimStart).toBeCloseTo(MIN_TRIM_GAP)
+
+    const outOfRange = reducer(state, { type: 'SET_PAD_TRIM', padId, trimStart: -1, trimEnd: 2 })
+    expect(outOfRange.pads[0]!.trimStart).toBe(0)
+    expect(outOfRange.pads[0]!.trimEnd).toBe(1)
+
+    const endPushedPastOne = reducer(state, {
+      type: 'SET_PAD_TRIM',
+      padId,
+      trimStart: 0.99,
+      trimEnd: 1.5,
+    })
+    expect(endPushedPastOne.pads[0]!.trimEnd).toBe(1)
+    expect(endPushedPastOne.pads[0]!.trimStart).toBeCloseTo(1 - MIN_TRIM_GAP)
   })
 
   it('reassigning a pad does not delete the previous sample from the library', () => {

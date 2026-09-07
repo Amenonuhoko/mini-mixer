@@ -12,6 +12,11 @@ export function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+/** Thin wrapper so `Date.now()` — impure — isn't called directly from component bodies. */
+export function timestampNow(): number {
+  return Date.now()
+}
+
 export function createNeutralEffects(): EffectSetting[] {
   return EFFECT_IDS.map((id) => ({ id, value: NEUTRAL_EFFECT_VALUE }))
 }
@@ -20,8 +25,9 @@ export function createPad(index: number): Pad {
   return {
     id: createId('pad'),
     sampleId: null,
-    loop: false,
     muted: false,
+    trimStart: 0,
+    trimEnd: 1,
     // Modulo guarantees this index is in bounds; the palette is a fixed, non-empty array.
     color: PAD_COLOR_PALETTE[index % PAD_COLOR_PALETTE.length]!,
     icon: String(index + 1),

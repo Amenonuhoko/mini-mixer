@@ -59,7 +59,13 @@ function PadButton({ pad, index, engine, selected, onSelect }: PadButtonProps) {
 
   const handleToggleLoop = (event: React.MouseEvent) => {
     event.stopPropagation()
-    dispatch({ type: 'SET_PAD_LOOP', padId: pad.id, loop: !pad.loop })
+    if (!pad.sampleId) return
+    // Stopping an already-looping pad is always allowed; starting a new loop
+    // on a muted pad isn't, same as tapping the pad body while muted.
+    if (pad.muted && !looping) return
+    const sample = state.samples[pad.sampleId]
+    if (!sample) return
+    engine.toggleLoop(pad, sample.buffer)
   }
 
   const handleToggleMute = (event: React.MouseEvent) => {
@@ -99,10 +105,10 @@ function PadButton({ pad, index, engine, selected, onSelect }: PadButtonProps) {
         {pad.muted ? <MutedGlyph /> : <UnmutedGlyph />}
       </span>
       <span
-        className={pad.loop ? 'loop-toggle on' : 'loop-toggle'}
+        className={looping ? 'loop-toggle on' : 'loop-toggle'}
         role="switch"
-        aria-checked={pad.loop}
-        aria-label={pad.loop ? 'Stop this pad looping on tap' : 'Make this pad loop on tap'}
+        aria-checked={looping}
+        aria-label={looping ? 'Stop looping this pad' : 'Start looping this pad'}
         onClick={handleToggleLoop}
       >
         <LoopGlyph />

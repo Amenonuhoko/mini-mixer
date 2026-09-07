@@ -1,0 +1,118 @@
+import { useState } from 'react'
+import { useAppState } from '../state/AppStateContext'
+import { createId, timestampNow } from '../state/defaults'
+import { contrastingTextColor } from '../utils/color'
+import { StaticWaveform } from './Waveform'
+
+export interface PendingRecording {
+  label: string
+  buffer: AudioBuffer
+  peaks: number[]
+}
+
+interface RecordingReviewProps {
+  recording: PendingRecording
+  onDone: () => void
+}
+
+/**
+ * Shown right after a recording stops. The recording is NOT yet in
+ * AppState.samples — it only gets added when the user actually decides to
+ * keep it (assign to a pad, or "keep in library only"). Discarding just
+ * clears local state and calls onDone; the reducer is never touched, so a
+ * throwaway take never clutters the library even momentarily.
+ */
+export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
+  const { state, dispatch } = useAppState()
+  const [confirmPadId, setConfirmPadId] = useState<string | null>(null)
+  const [label, setLabel] = useState(recording.label)
+  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+
+  const commit = (): string => {
+    const id = createId('sample')
+    dispatch({
+      type: 'ADD_SAMPLE',
+      sample: {
+        id,
+        label: label.trim() || recording.label,
+        buffer: recording.buffer,
+        recordedAt: timestampNow(),
+        peaks: recording.peaks,
+      },
+    })
+    return id
+  }
+
+  const assign = (padId: string) => {
+    const sampleId = commit()
+    dispatch({ type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId })
+    onDone()
+  }
+
+  const handlePadClick = (padId: string, occupied: boolean) => {
+    if (occupied) {
+      setConfirmPadId(padId)
+    } else {
+      assign(padId)
+    }
+  }
+
+  const handleKeepInLibrary = () => {
+    commit()
+    onDone()
+  }
+
+  return (
+    <div className="panel assign-prompt" role="dialog" aria-label="Review the recording">
+      <StaticWaveform peaks={recording.peaks} color="#6c5ce7" />
+      <label className="assign-prompt-name-label" htmlFor="recording-review-name">
+        Name it
+      </label>
+      <input
+        id="recording-review-name"
+        type="text"
+        className="assign-prompt-name"
+        value={label}
+        onChange={(event) => setLabel(event.target.value)}
+      />
+      <p>Assign to a pad:</p>
+      <div className="pad-picker">
+        {visiblePads.map((pad, index) => {
+          const occupied = pad.sampleId !== null
+          return (
+            <button
+              key={pad.id}
+              type="button"
+              className="pad-swatch"
+              style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
+              onClick={() => handlePadClick(pad.id, occupied)}
+              title={occupied ? 'Already has a sound — tap to replace' : 'Empty'}
+            >
+              {index + 1}
+              {occupied ? ' •' : ''}
+            </button>
+          )
+        })}
+      </div>
+      {confirmPadId && (
+        <div className="confirm-overwrite">
+          <p>That pad already has a sound. Replace it?</p>
+          <button type="button" className="btn btn-danger" onClick={() => assign(confirmPadId)}>
+            Replace
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirmPadId(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
+      <div className="review-actions">
+        <button type="button" className="btn btn-secondary" onClick={handleKeepInLibrary}>
+          Keep in library only
+        </button>
+        <button type="button" className="btn btn-ghost-danger" onClick={onDone}>
+          Discard recording
+        </button>
+      </div>
+    </div>
+  )
+}

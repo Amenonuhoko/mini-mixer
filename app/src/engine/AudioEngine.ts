@@ -1,5 +1,6 @@
 import type { EffectId, EffectSetting, Pad } from '../state/types'
 import { dialToDetuneCents, dialToFilterParams, dialToPlaybackRate } from './dialMapping'
+import { trimToPlaybackWindow } from './trim'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
   return effects.find((effect) => effect.id === id)?.value ?? 0
@@ -88,6 +89,7 @@ export class AudioEngine {
     padId: string,
     buffer: AudioBuffer,
     effects: EffectSetting[],
+    trim: { trimStart: number; trimEnd: number },
     options: { loop: boolean; startTime?: number },
   ): PlayingNodes {
     const ctx = this.getContext()
@@ -108,33 +110,61 @@ export class AudioEngine {
     this.markStarted(padId)
     source.onended = () => this.markEnded(padId)
 
-    source.start(options.startTime ?? ctx.currentTime)
+    const startTime = options.startTime ?? ctx.currentTime
+    const window = trimToPlaybackWindow(trim.trimStart, trim.trimEnd, buffer.duration)
+    if (options.loop) {
+      source.loopStart = window.loopStart
+      source.loopEnd = window.loopEnd
+      source.start(startTime, window.offset)
+    } else {
+      source.start(startTime, window.offset, window.duration)
+    }
     return { source, filter }
   }
 
   /**
-   * Trigger a pad's sample from a manual tap/click. Looping pads toggle: a second
-   * call while already looping stops it. One-shot pads always layer freely — each
-   * call fires a new, independent, overlapping playback instance.
+   * Trigger a pad's sample from a manual tap/click — always a one-shot. Layers
+   * freely: each call fires a new, independent, overlapping playback instance,
+   * whether or not the pad is also currently looping via toggleLoop.
    */
   triggerPad(pad: Pad, buffer: AudioBuffer): void {
-    if (pad.loop && this.isPadLooping(pad.id)) {
+    this.playBuffer(
+      pad.id,
+      buffer,
+      pad.effects,
+      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
+      { loop: false },
+    )
+  }
+
+  /**
+   * The loop button's action: start a continuous loop of this pad if it isn't
+   * already looping, or stop it if it is. Deliberately separate from
+   * triggerPad — tapping the pad body always plays it once; this is the only
+   * way looping starts or stops, so the button's own visual state (driven by
+   * isPadLooping) is always literally true.
+   */
+  toggleLoop(pad: Pad, buffer: AudioBuffer): void {
+    if (this.isPadLooping(pad.id)) {
       this.stopPad(pad.id)
       return
     }
 
-    const nodes = this.playBuffer(pad.id, buffer, pad.effects, { loop: pad.loop })
-
-    if (pad.loop) {
-      this.loopingNodes.set(pad.id, nodes)
-      this.notify()
-      const { source } = nodes
-      source.onended = () => {
-        this.markEnded(pad.id)
-        if (this.loopingNodes.get(pad.id)?.source === source) {
-          this.loopingNodes.delete(pad.id)
-          this.notify()
-        }
+    const nodes = this.playBuffer(
+      pad.id,
+      buffer,
+      pad.effects,
+      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
+      { loop: true },
+    )
+    this.loopingNodes.set(pad.id, nodes)
+    this.notify()
+    const { source } = nodes
+    source.onended = () => {
+      this.markEnded(pad.id)
+      if (this.loopingNodes.get(pad.id)?.source === source) {
+        this.loopingNodes.delete(pad.id)
+        this.notify()
       }
     }
   }
@@ -173,14 +203,34 @@ export class AudioEngine {
 
   /**
    * Fire a single sequencer step hit for a pad, scheduled at a precise audio-clock
-   * time (from the lookahead Scheduler). Always a one-shot, regardless of the pad's
-   * manual loop-toggle setting — a 16-step grid re-firing an indefinite loop on every
-   * active step would be incoherent. The loop toggle governs manual "hold a continuous
-   * layer" performance use only, not programmed steps. Layers freely like any other
-   * retrigger, so it's untouched by manual play/stop state on the same pad.
+   * time (from the lookahead Scheduler). Always a one-shot — a 16-step grid
+   * re-firing an indefinite loop on every active step would be incoherent.
+   * toggleLoop's continuous layer is a separate, manual performance action,
+   * untouched by programmed steps. Layers freely like any other retrigger.
    */
   triggerStep(pad: Pad, buffer: AudioBuffer, time: number): void {
-    this.playBuffer(pad.id, buffer, pad.effects, { loop: false, startTime: time })
+    this.playBuffer(
+      pad.id,
+      buffer,
+      pad.effects,
+      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
+      { loop: false, startTime: time },
+    )
+  }
+
+  /**
+   * Live-update the trim window on a pad that's currently looping — `loopStart`/
+   * `loopEnd` are plain settable properties on an already-playing source (unlike
+   * `offset`/`duration`, which are only meaningful at `.start()` time), so this
+   * takes effect on the source's next pass through the loop with no restart.
+   */
+  updateLoopingPadTrim(padId: string, trimStart: number, trimEnd: number): void {
+    const nodes = this.loopingNodes.get(padId)
+    const buffer = nodes?.source.buffer
+    if (!nodes || !buffer) return
+    const window = trimToPlaybackWindow(trimStart, trimEnd, buffer.duration)
+    nodes.source.loopStart = window.loopStart
+    nodes.source.loopEnd = window.loopEnd
   }
 
   /** A short synthetic click for the metronome — no sample/asset needed. */

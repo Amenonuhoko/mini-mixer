@@ -19,6 +19,9 @@ export const EFFECT_STEP = 25
 
 export const EFFECT_IDS = ['pitch', 'speed', 'filter'] as const
 
+/** Trim handles can't collapse closer than this (fraction of the sample's duration). */
+export const MIN_TRIM_GAP = 0.02
+
 /** Cycled through as pads are created, so each pad gets a stable, distinct identity. */
 export const PAD_COLOR_PALETTE = [
   '#ef4444',

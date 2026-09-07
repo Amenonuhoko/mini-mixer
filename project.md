@@ -31,7 +31,8 @@ These are load-bearing decisions made deliberately so the base doesn't need to b
 
 ### Pad Playback Behavior
 
-- **Looping pads**: tap to start, tap again to stop (same gesture toggles). One-shot pads always play to completion regardless of taps.
+- **Pad body tap: always a one-shot.** Tapping the pad itself always just plays it once, full stop — no mode, no toggle, always the same behavior. Looping is a separate, explicit action.
+- **Loop button: starts or stops a loop directly, in one tap.** A dedicated loop control on each pad — not tap to start then a separate tap on the pad body to stop. Tap it once while not looping and the pad starts looping immediately; tap it again and it stops. Its visual on/off state is driven directly by whether the pad is actually looping right now, not a separately-stored preference — there's nothing else it could mean. (This replaced an earlier design where a pad had a persisted `loop` mode that changed what tapping the pad body did — confusing in practice, since you had to remember which mode a pad was in. Looping is now purely a live, momentary engine state, not app data.)
 - **Retriggering a one-shot pad**: layers freely — each tap fires a new overlapping playback instance, standard sampler behavior. This is also what naturally happens when a manual tap coincides with a sequencer step firing the same pad; no special-casing needed.
 - **Shrinking pad count**: purely a display/trigger-surface control. Data for pads above the new count is retained in state, not deleted, and reappears if the count is grown back. (No confirmation dialog needed since nothing is actually discarded — this only applies to pad *slots*; explicitly deleting a sample from the library or clearing a pad is a separate, deliberate action.)
 - **Mute**: independent of loop and of having a sample assigned — a muted pad produces no sound at all, from a manual tap or a sequencer step, without losing its sample assignment or its programmed steps. Visually dimmed so it's clear why tapping it does nothing. Distinct from "empty" (no sample) and from clearing a pad's data.
@@ -48,6 +49,7 @@ These are load-bearing decisions made deliberately so the base doesn't need to b
 - Tempo: adjustable BPM dial for the sequencer (range 40–240).
 - **Metronome**: an optional synthesized click (no sample/asset — a short oscillator blip) on quarter-note beats, accented on the pattern's downbeat, toggled independently of the pads.
 - Every slider in the app earns its place as a slider (BPM, the three dials) — continuous ranges where fine control matters. Discrete, coarse, rarely-adjusted settings (pad count) use a stepper (−/+ buttons) instead, since a slider is the wrong control for "occasionally nudge an integer between 1 and 16."
+- Every dial (and the trim control) has a tap-to-open info icon explaining what it does — tap, not hover, since hover doesn't exist on the phone this app targets.
 
 ## Layout
 
@@ -77,11 +79,15 @@ interface Sample {
 interface Pad {
   id: string;
   sampleId: string | null;   // reference into the library, not ownership
-  loop: boolean;
-  muted: boolean;            // silences taps and sequencer steps alike, independent of loop/sample
+  // No `loop: boolean` here — whether a pad is looping is live engine state
+  // (AudioEngine.isPadLooping), not a persisted mode. Tapping the pad body
+  // always plays a one-shot; the loop button starts/stops an actual loop.
+  muted: boolean;            // silences taps and sequencer steps alike, independent of sample
   color: string;             // assigned at pad creation, stable identity
   icon: string;
   effects: EffectSetting[];  // ordered list, not fixed fields
+  trimStart: number;         // 0-1, non-destructive playback window into the sample
+  trimEnd: number;           // resets to (0, 1) whenever a different sample is assigned
 }
 
 interface Pattern {
@@ -155,8 +161,9 @@ interface AppState {
 
 - Mic input captured via `MediaRecorder` API, converted to an `AudioBuffer` and stored in the library, not directly on a pad.
 - A pad holds a reference (`sampleId`) to one library entry; reassigning a pad changes the reference only — the library entry persists and can be reused by other pads.
-- No trimming/editing UI planned — snippet is used as recorded (can add later if needed).
+- **Trim, per pad, non-destructive.** Each pad has its own trim window (`trimStart`/`trimEnd`, as fractions 0-1 of the sample's duration) into whichever library sample it references — dragged directly on a waveform display. The underlying recording is never altered; trim is purely a playback window applied via `AudioBufferSourceNode`'s native `offset`/`duration` (one-shot) or `loopStart`/`loopEnd` (looping) parameters, not by slicing/copying buffer data. Because it's per-pad rather than per-sample, the same recording can be trimmed differently on different pads — chopping one longer take across multiple pads, the way a hardware sampler's "chop" feature works. Resets to the full sample whenever a different sample is (re)assigned to that pad, since an old trim window has no correct meaning on a new recording's waveform.
 - Playback rate, pitch (detune), and filter effects applied via Web Audio nodes at trigger time, not baked into the buffer — so the same library sample can sound different on different pads.
+- A recording is not added to the library until you decide to keep it — "Discard recording" clears it without ever touching app state, so a bad take never clutters the library, even momentarily. "Keep in library only" or assigning it to a pad both commit it.
 
 ## Testing
 
@@ -184,14 +191,18 @@ interface AppState {
 - No max length, stop whenever you tap stop.
 - Live waveform/level display while recording for visual feedback.
 
-### Step 3 — Assigning to a pad
+### Step 3 — Reviewing, naming, and assigning (or discarding)
 
-- After recording stops, you're prompted to choose which pad to assign the snippet to (or skip and leave it in the library for later).
+- After recording stops, you see a waveform preview and a name field, and you're prompted to choose which pad to assign it to (or "keep in library only," or discard it entirely).
+- The recording isn't added to the library until you choose to keep it — discarding never touches the library, even briefly.
 - If the chosen pad already has a sample assigned, you're asked to confirm before its reference is replaced — the old sample isn't deleted, just unassigned from that pad.
 
 ### Step 4 — Testing a pad / dials
 
+- Tapping a pad body always just plays it once. A separate loop button on the pad starts or stops a continuous loop, in one tap each way.
 - Each dial is a slider (-100..100, snapping to 25-point anchors) with its signed value shown alongside — e.g. "+50", not "75%", so it's clear which direction and how far from neutral you are.
+- Drag the trim handles on the waveform to choose which part of the recording this pad plays — non-destructive, and independent per pad even when pads share a sample.
+- A small tap-to-open info icon next to each dial and the trim control explains what it does.
 - Per-pad reset button to snap all dials back to neutral (0, no change) in one click.
 
 ### Step 5 — Building a rhythm

@@ -4,31 +4,28 @@ import { useRecorder } from '../hooks/useRecorder'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { computePeaks } from '../utils/waveform'
-import { PadAssignPrompt } from './PadAssignPrompt'
+import { RecordingReview, type PendingRecording } from './RecordingReview'
 import { LiveWaveform } from './Waveform'
 
 const WAVEFORM_BUCKETS = 80
 
 export function Recorder() {
-  const { state, dispatch } = useAppState()
+  const { state } = useAppState()
   const engine = useEngine()
   const { isRecording, error, analyserRef, start, stop } = useRecorder()
   const elapsed = useElapsedSeconds(isRecording)
-  const [pendingSample, setPendingSample] = useState<{ id: string; label: string } | null>(null)
+  const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
 
   const handleToggle = () => {
     if (isRecording) {
       void stop().then(async (arrayBuffer) => {
         if (arrayBuffer.byteLength === 0) return
         const buffer = await engine.decodeSample(arrayBuffer)
-        const id = `sample_${Math.random().toString(36).slice(2, 10)}`
-        const label = `Sample ${Object.keys(state.samples).length + 1}`
         const peaks = computePeaks(buffer, WAVEFORM_BUCKETS)
-        dispatch({
-          type: 'ADD_SAMPLE',
-          sample: { id, label, buffer, recordedAt: Date.now(), peaks },
-        })
-        setPendingSample({ id, label })
+        const label = `Sample ${Object.keys(state.samples).length + 1}`
+        // Not added to the library yet — RecordingReview only commits it if
+        // the user chooses to keep it, so a discarded take never touches state.
+        setPendingRecording({ label, buffer, peaks })
       })
     } else {
       void start()
@@ -51,12 +48,8 @@ export function Recorder() {
       </div>
       {isRecording && <LiveWaveform analyserRef={analyserRef} active={isRecording} />}
       {error && <p className="error-text">{error}</p>}
-      {pendingSample && (
-        <PadAssignPrompt
-          sampleId={pendingSample.id}
-          sampleLabel={pendingSample.label}
-          onDone={() => setPendingSample(null)}
-        />
+      {pendingRecording && (
+        <RecordingReview recording={pendingRecording} onDone={() => setPendingRecording(null)} />
       )}
     </section>
   )

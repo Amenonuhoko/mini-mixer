@@ -15,16 +15,31 @@ export interface Sample {
   peaks: number[]
 }
 
+/**
+ * Deliberately no `loop: boolean` here — "is this pad currently looping" is
+ * ephemeral playback state (AudioEngine.isPadLooping), not a persisted mode.
+ * A pad body tap always plays a one-shot; the dedicated loop button starts/stops
+ * an actual loop as an action, so there's nothing to persist between loads.
+ */
 export interface Pad {
   id: string
   /** Reference into AppState.samples; the pad does not own the buffer. */
   sampleId: string | null
-  loop: boolean
   /** Silences the pad entirely — manual taps and sequencer steps alike — without losing its sample or pattern. */
   muted: boolean
   color: string
   icon: string
   effects: EffectSetting[]
+  /**
+   * Non-destructive trim window into the assigned sample, as fractions (0-1) of
+   * its duration — not stored in seconds, so it stays meaningful if the sample is
+   * ever re-decoded, and resets to (0, 1) whenever a different sample is assigned
+   * (a trim on the old recording's waveform has no correct meaning on a new one).
+   * Two pads can reference the same sample with different trims — this is what
+   * makes chopping one long recording across multiple pads possible.
+   */
+  trimStart: number
+  trimEnd: number
 }
 
 export interface Pattern {

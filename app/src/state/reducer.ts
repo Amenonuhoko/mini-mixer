@@ -1,4 +1,12 @@
-import { BPM_MIN, BPM_MAX, EFFECT_MAX, EFFECT_MIN, MIN_PAD_COUNT, STEP_COUNT } from './constants'
+import {
+  BPM_MIN,
+  BPM_MAX,
+  EFFECT_MAX,
+  EFFECT_MIN,
+  MIN_PAD_COUNT,
+  MIN_TRIM_GAP,
+  STEP_COUNT,
+} from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
 import type { AppState, EffectId, LoopMode, Pattern, Sample } from './types'
 
@@ -8,10 +16,10 @@ export type Action =
   | { type: 'RENAME_SAMPLE'; sampleId: string; label: string }
   | { type: 'MOVE_SAMPLE'; sampleId: string; direction: 'up' | 'down' }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
-  | { type: 'SET_PAD_LOOP'; padId: string; loop: boolean }
   | { type: 'SET_PAD_MUTED'; padId: string; muted: boolean }
   | { type: 'SET_PAD_EFFECT'; padId: string; effectId: EffectId; value: number }
   | { type: 'RESET_PAD_EFFECTS'; padId: string }
+  | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
   | { type: 'SET_BPM'; bpm: number }
@@ -92,10 +100,14 @@ export function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'ASSIGN_SAMPLE_TO_PAD':
-      return updatePad(state, action.padId, (pad) => ({ ...pad, sampleId: action.sampleId }))
-
-    case 'SET_PAD_LOOP':
-      return updatePad(state, action.padId, (pad) => ({ ...pad, loop: action.loop }))
+      // Trim resets to the full sample — a trim window meaningful on the old
+      // recording's waveform has no correct meaning on a different one.
+      return updatePad(state, action.padId, (pad) => ({
+        ...pad,
+        sampleId: action.sampleId,
+        trimStart: 0,
+        trimEnd: 1,
+      }))
 
     case 'SET_PAD_MUTED':
       return updatePad(state, action.padId, (pad) => ({ ...pad, muted: action.muted }))
@@ -112,6 +124,14 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'RESET_PAD_EFFECTS':
       return updatePad(state, action.padId, (pad) => ({ ...pad, effects: createNeutralEffects() }))
+
+    case 'SET_PAD_TRIM': {
+      // Keeps end at least MIN_TRIM_GAP after start; if that would push end past
+      // 1, pulls start down instead of letting the window collapse to nothing.
+      const end = clamp(action.trimEnd, MIN_TRIM_GAP, 1)
+      const start = Math.min(clamp(action.trimStart, 0, 1), end - MIN_TRIM_GAP)
+      return updatePad(state, action.padId, (pad) => ({ ...pad, trimStart: start, trimEnd: end }))
+    }
 
     case 'TOGGLE_STEP':
       return updatePattern(state, action.patternId, (pattern) => {
