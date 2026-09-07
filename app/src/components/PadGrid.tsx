@@ -4,7 +4,6 @@ import { usePadPlaying } from '../hooks/usePadPlaying'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
-import { instrumentIcon } from '../utils/instrumentIcon'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Instrument, Pad } from '../state/types'
 
@@ -27,15 +26,16 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   const loopModeEnabled = state.transport.padLoopModeEnabled
   const instrumentModeEnabled = state.transport.padInstrumentModeEnabled
 
-  // Which instrument (by icon) each key sample belongs to, if any — built once
-  // per render rather than searching every instrument per pad. Shown whenever a
-  // pad holds one of these keys, regardless of whether instrument mode is on.
-  const sampleIcons = new Map<string, string>()
+  // Which key position (1-based, low to high) each key sample holds within its
+  // instrument, if any — built once per render rather than searching every
+  // instrument per pad. Shown whenever a pad holds one of these keys, regardless
+  // of whether instrument mode is currently on, so the grid reads as an ordered
+  // keyboard (not identical tiles) as soon as an instrument is applied.
+  const sampleKeyNumbers = new Map<string, number>()
   for (const instrumentId of state.instrumentOrder) {
     const instrument = state.instruments[instrumentId] as Instrument | undefined
     if (!instrument) continue
-    const icon = instrumentIcon(instrument)
-    for (const sampleId of instrument.keySampleIds) sampleIcons.set(sampleId, icon)
+    instrument.keySampleIds.forEach((sampleId, i) => sampleKeyNumbers.set(sampleId, i + 1))
   }
 
   return (
@@ -58,7 +58,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
             engine={engine}
             selected={pad.id === selectedPadId}
             loopModeEnabled={loopModeEnabled}
-            instrumentIcon={pad.sampleId ? sampleIcons.get(pad.sampleId) : undefined}
+            instrumentKeyNumber={pad.sampleId ? sampleKeyNumbers.get(pad.sampleId) : undefined}
             onSelect={onSelectPad}
           />
         ))}
@@ -73,14 +73,14 @@ interface PadButtonProps {
   engine: AudioEngine
   selected: boolean
   loopModeEnabled: boolean
-  /** Set when this pad's sample is a key of some instrument — shown as a small badge. */
-  instrumentIcon: string | undefined
+  /** Set to the key's 1-based position (low to high) when this pad's sample is an instrument key — shown as a small badge. */
+  instrumentKeyNumber: number | undefined
   onSelect: (padId: string) => void
 }
 
 /**
  * A pad is one undivided tap target. Its behavior depends on the global loop
- * mode toggle (see LoopModeButton): off (the default) — pressing plays the
+ * mode toggle (see GridModeButton): off (the default) — pressing plays the
  * sample, following your finger like a gate once you hold past a short
  * threshold (release cuts it off early), but a quick tap always plays
  * through in full, same as before this existed. On — pressing toggles this
@@ -95,7 +95,7 @@ function PadButton({
   engine,
   selected,
   loopModeEnabled,
-  instrumentIcon,
+  instrumentKeyNumber,
   onSelect,
 }: PadButtonProps) {
   const { state } = useAppState()
@@ -221,7 +221,10 @@ function PadButton({
         .join(' ')}
       style={{
         borderColor: pad.color,
-        background: filled ? pad.color : 'transparent',
+        // Empty pads keep a faint tint of their own color instead of a fully
+        // hollow outline — still reads as "nothing assigned" but doesn't look
+        // like a blank wireframe.
+        background: filled ? pad.color : `${pad.color}1f`,
         color: filled ? contrastingTextColor(pad.color) : undefined,
       }}
       onPointerDown={handlePointerDown}
@@ -229,12 +232,12 @@ function PadButton({
       onPointerCancel={handlePointerCancel}
     >
       <span className="pad-index">{index + 1}</span>
-      {instrumentIcon && (
+      {instrumentKeyNumber !== undefined && (
         <span className="pad-instrument-badge" aria-hidden="true">
-          {instrumentIcon}
+          {instrumentKeyNumber}
         </span>
       )}
-      {!filled && <span className="pad-empty-hint">empty</span>}
+      {!filled && <span className="pad-empty-hint">+</span>}
       {pad.muted && <span className="pad-muted-hint">muted</span>}
       {playing && (
         <span className="pad-eq" aria-hidden="true">

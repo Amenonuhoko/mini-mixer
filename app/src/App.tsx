@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { InstrumentModeButton } from './components/InstrumentModeButton'
+import { GridModeButton } from './components/GridModeButton'
 import { Library } from './components/Library'
-import { LoopModeButton } from './components/LoopModeButton'
 import { MetronomeButton } from './components/MetronomeButton'
 import { Nav } from './components/Nav'
 import { PadEditOverlay } from './components/PadEditOverlay'
@@ -63,13 +62,12 @@ function Shell() {
       {showPlayBar && <PlayBar />}
       <div className="fab-cluster">
         {/* The pad edit popup has its own pad-specific loop control (see the pad
-            switcher strip in PadEditPage) — the global mode toggles would be
-            redundant, even confusing, sitting right next to it, so they're the
-            two FABs hidden while it's open. Record and Metronome stay reachable
-            regardless, per the app's established "always reachable" principle
-            for those two. */}
-        {editingPadId === null && <LoopModeButton />}
-        {editingPadId === null && <InstrumentModeButton />}
+            switcher strip in PadEditPage) — the global mode button would be
+            redundant, even confusing, sitting right next to it, so it's the
+            one FAB hidden while the popup is open. Record and Metronome stay
+            reachable regardless, per the app's established "always reachable"
+            principle for those two. */}
+        {editingPadId === null && <GridModeButton />}
         <MetronomeButton />
         <RecordFAB
           sampleCount={Object.keys(state.samples).length}

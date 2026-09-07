@@ -12,7 +12,7 @@ import { PadLibraryPicker } from './PadLibraryPicker'
  * bar below the grid with four generously-sized actions — Mute, Effects,
  * Edit, and Library (see .selected-pad-actions, a plain 2x2 grid). Loop used
  * to live here too, but it's now driven by the global loop-mode toggle (see
- * LoopModeButton) — tapping a pad directly toggles its loop while that mode
+ * GridModeButton) — tapping a pad directly toggles its loop while that mode
  * is on, so a separate button for it here would be redundant. Effects is a
  * reversible bypass, not the Edit popup's "Reset dials": it plays the pad as
  * if every dial were neutral without touching the stored values, so turning
@@ -103,7 +103,8 @@ export function PadsPage() {
               className="action-btn action-edit"
               onClick={() => goToEditPad(selectedPad.id)}
             >
-              Edit →
+              <EditGlyph />
+              Edit
             </button>
             <button
               type="button"
@@ -120,6 +121,21 @@ export function PadsPage() {
         <PadLibraryPicker padId={selectedPad.id} onClose={() => setPickingLibrary(false)} />
       )}
     </div>
+  )
+}
+
+function EditGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 
