@@ -51,6 +51,7 @@ export function createDefaultPattern(padIds: string[]): Pattern {
     name: 'Pattern 1',
     stepCount: STEP_COUNT,
     steps: createEmptySteps(padIds),
+    traceSteps: null,
   }
 }
 
