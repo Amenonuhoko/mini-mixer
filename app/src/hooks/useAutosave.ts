@@ -19,12 +19,24 @@ export function useAutosave(
   engine: AudioEngine,
 ): void {
   const hydratedRef = useRef(false)
+  const latestStateRef = useRef(state)
+  const initialStateRef = useRef(state)
+
+  // The autosave decoder is asynchronous. Keep track of user changes while it
+  // runs so a delayed startup restore cannot overwrite an explicitly imported
+  // project (or any other edit made before hydration completes).
+  useEffect(() => {
+    latestStateRef.current = state
+  }, [state])
 
   useEffect(() => {
     let cancelled = false
     loadAutosave(engine)
       .then((loaded) => {
-        if (!cancelled && loaded) dispatch({ type: 'LOAD_PROJECT', state: loaded })
+        const sessionIsUntouched = latestStateRef.current === initialStateRef.current
+        if (!cancelled && loaded && sessionIsUntouched) {
+          dispatch({ type: 'LOAD_PROJECT', state: loaded })
+        }
       })
       .catch(() => {
         // No autosave available — starting from a blank session is the correct fallback.
