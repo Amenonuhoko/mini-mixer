@@ -10,7 +10,7 @@ import {
   STEP_COUNT,
 } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
-import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, Pattern, Sample } from './types'
+import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, PadPlaybackMode, Pattern, Sample } from './types'
 
 export type Action =
   | { type: 'ADD_SAMPLE'; sample: Sample }
@@ -43,6 +43,7 @@ export type Action =
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
   | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
+  | { type: 'SET_PAD_PLAYBACK_MODE'; mode: PadPlaybackMode }
   | { type: 'SET_MASTER_VOLUME'; level: number }
   | { type: 'SET_PAD_LOOP_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED'; enabled: boolean }
@@ -341,6 +342,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_METRONOME_ENABLED':
       return { ...state, transport: { ...state.transport, metronomeEnabled: action.enabled } }
+
+    case 'SET_PAD_PLAYBACK_MODE':
+      return { ...state, transport: { ...state.transport, padPlaybackMode: action.mode } }
 
     case 'SET_MASTER_VOLUME':
       return {
