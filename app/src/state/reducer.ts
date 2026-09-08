@@ -41,6 +41,7 @@ export type Action =
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
+  | { type: 'SET_STEP_SAMPLE'; patternId: string; padId: string; stepIndex: number; sampleId: string }
   | { type: 'CLEAR_PATTERN'; patternId: string }
   | { type: 'ADD_PATTERN_STEPS'; patternId: string }
   | { type: 'REMOVE_PATTERN_STEPS'; patternId: string }
@@ -383,6 +384,28 @@ export function reducer(state: AppState, action: Action): AppState {
         }
         return { ...pattern, steps: { ...pattern.steps, [action.padId]: steps } }
       })
+
+    case 'SET_STEP_SAMPLE': {
+      const pattern = state.patterns.find((item) => item.id === action.patternId)
+      if (
+        !pattern ||
+        !state.samples[action.sampleId] ||
+        action.stepIndex < 0 ||
+        action.stepIndex >= pattern.stepCount
+      ) {
+        return state
+      }
+      const existingSteps = pattern.steps[action.padId] ?? new Array<string | null>(pattern.stepCount).fill(null)
+      return updatePattern(state, action.patternId, (current) => ({
+        ...current,
+        steps: {
+          ...current.steps,
+          [action.padId]: existingSteps.map((sampleId, stepIndex) =>
+            stepIndex === action.stepIndex ? action.sampleId : sampleId,
+          ),
+        },
+      }))
+    }
 
     case 'CLEAR_PATTERN': {
       const cleared = updatePattern(state, action.patternId, (pattern) => ({
