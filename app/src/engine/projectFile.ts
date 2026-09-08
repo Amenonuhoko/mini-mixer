@@ -9,6 +9,7 @@ import type {
   Pattern,
   Sample,
   SampleKind,
+  SequenceTrace,
   Transport,
 } from '../state/types'
 import type { AudioEngine } from './AudioEngine'
@@ -223,6 +224,7 @@ export interface SerializedSample {
   label: string
   recordedAt: number
   kind: SampleKind
+  sequenceTrace?: SequenceTrace
   audioBase64: string
 }
 
@@ -245,6 +247,7 @@ export function serializeProject(state: AppState, savedAt: number): SerializedPr
         label: sample.label,
         recordedAt: sample.recordedAt,
         kind: sample.kind,
+        sequenceTrace: sample.sequenceTrace,
         audioBase64: arrayBufferToBase64(encodeWav(sample.buffer)),
       })),
   }
@@ -274,7 +277,7 @@ export async function deserializeProject(
   for (const s of project.samples) {
     const buffer = await engine.decodeSample(base64ToArrayBuffer(s.audioBase64))
     // Older saved files predate the kind field — default to 'recording'.
-    samples[s.id] = buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording')
+    samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), sequenceTrace: s.sequenceTrace }
   }
   return {
     samples,
