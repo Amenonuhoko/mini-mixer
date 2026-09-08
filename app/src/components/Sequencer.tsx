@@ -45,7 +45,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [confirmClear, setConfirmClear] = useState(false)
 
   const patternHasSteps = pattern
-    ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some(Boolean))
+    ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
     : false
 
   const handleBounce = async () => {
@@ -94,11 +94,12 @@ export function Sequencer({ onBounced }: SequencerProps) {
               pad={pad}
               padIndex={padIndex}
               patternId={pattern.id}
-              steps={pattern.steps[pad.id] ?? new Array<boolean>(STEP_COUNT).fill(false)}
+              steps={pattern.steps[pad.id] ?? new Array<string | null>(STEP_COUNT).fill(null)}
+              sampleLabels={Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))}
               transport={state.transport}
               engine={engine}
               onToggleStep={(stepIndex) =>
-                dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex })
+                dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
               }
               onSwapSound={() => setSwappingPadId(pad.id)}
             />
@@ -162,7 +163,8 @@ interface SequencerRowProps {
   pad: Pad
   padIndex: number
   patternId: string
-  steps: boolean[]
+  steps: Array<string | null>
+  sampleLabels: Record<string, string>
   transport: Transport
   engine: AudioEngine
   onToggleStep: (stepIndex: number) => void
@@ -173,6 +175,7 @@ function SequencerRow({
   pad,
   padIndex,
   steps,
+  sampleLabels,
   transport,
   engine,
   onToggleStep,
@@ -194,8 +197,10 @@ function SequencerRow({
       </button>
       {chunk(steps, GROUP_SIZE).map((group, groupIndex) => (
         <div className="step-group" key={groupIndex}>
-          {group.map((on, i) => {
+          {group.map((sampleId, i) => {
             const stepIndex = groupIndex * GROUP_SIZE + i
+            const on = sampleId !== null
+            const sampleLabel = sampleId ? sampleLabels[sampleId] ?? 'deleted sample' : null
             return (
               <button
                 key={stepIndex}
@@ -209,7 +214,8 @@ function SequencerRow({
                   .join(' ')}
                 style={on ? { background: pad.color } : undefined}
                 onClick={() => onToggleStep(stepIndex)}
-                aria-label={`step ${stepIndex + 1} for pad ${padIndex + 1}`}
+                aria-label={sampleLabel ? `step ${stepIndex + 1} for pad ${padIndex + 1}: ${sampleLabel}` : `step ${stepIndex + 1} for pad ${padIndex + 1}`}
+                title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : `Step ${stepIndex + 1}`}
               />
             )
           })}
