@@ -2,35 +2,22 @@ import { useState } from 'react'
 import { EFFECT_IDS, EFFECT_PRESETS, NEUTRAL_EFFECT_VALUE, type EffectPreset } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
-import { Overlay } from './Overlay'
 
-type PendingConfirm = { kind: 'preset'; preset: EffectPreset } | { kind: 'reset' }
+const QUICK_PRESETS = EFFECT_PRESETS.filter((preset) =>
+  ['Telephone', 'Underwater', 'Cavern', 'Lo-Fi'].includes(preset.name),
+)
 
-/**
- * Grid-wide sibling to the per-pad effect dials on PadEditPage: rather than
- * opening every pad one at a time, this applies a preset, a bypass, or a
- * reset across every currently visible pad at once. Lives next to
- * LoopModeSwitch in the Pads header — a peer "whole grid" control, not a
- * per-pad settings surface. Live-updates any pad that's currently looping
- * the same way a single dial edit does (see PadEditPage/PadsPage), by
- * calling the same AudioEngine methods once per affected pad.
- */
+/** Compact, anchored grid-wide effect controls. The preview bars make the
+ * Filter/Grit/Echo/Reverb balance readable before choosing a preset. */
 export function PadEffectsMenuButton() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null)
-
+  const [open, setOpen] = useState(false)
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const anyBypassed = visiblePads.some((pad) => pad.effectsBypassed)
   const anyCustomized = visiblePads.some((pad) =>
     pad.effects.some((effect) => effect.value !== NEUTRAL_EFFECT_VALUE),
   )
-
-  const closeAll = () => {
-    setMenuOpen(false)
-    setPendingConfirm(null)
-  }
 
   const applyPreset = (preset: EffectPreset) => {
     dispatch({
@@ -46,26 +33,20 @@ export function PadEffectsMenuButton() {
         engine.updateLoopingPadEffect(pad.id, effectId, preset[effectId])
       }
     }
-    closeAll()
-  }
-
-  const handlePickPreset = (preset: EffectPreset) => {
-    if (anyCustomized) {
-      setPendingConfirm({ kind: 'preset', preset })
-    } else {
-      applyPreset(preset)
-    }
+    setOpen(false)
   }
 
   const toggleBypassAll = () => {
     const bypassed = !anyBypassed
     dispatch({ type: 'SET_ALL_PADS_EFFECTS_BYPASSED', bypassed })
     for (const pad of visiblePads) {
-      if (engine.isPadLooping(pad.id)) engine.updateLoopingPadEffectsBypass(pad.id, { ...pad, effectsBypassed: bypassed })
+      if (engine.isPadLooping(pad.id)) {
+        engine.updateLoopingPadEffectsBypass(pad.id, { ...pad, effectsBypassed: bypassed })
+      }
     }
   }
 
-  const performReset = () => {
+  const resetAll = () => {
     dispatch({ type: 'RESET_ALL_PADS_EFFECTS' })
     for (const pad of visiblePads) {
       if (!engine.isPadLooping(pad.id)) continue
@@ -73,99 +54,62 @@ export function PadEffectsMenuButton() {
         engine.updateLoopingPadEffect(pad.id, effectId, NEUTRAL_EFFECT_VALUE)
       }
     }
-    closeAll()
-  }
-
-  const handleResetAll = () => {
-    if (anyCustomized) {
-      setPendingConfirm({ kind: 'reset' })
-    } else {
-      performReset()
-    }
+    setOpen(false)
   }
 
   return (
-    <>
+    <div className="fx-popover-anchor">
       <button
         type="button"
         className={anyBypassed || anyCustomized ? 'fx-menu-btn on' : 'fx-menu-btn'}
-        onClick={() => setMenuOpen(true)}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
         aria-label="Pad effects"
-        title="Effects for the whole pad grid"
+        title="Quick effects for all visible pads"
       >
         <FxIcon />
       </button>
-
-      {menuOpen && (
-        <Overlay onClose={closeAll}>
-          <h2>Pad effects</h2>
-          <p className="muted">
-            Applies to all {visiblePads.length} visible pads at once. Per-pad dials still open from
-            each pad's own edit screen.
-          </p>
-
-          <div className="effect-presets">
-            {EFFECT_PRESETS.map((preset) => (
+      {open && (
+        <div className="fx-floating-panel" role="dialog" aria-label="Quick pad effects">
+          <div className="fx-floating-heading">
+            <span>Pad effects</span>
+            <span className="muted">{visiblePads.length} pads</span>
+          </div>
+          <div className="fx-quick-presets">
+            {QUICK_PRESETS.map((preset) => (
               <button
                 key={preset.name}
                 type="button"
-                className="btn btn-secondary preset-btn"
-                onClick={() => handlePickPreset(preset)}
+                className="fx-preset-button"
+                onClick={() => applyPreset(preset)}
               >
-                {preset.name}
+                <EffectPreview preset={preset} />
+                <span>{preset.name}</span>
               </button>
             ))}
           </div>
-
-          <ul className="mode-menu-list">
-            <li>
-              <button type="button" className="btn btn-secondary mode-menu-btn" onClick={toggleBypassAll}>
-                <span className="mode-menu-title">
-                  {anyBypassed ? 'Restore all pads’ effects' : 'Bypass all pads’ effects'}
-                </span>
-                <span className="muted">
-                  {anyBypassed
-                    ? 'Turns every pad’s effects back on'
-                    : 'Plays every pad as if its dials were neutral, without losing them'}
-                </span>
-              </button>
-            </li>
-            <li>
-              <button type="button" className="btn btn-secondary mode-menu-btn" onClick={handleResetAll}>
-                <span className="mode-menu-title">Reset all dials</span>
-                <span className="muted">Sets every visible pad's effect dials back to neutral</span>
-              </button>
-            </li>
-          </ul>
-
-          {pendingConfirm && (
-            <div className="confirm-overwrite">
-              <span>
-                {pendingConfirm.kind === 'preset'
-                  ? `Apply ${pendingConfirm.preset.name} to all ${visiblePads.length} pads? This overwrites each pad's Filter/Grit/Echo/Reverb dials.`
-                  : `Reset all ${visiblePads.length} pads' effect dials to neutral?`}
-              </span>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() =>
-                  pendingConfirm.kind === 'preset' ? applyPreset(pendingConfirm.preset) : performReset()
-                }
-              >
-                Apply
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={() => setPendingConfirm(null)}>
-                Cancel
-              </button>
-            </div>
-          )}
-
-          <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
-            Cancel
-          </button>
-        </Overlay>
+          <div className="fx-floating-actions">
+            <button type="button" className="btn btn-secondary" onClick={toggleBypassAll}>
+              {anyBypassed ? 'Effects on' : 'Effects off'}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={resetAll}>
+              Reset
+            </button>
+          </div>
+        </div>
       )}
-    </>
+    </div>
+  )
+}
+
+function EffectPreview({ preset }: { preset: EffectPreset }) {
+  const values = [preset.filter, preset.grit, preset.echo, preset.reverb]
+  return (
+    <span className="effect-preview" aria-hidden="true">
+      {values.map((value, index) => (
+        <i key={index} style={{ height: `${20 + Math.abs(value) * 0.55}%` }} />
+      ))}
+    </span>
   )
 }
 
