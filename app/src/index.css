@@ -283,6 +283,25 @@ h2 {
   color: #fff;
 }
 
+.pad-playback-mode-btn {
+  min-width: 54px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  padding: 0 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.pad-playback-mode-btn.oneshot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
 .mixer-mode-btn {
   display: flex;
   align-items: center;
