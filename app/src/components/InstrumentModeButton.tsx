@@ -22,17 +22,16 @@ type PendingChoice =
  * often enough that a two-tap "open menu, then pick Instrument Mode" was more
  * friction than it deserved. Unlike Loop Mode's switch this isn't a bare
  * on/off flip: turning it on always has to ask "which instrument?" first
- * (there's no implicit "whatever was there before"), so tapping this while
- * off opens the instrument picker, while tapping it while on turns it off
- * directly — nothing left to ask at that point.
+ * (there's no implicit "whatever was there before"), so tapping it always
+ * opens the instrument picker. When an instrument is already active, that
+ * makes replacement a single direct action without first clearing the pads.
  *
  * Picking a quick preset here builds a brand-new instrument on the spot,
  * with no need to visit the Library first — this button is always usable
  * even with an empty library. Since that instrument only exists for this one
- * performance, turning Instrument Mode off removes it (and its generated key
- * samples) again, so quick experiments do not quietly pile up in project data.
- * The same cleanup also runs if another mutually exclusive grid mode turns
- * Instrument Mode off, or before a new quick instrument replaces the old one.
+ * performance, replacing it removes its generated key samples again, so quick
+ * experiments do not quietly pile up in project data. Other grid modes leave
+ * current pad sounds intact.
  * Older saved instruments remain selectable under "Your library" and are not
  * silently deleted.
  */
@@ -128,12 +127,7 @@ export function InstrumentModeButton() {
   }
 
   const handleClick = () => {
-    if (enabled) {
-      dispatch({ type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: false })
-      removeAutoInstrument()
-    } else {
-      setPickingInstrument(true)
-    }
+    setPickingInstrument(true)
   }
 
   return (
@@ -146,7 +140,7 @@ export function InstrumentModeButton() {
         aria-label="Instrument Mode"
         title={
           enabled
-            ? 'Instrument Mode is on — tap to turn off'
+            ? 'Instrument Mode is on — tap to replace the instrument'
             : 'Instrument Mode — choose an instrument to lay across the pads'
         }
       >
