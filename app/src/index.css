@@ -852,27 +852,51 @@ h2 {
 .pad-grid-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.pads-title-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .pad-grid-header h2 {
   margin: 0;
 }
 
-.pad-grid-header-controls {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
+.pad-count-symbol {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
-.pad-count-button {
-  min-height: 32px;
-  padding: 4px 8px;
-  font-size: 0.72rem;
-  white-space: nowrap;
+.pad-count-symbol:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pad-count-symbol:disabled {
+  opacity: 0.35;
+}
+
+.pad-grid-mode-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+
+.pad-grid-playback-control {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 
 .fx-menu-btn {
@@ -893,15 +917,22 @@ h2 {
 }
 
 .instrument-mode-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  gap: 6px;
+  min-height: 34px;
+  padding: 5px 10px;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: none;
   color: var(--muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.instrument-mode-label {
+  white-space: nowrap;
 }
 
 .instrument-mode-btn.on {
