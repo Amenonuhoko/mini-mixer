@@ -5,6 +5,7 @@ import {
   encodeWav,
   extractProjectMeta,
   normalizePads,
+  normalizePatterns,
   type ProjectMeta,
 } from '../engine/projectFile'
 import type { AppState, Sample, SampleKind } from './types'
@@ -102,7 +103,7 @@ export async function loadAutosave(engine: AudioEngine): Promise<AppState | null
     instrumentOrder: record.instrumentOrder ?? [],
     pads: normalizePads(record.pads),
     visiblePadCount: record.visiblePadCount,
-    patterns: record.patterns,
+    patterns: normalizePatterns(record.patterns, normalizePads(record.pads)),
     activePatternId: record.activePatternId,
     transport: buildTransport(record.transport),
   }
