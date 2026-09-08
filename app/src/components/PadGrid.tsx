@@ -3,6 +3,7 @@ import { DRUM_KIT_VOICES } from '../engine/drumSynth'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { usePadPlaying } from '../hooks/usePadPlaying'
 import { useAppState } from '../state/AppStateContext'
+import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
 import { drumVoiceIcon, instrumentIcon } from '../utils/instrumentIcon'
@@ -27,7 +28,7 @@ interface PadGridProps {
 }
 
 export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
-  const { state } = useAppState()
+  const { state, dispatch } = useAppState()
   const engine = useEngine()
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const loopModeEnabled = state.transport.padLoopModeEnabled
@@ -60,6 +61,25 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
       <div className="pad-grid-header">
         <h2>Pads ({state.visiblePadCount})</h2>
         <div className="pad-grid-header-controls">
+          <button
+            type="button"
+            className="btn btn-secondary pad-count-button"
+            onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount - 1 })}
+            disabled={state.visiblePadCount <= MIN_PAD_COUNT}
+            title="Remove the last visible pad (its data is kept)"
+            aria-label="Remove last pad"
+          >
+            − Pad
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary pad-count-button"
+            onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
+            disabled={state.visiblePadCount >= MAX_PAD_COUNT}
+            title="Add an empty pad"
+          >
+            + Pad
+          </button>
           <InstrumentModeButton />
           <LoopModeSwitch />
           <MixerModeButton />
