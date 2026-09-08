@@ -176,6 +176,26 @@ describe('reducer', () => {
     expect(next.patterns[0]!.steps[padId]![1]).toBe(guitar.id)
   })
 
+  it('removes the final four sequencer steps and their placements', () => {
+    const state = createInitialState(1)
+    const patternId = state.activePatternId
+    const padId = state.pads[0]!.id
+    let next = reducer(state, { type: 'ADD_PATTERN_STEPS', patternId })
+    next = reducer(next, {
+      type: 'TOGGLE_STEP',
+      patternId,
+      padId,
+      stepIndex: 19,
+      sampleId: 'guitar_1',
+    })
+
+    const shortened = reducer(next, { type: 'REMOVE_PATTERN_STEPS', patternId })
+
+    expect(shortened.patterns[0]!.stepCount).toBe(16)
+    expect(shortened.patterns[0]!.steps[padId]).toHaveLength(16)
+    expect(shortened.patterns[0]!.steps[padId]![15]).toBeNull()
+  })
+
   it('captures a visual-only trace without changing the live sequence', () => {
     const state = createInitialState(1)
     const patternId = state.activePatternId
