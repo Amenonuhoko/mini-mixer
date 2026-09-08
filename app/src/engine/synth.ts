@@ -157,14 +157,27 @@ function createRenderedBuffer(durationSeconds: number): AudioBuffer {
   return ctx.createBuffer(1, Math.max(1, Math.ceil(durationSeconds * sampleRate)), sampleRate)
 }
 
-function normalize(buffer: AudioBuffer, ceiling = 0.86): AudioBuffer {
+/**
+ * Sets a consistent RMS level for every rendered key. Peak-only limiting lets
+ * quiet sustained sounds and transient-heavy sounds feel radically different;
+ * RMS normalisation brings their usable level together, while the ceiling
+ * preserves headroom and prevents boosted renderings from clipping.
+ */
+function normalize(buffer: AudioBuffer, targetRms = 0.16, ceiling = 0.82): AudioBuffer {
   const data = buffer.getChannelData(0)
   let peak = 0
-  for (const value of data) peak = Math.max(peak, Math.abs(value))
-  if (peak > ceiling) {
-    const scale = ceiling / peak
-    for (let i = 0; i < data.length; i++) data[i] = (data[i] ?? 0) * scale
+  let energy = 0
+  for (const value of data) {
+    const magnitude = Math.abs(value)
+    peak = Math.max(peak, magnitude)
+    energy += value * value
   }
+
+  const rms = Math.sqrt(energy / Math.max(1, data.length))
+  if (rms === 0 || peak === 0) return buffer
+
+  const scale = Math.min(targetRms / rms, ceiling / peak)
+  for (let i = 0; i < data.length; i++) data[i] = (data[i] ?? 0) * scale
   return buffer
 }
 
@@ -336,7 +349,7 @@ function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<Aud
     overtone.start(0)
     overtone.stop(patch.totalDurationSeconds)
   }
-  return ctx.startRendering()
+  return ctx.startRendering().then((buffer) => normalize(buffer))
 }
 
 /** Renders a preset key into a standalone buffer; acoustic voices use their own instrument-specific model. */
