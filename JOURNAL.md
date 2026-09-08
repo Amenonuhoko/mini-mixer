@@ -1287,3 +1287,23 @@ A horizontal extension must be part of the pattern data and timing loop, rather 
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Sequencer trace, compact controls, and transport stop
+
+### Context
+Layering a new beat benefits from seeing an earlier arrangement without hearing or modifying it. Longer timelines also need controls that remain reachable while horizontally scrolling. Finally, pausing the sequencer should not leave audible sources running.
+
+### Decision(s)
+- **Trace current** snapshots live placements into a visual-only dashed guide. Clear Sequence leaves the trace visible, allowing a fresh layer to be programmed over it. A trace never triggers playback or enters a bounce, and can be removed with **Clear trace**.
+- Pattern length can now also shrink by four cells from the right, down to 16. Removing non-empty trailing cells requires confirmation.
+- The +4/−4 length controls and the compact action rail are sticky inside the horizontal timeline.
+- Pausing from the Play control invokes the engine's global stop, silencing all current app audio immediately.
+
+### Reasoning
+The trace separates reference from performance data, while sticky controls preserve direct manipulation on an expanded timeline. A transport stop should have an unambiguous audible outcome.
+
+### Open questions / carried forward
+None.
