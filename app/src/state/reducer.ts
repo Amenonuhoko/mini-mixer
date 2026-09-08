@@ -45,6 +45,7 @@ export type Action =
   | { type: 'ADD_PATTERN_STEPS'; patternId: string }
   | { type: 'REMOVE_PATTERN_STEPS'; patternId: string }
   | { type: 'CAPTURE_PATTERN_TRACE'; patternId: string }
+  | { type: 'RESTORE_PATTERN_TRACE'; patternId: string }
   | { type: 'CLEAR_PATTERN_TRACE'; patternId: string }
   | { type: 'LOAD_SEQUENCE_TRACE'; patternId: string; trace: SequenceTrace; markerSampleId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
@@ -412,15 +413,27 @@ export function reducer(state: AppState, action: Action): AppState {
       })
 
     case 'CAPTURE_PATTERN_TRACE':
+      // Hiding preserves the exact programmed cells as a visual trace, then
+      // clears only their live playback layer. It is reversible via restore.
       return updatePattern(state, action.patternId, (pattern) => ({
         ...pattern,
         traceSteps: Object.fromEntries(
           Object.entries(pattern.steps).map(([padId, steps]) => [padId, steps.slice()]),
         ),
+        traceSource: 'hidden',
+        steps: Object.fromEntries(
+          Object.entries(pattern.steps).map(([padId, steps]) => [padId, new Array<string | null>(steps.length).fill(null)]),
+        ),
       }))
 
+    case 'RESTORE_PATTERN_TRACE':
+      return updatePattern(state, action.patternId, (pattern) => {
+        if (pattern.traceSource !== 'hidden' || !pattern.traceSteps) return pattern
+        return { ...pattern, steps: pattern.traceSteps, traceSteps: null, traceSource: null }
+      })
+
     case 'CLEAR_PATTERN_TRACE':
-      return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, traceSteps: null }))
+      return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, traceSteps: null, traceSource: null }))
 
     case 'LOAD_SEQUENCE_TRACE': {
       const targetPadCount = Math.min(MAX_PAD_COUNT, Math.max(state.visiblePadCount, action.trace.rows.length))
@@ -464,6 +477,7 @@ export function reducer(state: AppState, action: Action): AppState {
                 ),
               ]),
             ),
+            traceSource: 'reference',
           }
         }),
       }
