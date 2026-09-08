@@ -27,8 +27,8 @@ type PresetChoice = InstrumentPreset | 'drum-kit'
  * performance, replacing it removes its generated key samples again, so quick
  * experiments do not quietly pile up in project data. Other grid modes leave
  * current pad sounds intact.
- * Older saved instruments remain selectable under "Your library" and are not
- * silently deleted.
+ * Generated keys stay internal to this temporary pad layout and never become a
+ * second, persistent library to manage.
  */
 export function InstrumentModeButton() {
   const { state, dispatch } = useAppState()
@@ -94,12 +94,6 @@ export function InstrumentModeButton() {
     } finally {
       setBuilding(null)
     }
-  }
-
-  const handlePickExisting = (instrumentId: string) => {
-    // Instrument selection is a direct replacement action: keep the current
-    // layout until the new choice is ready, then apply it without a second prompt.
-    applyExisting(instrumentId)
   }
 
   const handlePickPreset = (preset: PresetChoice) => {
@@ -168,27 +162,6 @@ export function InstrumentModeButton() {
               </button>
             </li>
           </ul>
-
-          {libraryInstruments.length > 0 && (
-            <>
-              <span className="settings-label">Your library</span>
-              <ul className="instrument-picker-list">
-                {libraryInstruments.map((instrument) => (
-                  <li key={instrument.id}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary instrument-picker-btn"
-                      onClick={() => handlePickExisting(instrument.id)}
-                      disabled={building !== null}
-                    >
-                      <span aria-hidden="true">{instrumentIcon(instrument)}</span>
-                      {instrument.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
 
 
           <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
