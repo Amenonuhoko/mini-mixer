@@ -176,6 +176,26 @@ describe('reducer', () => {
     expect(next.patterns[0]!.steps[padId]![1]).toBe(guitar.id)
   })
 
+  it('adds four sequencer cells to the right without changing existing steps', () => {
+    const state = createInitialState(1)
+    const patternId = state.activePatternId
+    const padId = state.pads[0]!.id
+    const withStep = reducer(state, {
+      type: 'TOGGLE_STEP',
+      patternId,
+      padId,
+      stepIndex: 0,
+      sampleId: 'piano_1',
+    })
+
+    const extended = reducer(withStep, { type: 'ADD_PATTERN_STEPS', patternId })
+
+    expect(extended.patterns[0]!.stepCount).toBe(20)
+    expect(extended.patterns[0]!.steps[padId]).toHaveLength(20)
+    expect(extended.patterns[0]!.steps[padId]![0]).toBe('piano_1')
+    expect(extended.patterns[0]!.steps[padId]!.slice(16)).toEqual([null, null, null, null])
+  })
+
   it('clears every step in a pattern across every pad it tracks', () => {
     const state = createInitialState(2)
     const patternId = state.activePatternId
