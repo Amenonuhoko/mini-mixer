@@ -1382,3 +1382,20 @@ Autosave should cover normal work without accumulating exports. Visible action l
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-09 — Sequence trace as hide/show
+
+### Context
+The earlier Trace current action copied a visual guide but left the original sequence live, requiring a separate clear step to achieve a quiet reference layer.
+
+### Decision(s)
+**Hide sequence** now moves the active sequence into its visual trace and immediately removes it from playback. **Show sequence** restores that exact sequence to playback. Imported sequence traces remain explicitly reference-only and are never accidentally restored as playable cells.
+
+### Reasoning
+A hidden sequence is a reversible arrangement layer, not a second duplicated pattern. Preserving the distinction between hidden local sequences and imported references makes both workflows clear and safe.
+
+### Open questions / carried forward
+None.
