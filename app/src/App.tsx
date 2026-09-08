@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
 import { MetronomeButton } from './components/MetronomeButton'
 import { Nav } from './components/Nav'
@@ -60,11 +60,22 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
 
 function Shell() {
   const { state, dispatch } = useAppState()
-  const { page, editingPadId, goBackFromEdit } = useNavigation()
+  const { page, editingPadId, goBackFromEdit, goToPads, goToSequencer } = useNavigation()
   const engine = useEngine()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
   useAutosave(state, dispatch, engine)
+
+  // A quick instrument is only backing data for the active Instrument Mode
+  // performance. Mode changes can originate from the Loop or Mixer controls,
+  // so cleanup belongs at the shell level rather than only in the instrument
+  // button's click handler.
+  useEffect(() => {
+    if (!state.transport.padInstrumentModeEnabled && state.transport.autoInstrumentId) {
+      dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: state.transport.autoInstrumentId })
+    }
+  }, [dispatch, state.transport.autoInstrumentId, state.transport.padInstrumentModeEnabled])
 
   const isWide = useIsWideScreen()
   // Play/pause, BPM, and loop-mode are all specifically about sequencer pattern
@@ -80,10 +91,33 @@ function Shell() {
   // automatically instead of leaving dead space behind.
   const showPlayBar = isWide ? page === 'pads' || page === 'sequencer' : page === 'sequencer'
 
+  const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
+    if (isWide || (page !== 'pads' && page !== 'sequencer')) return
+    const touch = event.touches[0]
+    if (touch) swipeStart.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = swipeStart.current
+    swipeStart.current = null
+    if (!start || isWide || (page !== 'pads' && page !== 'sequencer')) return
+    const touch = event.changedTouches[0]
+    if (!touch) return
+    const horizontalDistance = touch.clientX - start.x
+    const verticalDistance = touch.clientY - start.y
+    // A deliberate horizontal swipe only: keep normal vertical scrolling and
+    // ordinary pad taps untouched.
+    if (Math.abs(horizontalDistance) < 72 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) {
+      return
+    }
+    if (page === 'pads' && horizontalDistance < 0) goToSequencer()
+    if (page === 'sequencer' && horizontalDistance > 0) goToPads()
+  }
+
   return (
     <div style={{ '--playbar-height': showPlayBar ? '76px' : '0px' } as React.CSSProperties}>
       <Nav onOpenSettings={() => setSettingsOpen(true)} />
-      <main className="app-shell">
+      <main className="app-shell" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <CurrentPage onBounced={setPendingRecording} />
       </main>
       {showPlayBar && <PlayBar />}
