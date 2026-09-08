@@ -223,7 +223,7 @@ function renderBass(frequencyHz: number, duration: number): AudioBuffer {
     lowpass += coefficient * (Math.tanh((body + pluck) * 1.18) - lowpass)
     data[i] = lowpass * envelope
   }
-  return normalize(buffer, 0.82)
+  return normalize(buffer)
 }
 
 function renderPluckedString(frequencyHz: number, duration: number, brightness: number): AudioBuffer {
@@ -248,7 +248,7 @@ function renderPluckedString(frequencyHz: number, duration: number, brightness: 
     data[i] = current * Math.exp(-time / (0.72 + brightness * 0.8))
     cursor = (cursor + 1) % delay.length
   }
-  return normalize(buffer, 0.82)
+  return normalize(buffer)
 }
 
 function renderOrgan(frequencyHz: number, duration: number): AudioBuffer {
@@ -275,7 +275,7 @@ function renderOrgan(frequencyHz: number, duration: number): AudioBuffer {
     const release = Math.min(1, Math.max(0, (duration - time) / 0.22))
     data[i] = value * attack * release
   }
-  return normalize(buffer, 0.8)
+  return normalize(buffer)
 }
 
 function renderBell(frequencyHz: number, duration: number): AudioBuffer {
@@ -298,7 +298,7 @@ function renderBell(frequencyHz: number, duration: number): AudioBuffer {
     }
     data[i] = value * (1 - Math.exp(-time / 0.0018))
   }
-  return normalize(buffer, 0.8)
+  return normalize(buffer)
 }
 
 function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<AudioBuffer> {
