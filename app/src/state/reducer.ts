@@ -4,6 +4,7 @@ import {
   EFFECT_MAX,
   EFFECT_MIN,
   MIN_PAD_COUNT,
+  MAX_PAD_COUNT,
   MIN_TRIM_GAP,
   MIX_LEVEL_MAX,
   MIX_LEVEL_MIN,
@@ -14,6 +15,7 @@ import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, P
 
 export type Action =
   | { type: 'ADD_SAMPLE'; sample: Sample }
+  | { type: 'ADD_SAMPLE_TO_NEW_PAD'; sample: Sample }
   | { type: 'REMOVE_SAMPLE'; sampleId: string }
   | { type: 'RENAME_SAMPLE'; sampleId: string; label: string }
   | { type: 'MOVE_SAMPLE'; sampleId: string; direction: 'up' | 'down' }
@@ -122,6 +124,36 @@ export function reducer(state: AppState, action: Action): AppState {
         samples: { ...state.samples, [action.sample.id]: action.sample },
         sampleOrder: [...state.sampleOrder, action.sample.id],
       }
+
+    case 'ADD_SAMPLE_TO_NEW_PAD': {
+      if (state.visiblePadCount >= MAX_PAD_COUNT) return state
+      const targetIndex = state.visiblePadCount
+      const existingPad = state.pads[targetIndex]
+      const newPad = existingPad ?? createPad(targetIndex)
+      const pads = existingPad
+        ? state.pads.map((pad, index) =>
+            index === targetIndex ? { ...pad, sampleId: action.sample.id, trimStart: 0, trimEnd: 1 } : pad,
+          )
+        : [...state.pads, { ...newPad, sampleId: action.sample.id }]
+      const patterns =
+        existingPad
+          ? state.patterns
+          : state.patterns.map((pattern) => ({
+              ...pattern,
+              steps: {
+                ...pattern.steps,
+                [newPad.id]: new Array<string | null>(STEP_COUNT).fill(null),
+              },
+            }))
+      return {
+        ...state,
+        samples: { ...state.samples, [action.sample.id]: action.sample },
+        sampleOrder: [...state.sampleOrder, action.sample.id],
+        pads,
+        visiblePadCount: targetIndex + 1,
+        patterns,
+      }
+    }
 
     case 'REMOVE_SAMPLE': {
       const { [action.sampleId]: _removed, ...remainingSamples } = state.samples
