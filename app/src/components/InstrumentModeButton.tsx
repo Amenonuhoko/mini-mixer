@@ -11,10 +11,6 @@ import { Overlay } from './Overlay'
 /** A quick-build choice offered by this button's picker: a pitched synth preset, or the fixed Drum Kit (which has no InstrumentPreset shape of its own — see engine/drumSynth.ts). */
 type PresetChoice = InstrumentPreset | 'drum-kit'
 
-type PendingChoice =
-  | { kind: 'existing'; instrumentId: string }
-  | { kind: 'preset'; preset: PresetChoice }
-
 /**
  * Dedicated icon button for Instrument Mode, top-right of the Pads panel
  * header alongside LoopModeSwitch and PadEffectsMenuButton — pulled out of
@@ -45,7 +41,6 @@ export function InstrumentModeButton() {
   const autoInstrumentId = state.transport.autoInstrumentId
   const [pickingInstrument, setPickingInstrument] = useState(false)
   const [building, setBuilding] = useState<string | null>(null)
-  const [pendingChoice, setPendingChoice] = useState<PendingChoice | null>(null)
 
   const libraryInstruments = state.instrumentOrder
     .map((id) => state.instruments[id])
@@ -61,13 +56,8 @@ export function InstrumentModeButton() {
       .map((name) => INSTRUMENT_PRESETS.find((preset) => preset.name === name))
       .filter((preset): preset is InstrumentPreset => preset !== undefined),
   }))
-  const anyPadFilled = state.pads
-    .slice(0, state.visiblePadCount)
-    .some((pad) => pad.sampleId !== null)
-
   const closeAll = () => {
     setPickingInstrument(false)
-    setPendingChoice(null)
   }
 
   const removeAutoInstrument = () => {
@@ -129,12 +119,6 @@ export function InstrumentModeButton() {
 
   const handlePickPreset = (preset: PresetChoice) => {
     void buildAndApplyPreset(preset)
-  }
-
-  const confirmPending = () => {
-    if (!pendingChoice) return
-    if (pendingChoice.kind === 'existing') applyExisting(pendingChoice.instrumentId)
-    else void buildAndApplyPreset(pendingChoice.preset)
   }
 
   const handleClick = () => {
