@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
+import { useNavigation } from '../state/NavigationContext'
 import { getLibrarySamples } from '../state/librarySamples'
 import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
 import { PadAssignPrompt } from './PadAssignPrompt'
@@ -24,6 +25,7 @@ import { StaticWaveform } from './Waveform'
  */
 export function Library() {
   const { state, dispatch } = useAppState()
+  const { goToSequencer } = useNavigation()
   const [assigningSampleId, setAssigningSampleId] = useState<string | null>(null)
   const [renamingSampleId, setRenamingSampleId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -155,6 +157,24 @@ export function Library() {
                     >
                       Assign…
                     </button>
+                    {sample.kind === 'sequence' && sample.sequenceTrace && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          dispatch({
+                            type: 'LOAD_SEQUENCE_TRACE',
+                            patternId: state.activePatternId,
+                            trace: sample.sequenceTrace!,
+                            markerSampleId: sample.id,
+                          })
+                          goToSequencer()
+                        }}
+                        title="Open this bounced sequence as a visual trace"
+                      >
+                        Trace
+                      </button>
+                    )}
                     {isDeleting ? (
                       <span className="confirm-overwrite confirm-inline">
                         <button
