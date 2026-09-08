@@ -4,6 +4,9 @@ export const MAX_PAD_COUNT = 16
 /** One key per pad slot up to the max pad count, so applying an instrument to the grid never runs short regardless of the current pad count. */
 export const INSTRUMENT_KEY_COUNT = MAX_PAD_COUNT
 export const STEP_COUNT = 16
+/** A pattern can grow in groups of four beats up to four bars. */
+export const MAX_STEP_COUNT = 64
+export const STEP_ADD_COUNT = 4
 export const BPM_MIN = 40
 export const BPM_MAX = 240
 export const DEFAULT_BPM = 120
