@@ -88,6 +88,8 @@ export interface Pattern {
   stepCount: number
   /** Keyed by pad id; each cell holds the exact Sample id chosen when the step was placed, or null. */
   steps: Record<string, Array<string | null>>
+  /** A visual-only snapshot of prior placements. It never produces audio or enters a bounce. */
+  traceSteps: Record<string, Array<string | null>> | null
 }
 
 export type LoopMode = 'once' | 'continuous'
