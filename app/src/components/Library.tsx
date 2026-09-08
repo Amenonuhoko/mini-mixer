@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { getLibrarySamples } from '../state/librarySamples'
 import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
@@ -28,6 +28,7 @@ export function Library() {
   const [renamingSampleId, setRenamingSampleId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deletingSampleId, setDeletingSampleId] = useState<string | null>(null)
+  const renameInputRef = useRef<HTMLInputElement | null>(null)
 
   const samples = getLibrarySamples(state)
 
@@ -40,6 +41,17 @@ export function Library() {
     dispatch({ type: 'RENAME_SAMPLE', sampleId, label: renameDraft })
     setRenamingSampleId(null)
   }
+
+  useEffect(() => {
+    if (!renamingSampleId) return
+    const commitWhenClickingAway = (event: PointerEvent) => {
+      if (!renameInputRef.current?.contains(event.target as Node)) {
+        commitRename(renamingSampleId)
+      }
+    }
+    document.addEventListener('pointerdown', commitWhenClickingAway)
+    return () => document.removeEventListener('pointerdown', commitWhenClickingAway)
+  }, [renamingSampleId, renameDraft])
 
   return (
     <div className="page library-page">
@@ -77,6 +89,7 @@ export function Library() {
                     <input
                       type="text"
                       className="library-rename-input"
+                      ref={renameInputRef}
                       value={renameDraft}
                       autoFocus
                       onChange={(event) => setRenameDraft(event.target.value)}
