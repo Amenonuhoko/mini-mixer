@@ -59,34 +59,35 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   return (
     <section className="panel pad-grid" aria-label="pads">
       <div className="pad-grid-header">
-        <h2>Pads ({state.visiblePadCount})</h2>
-        <div className="pad-grid-header-controls">
+        <div className="pads-title-controls">
+          <h2>Pads ({state.visiblePadCount})</h2>
           <button
             type="button"
-            className="btn btn-secondary pad-count-button"
+            className="pad-count-symbol"
             onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount - 1 })}
             disabled={state.visiblePadCount <= MIN_PAD_COUNT}
             title="Remove the last visible pad (its data is kept)"
             aria-label="Remove last pad"
           >
-            − Pad
+            −
           </button>
           <button
             type="button"
-            className="btn btn-secondary pad-count-button"
+            className="pad-count-symbol"
             onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
             disabled={state.visiblePadCount >= MAX_PAD_COUNT}
             title="Add an empty pad"
+            aria-label="Add pad"
           >
-            + Pad
+            +
           </button>
-          <InstrumentModeButton />
-          <LoopModeSwitch />
-          <MixerModeButton />
-          <span className="header-divider" aria-hidden="true" />
-          <PadPlaybackModeButton />
-          <PadEffectsMenuButton />
         </div>
+      </div>
+      <div className="pad-grid-mode-controls">
+        <InstrumentModeButton />
+        <LoopModeSwitch />
+        <MixerModeButton />
+        <PadEffectsMenuButton />
       </div>
       <div
         className={[
@@ -133,6 +134,9 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
             <small>Add pad</small>
           </button>
         )}
+      </div>
+      <div className="pad-grid-playback-control">
+        <PadPlaybackModeButton />
       </div>
     </section>
   )
