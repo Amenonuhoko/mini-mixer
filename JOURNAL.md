@@ -1192,3 +1192,22 @@ A small, vetted multisample set produces a more credible guitar than a single ph
 
 ### Open questions / carried forward
 The other instruments remain intentionally procedural; future real-sample additions should follow the same licensing, byte-verification, cache, fallback, and loudness-normalization checklist.
+
+
+---
+
+## 2026-09-08 — Recorded Bass and full-tail pitch rendering
+
+### Context
+After validating the real Guitar loader, Bass remained oscillator-based despite an equally suitable CC0 multisample source. The shared pitch-shift utility also assumed all shifts ascended; downshifting a recorded source into the lowest note could truncate its release at the source buffer length.
+
+### Decision(s)
+- Bass now uses three verified CC0 Growlybass recording zones, choosing the nearest source before rendering each of its 16 notes.
+- Offline pitch rendering now expands the destination buffer for downward shifts, preserving the complete note and release.
+- Both Guitar and Bass retain their tuned procedural voices as automatic fallbacks when their recorded sources are unavailable.
+
+### Reasoning
+The two string instruments benefit most from recorded attack and resonance. Nearest-zone selection minimizes pitch-shift artifacts, and full-tail rendering is required for a credible low-register decay.
+
+### Open questions / carried forward
+None.
