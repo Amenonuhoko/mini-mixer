@@ -275,6 +275,56 @@ describe('reducer', () => {
     expect(restored.pads[0]!.effects.find((e) => e.id === 'filter')!.value).toBe(75)
   })
 
+  it('applies an effect preset to every visible pad, leaving hidden pads untouched', () => {
+    const state = createInitialState(3)
+    const shrunk = reducer(state, { type: 'SET_VISIBLE_PAD_COUNT', count: 2 })
+
+    const applied = reducer(shrunk, {
+      type: 'APPLY_EFFECT_PRESET_TO_ALL_PADS',
+      filter: 75,
+      grit: -25,
+      echo: 0,
+    })
+
+    for (const pad of applied.pads.slice(0, 2)) {
+      expect(pad.effects.find((e) => e.id === 'filter')!.value).toBe(75)
+      expect(pad.effects.find((e) => e.id === 'grit')!.value).toBe(-25)
+      expect(pad.effects.find((e) => e.id === 'echo')!.value).toBe(0)
+      // Pitch/Speed/Volume are left alone, same as the single-pad preset buttons.
+      expect(pad.effects.find((e) => e.id === 'pitch')!.value).toBe(0)
+    }
+    // The 3rd pad is beyond visiblePadCount and shouldn't be touched.
+    expect(applied.pads[2]!.effects.find((e) => e.id === 'filter')!.value).toBe(0)
+  })
+
+  it('bypasses and restores every visible pad’s effects at once', () => {
+    const state = createInitialState(2)
+    const bypassed = reducer(state, { type: 'SET_ALL_PADS_EFFECTS_BYPASSED', bypassed: true })
+    expect(bypassed.pads.every((pad) => pad.effectsBypassed)).toBe(true)
+
+    const restored = reducer(bypassed, { type: 'SET_ALL_PADS_EFFECTS_BYPASSED', bypassed: false })
+    expect(restored.pads.every((pad) => !pad.effectsBypassed)).toBe(true)
+  })
+
+  it('resets every visible pad’s effect dials to neutral, leaving hidden pads untouched', () => {
+    const state = createInitialState(2)
+    const visiblePadId = state.pads[0]!.id
+    const hiddenPadId = state.pads[1]!.id
+    let dialed = reducer(state, {
+      type: 'SET_PAD_EFFECT',
+      padId: visiblePadId,
+      effectId: 'filter',
+      value: 75,
+    })
+    dialed = reducer(dialed, { type: 'SET_PAD_EFFECT', padId: hiddenPadId, effectId: 'filter', value: 50 })
+    const shrunk = reducer(dialed, { type: 'SET_VISIBLE_PAD_COUNT', count: 1 })
+
+    const reset = reducer(shrunk, { type: 'RESET_ALL_PADS_EFFECTS' })
+    expect(reset.pads[0]!.effects.find((e) => e.id === 'filter')!.value).toBe(0)
+    // Pad 2 is beyond visiblePadCount (1) and shouldn't be reset.
+    expect(reset.pads[1]!.effects.find((e) => e.id === 'filter')!.value).toBe(50)
+  })
+
   it('adding an instrument registers its key samples in the library and the instrument itself', () => {
     const state = createInitialState(2)
     const keySamples = [makeSample('key_0'), makeSample('key_1')]

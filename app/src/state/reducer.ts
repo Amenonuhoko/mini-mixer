@@ -25,6 +25,9 @@ export type Action =
   | { type: 'SET_PAD_EFFECTS_BYPASSED'; padId: string; bypassed: boolean }
   | { type: 'SET_PAD_EFFECT'; padId: string; effectId: EffectId; value: number }
   | { type: 'RESET_PAD_EFFECTS'; padId: string }
+  | { type: 'APPLY_EFFECT_PRESET_TO_ALL_PADS'; filter: number; grit: number; echo: number }
+  | { type: 'SET_ALL_PADS_EFFECTS_BYPASSED'; bypassed: boolean }
+  | { type: 'RESET_ALL_PADS_EFFECTS' }
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number }
@@ -186,6 +189,38 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'RESET_PAD_EFFECTS':
       return updatePad(state, action.padId, (pad) => ({ ...pad, effects: createNeutralEffects() }))
+
+    case 'APPLY_EFFECT_PRESET_TO_ALL_PADS':
+      return {
+        ...state,
+        pads: state.pads.map((pad, index) => {
+          if (index >= state.visiblePadCount) return pad
+          return {
+            ...pad,
+            effects: pad.effects.map((effect) =>
+              effect.id === 'filter' || effect.id === 'grit' || effect.id === 'echo'
+                ? { ...effect, value: action[effect.id] }
+                : effect,
+            ),
+          }
+        }),
+      }
+
+    case 'SET_ALL_PADS_EFFECTS_BYPASSED':
+      return {
+        ...state,
+        pads: state.pads.map((pad, index) =>
+          index >= state.visiblePadCount ? pad : { ...pad, effectsBypassed: action.bypassed },
+        ),
+      }
+
+    case 'RESET_ALL_PADS_EFFECTS':
+      return {
+        ...state,
+        pads: state.pads.map((pad, index) =>
+          index >= state.visiblePadCount ? pad : { ...pad, effects: createNeutralEffects() },
+        ),
+      }
 
     case 'SET_PAD_TRIM': {
       // Keeps end at least MIN_TRIM_GAP after start; if that would push end past

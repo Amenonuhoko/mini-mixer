@@ -39,7 +39,6 @@ export interface Pad {
   /** Silences the pad entirely — manual taps and sequencer steps alike — without losing its sample or pattern. */
   muted: boolean
   color: string
-  icon: string
   effects: EffectSetting[]
   /**
    * Plays the pad as if every effect dial were at neutral (0), without

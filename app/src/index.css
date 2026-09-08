@@ -791,6 +791,29 @@ h2 {
   margin: 0;
 }
 
+.pad-grid-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fx-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+}
+
+.fx-menu-btn.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* A real switch look — track + sliding thumb — not just a colored button,
    per the explicit ask for Loop Mode's control to read as a switch. */
 .loop-switch {

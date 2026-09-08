@@ -31,7 +31,6 @@ export function createPad(index: number): Pad {
     trimEnd: 1,
     // Modulo guarantees this index is in bounds; the palette is a fixed, non-empty array.
     color: PAD_COLOR_PALETTE[index % PAD_COLOR_PALETTE.length]!,
-    icon: String(index + 1),
     effects: createNeutralEffects(),
     effectsBypassed: false,
     mixLevel: DEFAULT_MIX_LEVEL,

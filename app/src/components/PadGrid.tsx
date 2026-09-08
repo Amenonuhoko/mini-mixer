@@ -7,6 +7,7 @@ import { contrastingTextColor } from '../utils/color'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Instrument, Pad } from '../state/types'
 import { LoopModeSwitch } from './LoopModeSwitch'
+import { PadEffectsMenuButton } from './PadEffectsMenuButton'
 import { StaticWaveform } from './Waveform'
 
 /**
@@ -45,7 +46,10 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
     <section className="panel pad-grid" aria-label="pads">
       <div className="pad-grid-header">
         <h2>Pads ({state.visiblePadCount})</h2>
-        <LoopModeSwitch />
+        <div className="pad-grid-header-controls">
+          <PadEffectsMenuButton />
+          <LoopModeSwitch />
+        </div>
       </div>
       <div
         className={[
