@@ -8,7 +8,7 @@ import {
   normalizePatterns,
   type ProjectMeta,
 } from '../engine/projectFile'
-import type { AppState, Sample, SampleKind } from './types'
+import type { AppState, Sample, SampleKind, SequenceTrace } from './types'
 
 const DB_NAME = 'mini-mixer'
 const DB_VERSION = 1
@@ -20,6 +20,7 @@ interface AutosaveSample {
   label: string
   recordedAt: number
   kind: SampleKind
+  sequenceTrace?: SequenceTrace
   audio: ArrayBuffer
 }
 
@@ -78,6 +79,7 @@ export async function saveAutosave(state: AppState): Promise<void> {
         label: sample.label,
         recordedAt: sample.recordedAt,
         kind: sample.kind,
+        sequenceTrace: sample.sequenceTrace,
         audio: encodeWav(sample.buffer),
       })),
   }
@@ -92,7 +94,7 @@ export async function loadAutosave(engine: AudioEngine): Promise<AppState | null
   for (const s of record.samples) {
     const buffer = await engine.decodeSample(s.audio)
     // Autosave records written before the kind field existed default to 'recording'.
-    samples[s.id] = buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording')
+    samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), sequenceTrace: s.sequenceTrace }
   }
   return {
     samples,
