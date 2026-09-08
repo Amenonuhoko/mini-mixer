@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { AudioEngine } from '../engine/AudioEngine'
 import { Scheduler } from '../engine/Scheduler'
-import { STEP_COUNT } from '../state/constants'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
 
@@ -50,7 +49,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           }
         }
         dispatch({ type: 'SET_CURRENT_STEP', stepIndex })
-        if (current.transport.loopMode === 'once' && stepIndex === STEP_COUNT - 1) {
+        if (current.transport.loopMode === 'once' && stepIndex === pattern?.stepCount - 1) {
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
       },
@@ -61,6 +60,11 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     // Intentionally created once — reads current state via stateRef, not this closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch])
+
+  useEffect(() => {
+    const pattern = state.patterns.find((item) => item.id === state.activePatternId)
+    schedulerRef.current?.setStepCount(pattern?.stepCount ?? 16)
+  }, [state.activePatternId, state.patterns])
 
   useEffect(() => {
     schedulerRef.current?.setBpm(state.transport.bpm)
