@@ -122,12 +122,17 @@ export function InstrumentModeButton() {
   }
 
   const handlePickExisting = (instrumentId: string) => {
-    if (anyPadFilled) setPendingChoice({ kind: 'existing', instrumentId })
+    // Reopening the picker from an active quick instrument is an intentional
+    // replacement gesture, so keep it one tap: no interim clearing or second
+    // confirmation before the new layout is applied.
+    if (autoInstrumentId) applyExisting(instrumentId)
+    else if (anyPadFilled) setPendingChoice({ kind: 'existing', instrumentId })
     else applyExisting(instrumentId)
   }
 
   const handlePickPreset = (preset: PresetChoice) => {
-    if (anyPadFilled) setPendingChoice({ kind: 'preset', preset })
+    if (autoInstrumentId) void buildAndApplyPreset(preset)
+    else if (anyPadFilled) setPendingChoice({ kind: 'preset', preset })
     else void buildAndApplyPreset(preset)
   }
 
