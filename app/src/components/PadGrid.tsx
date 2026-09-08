@@ -201,7 +201,10 @@ function PadButton({
   const filled = pad.sampleId !== null
   const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
 
-  const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  // A physical input is independently tracked by pointer id. A Map (rather
+  // than one source ref) is what lets multiple fingers hold separate pads—or
+  // even retrigger the same pad—without one release cutting off another.
+  const activeSourcesRef = useRef(new Map<number, AudioBufferSourceNode>())
 
   const recordCurrentStep = () => {
     if (!sequencerRecordEnabled || !state.transport.isPlaying || !pad.sampleId) return
@@ -214,14 +217,15 @@ function PadButton({
     })
   }
 
-  const stopActiveSource = () => {
-    if (!activeSourceRef.current) return
+  const stopActiveSource = (pointerId: number) => {
+    const source = activeSourcesRef.current.get(pointerId)
+    if (!source) return
     try {
-      activeSourceRef.current.stop()
+      source.stop()
     } catch {
       // Already ended naturally between the press and this release — nothing to stop.
     }
-    activeSourceRef.current = null
+    activeSourcesRef.current.delete(pointerId)
   }
 
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -242,10 +246,10 @@ function PadButton({
     if (!sample) return
     recordCurrentStep()
     const source = engine.triggerPad(pad, sample.buffer)
-    if (playbackMode === 'gate') activeSourceRef.current = source
+    if (playbackMode === 'gate') activeSourcesRef.current.set(event.pointerId, source)
   }
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (loopModeEnabled) {
       if (!pad.sampleId) return
       // Muted blocks starting a new loop, same as a plain tap would, but
@@ -258,14 +262,14 @@ function PadButton({
       return
     }
 
-    if (playbackMode === 'gate') stopActiveSource()
+    if (playbackMode === 'gate') stopActiveSource(event.pointerId)
   }
 
-  const handlePointerCancel = () => {
+  const handlePointerCancel = (event: React.PointerEvent<HTMLButtonElement>) => {
     // A dropped gesture (OS interruption, scroll takeover) behaves like a
     // release for gating purposes, but never toggles a loop — an incomplete
     // gesture shouldn't commit to a discrete on/off action.
-    if (playbackMode === 'gate') stopActiveSource()
+    if (playbackMode === 'gate') stopActiveSource(event.pointerId)
   }
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {

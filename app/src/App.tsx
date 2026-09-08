@@ -109,7 +109,11 @@ function Shell() {
   return (
     <div style={{ '--playbar-height': showPlayBar ? '76px' : '0px' } as React.CSSProperties}>
       <Nav onOpenSettings={() => setSettingsOpen(true)} />
-      <main className="app-shell" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <main
+        className={page === 'library' ? 'app-shell library-shell' : 'app-shell'}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <CurrentPage onBounced={setPendingRecording} />
       </main>
       {showPlayBar && <PlayBar />}

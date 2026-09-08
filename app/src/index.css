@@ -444,11 +444,23 @@ h2 {
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-  max-height: 420px;
-  overflow-y: auto;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+  gap: 12px;
   padding: 2px;
+}
+
+/* Library scrolls with the page, not inside a short, second scroll region. */
+.app-shell.library-shell {
+  max-width: none;
+}
+
+.library-card {
+  min-height: 180px;
+}
+
+.library-preview-btn.playing {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .library-card {
@@ -832,6 +844,9 @@ h2 {
 
 /* Pad grid */
 
+/* This is a performance surface, not a scroll/zoom gesture area. Explicitly
+   opting out of browser touch gestures lets every active finger keep its own
+   PointerEvent stream, so chord-like multi-pad presses do not cancel each other. */
 .pad-grid-cells {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

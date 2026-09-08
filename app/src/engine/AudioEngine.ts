@@ -86,6 +86,8 @@ export class AudioEngine {
   private recordTap: MediaStreamAudioDestinationNode | null = null
   private playthroughRecorder: MediaRecorder | null = null
   private playthroughChunks: Blob[] = []
+  /** The Library can audition one sound at a time without assigning it to a pad. */
+  private libraryPreview: AudioBufferSourceNode | null = null
 
   /**
    * Subscribe to changes in engine-side playback state (which pads are looping,
@@ -183,6 +185,35 @@ export class AudioEngine {
 
   isPadPlaying(padId: string): boolean {
     return (this.activeInstanceCounts.get(padId) ?? 0) > 0
+  }
+
+  /** Play a Library item through the master output without creating a pad. */
+  previewSample(buffer: AudioBuffer, onEnded?: () => void): void {
+    this.stopLibraryPreview()
+    const ctx = this.getContext()
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(this.getMasterBus())
+    this.libraryPreview = source
+    this.activeSources.add(source)
+    source.onended = () => {
+      this.activeSources.delete(source)
+      if (this.libraryPreview === source) this.libraryPreview = null
+      onEnded?.()
+    }
+    source.start()
+  }
+
+  /** Stop the current Library audition, if there is one. */
+  stopLibraryPreview(): void {
+    const source = this.libraryPreview
+    if (!source) return
+    this.libraryPreview = null
+    try {
+      source.stop()
+    } catch {
+      // A preview can naturally end just before Stop is tapped.
+    }
   }
 
   private playBuffer(

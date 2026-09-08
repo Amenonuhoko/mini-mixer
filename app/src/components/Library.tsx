@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useEngine } from '../state/EngineContext'
 import { useAppState } from '../state/AppStateContext'
 import { useNavigation } from '../state/NavigationContext'
 import { getLibrarySamples } from '../state/librarySamples'
@@ -25,14 +26,30 @@ import { StaticWaveform } from './Waveform'
  */
 export function Library() {
   const { state, dispatch } = useAppState()
+  const engine = useEngine()
   const { goToSequencer } = useNavigation()
   const [assigningSampleId, setAssigningSampleId] = useState<string | null>(null)
   const [renamingSampleId, setRenamingSampleId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deletingSampleId, setDeletingSampleId] = useState<string | null>(null)
+  const [previewingSampleId, setPreviewingSampleId] = useState<string | null>(null)
   const renameInputRef = useRef<HTMLInputElement | null>(null)
 
   const samples = getLibrarySamples(state)
+
+  const togglePreview = (sampleId: string) => {
+    if (previewingSampleId === sampleId) {
+      engine.stopLibraryPreview()
+      setPreviewingSampleId(null)
+      return
+    }
+    const sample = state.samples[sampleId]
+    if (!sample) return
+    setPreviewingSampleId(sampleId)
+    engine.previewSample(sample.buffer, () => setPreviewingSampleId((current) => (current === sampleId ? null : current)))
+  }
+
+  useEffect(() => () => engine.stopLibraryPreview(), [engine])
 
   const startRename = (sampleId: string, currentLabel: string) => {
     setRenamingSampleId(sampleId)
@@ -150,6 +167,15 @@ export function Library() {
                         ▼
                       </button>
                     </div>
+                    <button
+                      type="button"
+                      className={previewingSampleId === sample.id ? 'btn btn-secondary library-preview-btn playing' : 'btn btn-secondary library-preview-btn'}
+                      onClick={() => togglePreview(sample.id)}
+                      aria-pressed={previewingSampleId === sample.id}
+                      title={previewingSampleId === sample.id ? 'Stop preview' : `Play ${sample.label}`}
+                    >
+                      {previewingSampleId === sample.id ? 'Stop' : 'Play'}
+                    </button>
                     <button
                       type="button"
                       className="btn btn-secondary"
