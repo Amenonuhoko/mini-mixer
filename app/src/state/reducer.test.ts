@@ -218,26 +218,29 @@ describe('reducer', () => {
     expect(backToLoop.transport.padInstrumentModeEnabled).toBe(false)
   })
 
-  it('mixer mode is mutually exclusive with loop and instrument mode too', () => {
+  it('Mixer Mode temporarily overlays an active instrument and restores it on exit', () => {
     const state = createInitialState(1)
+    const key = makeSample('instrument_key')
+    const instrument = makeInstrument('instrument', [key.id])
 
-    const mixerOn = reducer(state, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
+    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples: [key] })
+    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
+    next = reducer(next, { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: true })
+    const padSampleId = next.pads[0]!.sampleId
+
+    const mixerOn = reducer(next, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
     expect(mixerOn.transport.padMixerModeEnabled).toBe(true)
+    expect(mixerOn.transport.padInstrumentModeEnabled).toBe(true)
+    expect(mixerOn.pads[0]!.sampleId).toBe(padSampleId)
+
+    const mixerOff = reducer(mixerOn, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: false })
+    expect(mixerOff.transport.padMixerModeEnabled).toBe(false)
+    expect(mixerOff.transport.padInstrumentModeEnabled).toBe(true)
+    expect(mixerOff.pads[0]!.sampleId).toBe(padSampleId)
 
     const loopOn = reducer(mixerOn, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
     expect(loopOn.transport.padLoopModeEnabled).toBe(true)
     expect(loopOn.transport.padMixerModeEnabled).toBe(false)
-
-    const mixerAgain = reducer(loopOn, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
-    expect(mixerAgain.transport.padMixerModeEnabled).toBe(true)
-    expect(mixerAgain.transport.padLoopModeEnabled).toBe(false)
-
-    const instrumentOn = reducer(mixerAgain, {
-      type: 'SET_PAD_INSTRUMENT_MODE_ENABLED',
-      enabled: true,
-    })
-    expect(instrumentOn.transport.padInstrumentModeEnabled).toBe(true)
-    expect(instrumentOn.transport.padMixerModeEnabled).toBe(false)
   })
 
   it('sets a pad mix level, clamped to 0-100', () => {
