@@ -1,24 +1,22 @@
 import { useAppState } from '../state/AppStateContext'
 
-/**
- * Chooses the normal pad-trigger behavior. Loop Mode still has its own
- * explicit toggle; this only decides whether a non-looping pad release cuts
- * its note short (Gate) or lets the triggered sample play through (One-shot).
- */
+/** A two-sided switch makes the currently selected pad-trigger duration visible at a glance. */
 export function PadPlaybackModeButton() {
   const { state, dispatch } = useAppState()
   const mode = state.transport.padPlaybackMode
-  const nextMode = mode === 'gate' ? 'oneshot' : 'gate'
 
   return (
     <button
       type="button"
-      className={mode === 'oneshot' ? 'pad-playback-mode-btn oneshot' : 'pad-playback-mode-btn'}
-      onClick={() => dispatch({ type: 'SET_PAD_PLAYBACK_MODE', mode: nextMode })}
+      className={mode === 'oneshot' ? 'pad-playback-switch oneshot' : 'pad-playback-switch gate'}
+      onClick={() =>
+        dispatch({ type: 'SET_PAD_PLAYBACK_MODE', mode: mode === 'gate' ? 'oneshot' : 'gate' })
+      }
       aria-label={mode === 'gate' ? 'Gate mode — tap to switch to one-shot' : 'One-shot mode — tap to switch to gate'}
-      title={mode === 'gate' ? 'Gate: release stops the sound — tap for one-shot' : 'One-shot: tap plays the full sound — tap for gate'}
+      title={mode === 'gate' ? 'Gate: release stops sound' : 'One-shot: full sample plays'}
     >
-      {mode === 'gate' ? 'GATE' : '1-SHOT'}
+      <span className={mode === 'gate' ? 'active' : ''}>Gate</span>
+      <span className={mode === 'oneshot' ? 'active' : ''}>1-shot</span>
     </button>
   )
 }
