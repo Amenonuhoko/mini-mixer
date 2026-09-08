@@ -385,6 +385,20 @@ describe('reducer', () => {
     expect(applied.pads).toHaveLength(2)
   })
 
+  it('expands the visible pad grid to an instrument’s key count and initializes new pattern rows', () => {
+    const state = createInitialState(2)
+    const keySamples = Array.from({ length: 4 }, (_, index) => makeSample(`key_${index}`))
+    const instrument = makeInstrument('four_key_instrument', keySamples.map((sample) => sample.id))
+    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
+    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
+
+    expect(next.visiblePadCount).toBe(4)
+    expect(next.pads).toHaveLength(4)
+    expect(next.pads.map((pad) => pad.sampleId)).toEqual(keySamples.map((sample) => sample.id))
+    expect(next.patterns[0]!.steps[next.pads[2]!.id]).toHaveLength(16)
+    expect(next.patterns[0]!.steps[next.pads[3]!.id]).toHaveLength(16)
+  })
+
   it('removing an instrument deletes its key samples too and unassigns any pad using one', () => {
     const state = createInitialState(1)
     const keySamples = [makeSample('key_0'), makeSample('key_1')]
