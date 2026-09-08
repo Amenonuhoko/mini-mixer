@@ -1,29 +1,26 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
-import { instrumentIcon } from '../utils/instrumentIcon'
-import type { Instrument } from '../state/types'
 import { Overlay } from './Overlay'
 
 type GridMode = 'off' | 'loop' | 'instrument' | 'mixer'
 
 /**
  * FAB for the pad-grid modes that need more than a flip of a switch —
- * Instrument Mode (needs to ask which instrument) and Mixer Mode. Loop Mode
- * used to be a third option here but got its own dedicated switch on the
- * Pads panel (see LoopModeSwitch) since it's reached for often enough that a
- * two-tap "open menu, then pick Loop Mode" was more friction than it deserved.
- * The FAB's own icon still reflects Loop Mode when it's active (via the
- * switch), even though it's no longer selectable from this menu, so it's
- * clear at a glance why Instrument/Mixer aren't available right now — all
- * three stay mutually exclusive at the reducer level regardless of which
- * control flips them.
+ * currently just Mixer Mode. Loop Mode and Instrument Mode used to live here
+ * too, but each earned its own dedicated always-visible control on the Pads
+ * panel header instead (LoopModeSwitch, InstrumentModeButton) once it became
+ * clear each was reached for often enough that a two-tap "open menu, then
+ * pick X" was more friction than it deserved. The FAB's own icon still
+ * reflects whichever mode is actually active — Loop or Instrument included —
+ * even though neither is selectable from this menu anymore, so it's clear at
+ * a glance why Mixer Mode (the one thing left here) is unavailable right
+ * now. All three stay mutually exclusive at the reducer level regardless of
+ * which control flips them.
  */
 export function GridModeButton() {
   const { state, dispatch } = useAppState()
   const { padLoopModeEnabled, padInstrumentModeEnabled, padMixerModeEnabled } = state.transport
   const [menuOpen, setMenuOpen] = useState(false)
-  const [pickingInstrument, setPickingInstrument] = useState(false)
-  const [confirmInstrumentId, setConfirmInstrumentId] = useState<string | null>(null)
 
   const mode: GridMode = padLoopModeEnabled
     ? 'loop'
@@ -32,12 +29,6 @@ export function GridModeButton() {
       : padMixerModeEnabled
         ? 'mixer'
         : 'off'
-  const instruments = state.instrumentOrder
-    .map((id) => state.instruments[id])
-    .filter((instrument): instrument is Instrument => instrument !== undefined)
-  const anyPadFilled = state.pads
-    .slice(0, state.visiblePadCount)
-    .some((pad) => pad.sampleId !== null)
 
   const turnOff = () => {
     if (padInstrumentModeEnabled) dispatch({ type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: false })
@@ -50,31 +41,8 @@ export function GridModeButton() {
     setMenuOpen(false)
   }
 
-  const openInstrumentPicker = () => {
-    if (instruments.length === 0) return
-    setMenuOpen(false)
-    setPickingInstrument(true)
-  }
-
-  const applyInstrument = (instrumentId: string) => {
-    dispatch({ type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId })
-    dispatch({ type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: true })
-    setPickingInstrument(false)
-    setConfirmInstrumentId(null)
-  }
-
-  const handlePickInstrument = (instrumentId: string) => {
-    if (anyPadFilled) {
-      setConfirmInstrumentId(instrumentId)
-    } else {
-      applyInstrument(instrumentId)
-    }
-  }
-
   const closeAll = () => {
     setMenuOpen(false)
-    setPickingInstrument(false)
-    setConfirmInstrumentId(null)
   }
 
   return (
@@ -88,7 +56,7 @@ export function GridModeButton() {
           mode === 'loop'
             ? 'Loop mode is on (see the switch on the Pads panel)'
             : mode === 'instrument'
-              ? 'Instrument mode — hold Record to capture a performance'
+              ? 'Instrument mode is on (see the instrument button on the Pads panel)'
               : mode === 'mixer'
                 ? 'Mixer mode — pads are volume faders'
                 : 'Pad grid mode — tap to change how pads behave'
@@ -111,7 +79,13 @@ export function GridModeButton() {
           {mode === 'loop' && (
             <p className="muted">
               Loop mode is on right now (see the switch on the Pads panel) — turn it off there to
-              use one of these instead.
+              use this instead.
+            </p>
+          )}
+          {mode === 'instrument' && (
+            <p className="muted">
+              Instrument mode is on right now (see the instrument button on the Pads panel) — turn
+              it off there to use this instead.
             </p>
           )}
           <ul className="mode-menu-list">
@@ -128,21 +102,6 @@ export function GridModeButton() {
             <li>
               <button
                 type="button"
-                className={mode === 'instrument' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
-                onClick={openInstrumentPicker}
-                disabled={instruments.length === 0}
-              >
-                <span className="mode-menu-title">Instrument Mode</span>
-                <span className="muted">
-                  {instruments.length === 0
-                    ? 'Build an instrument in the Library first'
-                    : 'Choose an instrument to lay across the pads'}
-                </span>
-              </button>
-            </li>
-            <li>
-              <button
-                type="button"
                 className={mode === 'mixer' ? 'btn btn-secondary mode-menu-btn current' : 'btn btn-secondary mode-menu-btn'}
                 onClick={turnOnMixer}
               >
@@ -151,49 +110,6 @@ export function GridModeButton() {
               </button>
             </li>
           </ul>
-          <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
-            Cancel
-          </button>
-        </Overlay>
-      )}
-
-      {pickingInstrument && (
-        <Overlay onClose={closeAll}>
-          <h2>Choose an instrument</h2>
-          <p className="muted">Lays its keys across the pads — Pad 1 gets the lowest note.</p>
-          <ul className="instrument-picker-list">
-            {instruments.map((instrument) => (
-              <li key={instrument.id}>
-                <button
-                  type="button"
-                  className="btn btn-secondary instrument-picker-btn"
-                  onClick={() => handlePickInstrument(instrument.id)}
-                >
-                  <span aria-hidden="true">{instrumentIcon(instrument)}</span>
-                  {instrument.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {confirmInstrumentId && (
-            <div className="confirm-overwrite">
-              <span>Replace every pad's current sound with this instrument?</span>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => applyInstrument(confirmInstrumentId)}
-              >
-                Apply
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setConfirmInstrumentId(null)}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
           <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
             Cancel
           </button>

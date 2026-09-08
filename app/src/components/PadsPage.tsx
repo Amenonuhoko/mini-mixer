@@ -12,7 +12,7 @@ import { PadLibraryPicker } from './PadLibraryPicker'
  * bar below the grid with four generously-sized actions — Mute, Effects,
  * Edit, and Library (see .selected-pad-actions, a plain 2x2 grid). Loop used
  * to live here too, but it's now driven by the global loop-mode toggle (see
- * GridModeButton) — tapping a pad directly toggles its loop while that mode
+ * LoopModeSwitch) — tapping a pad directly toggles its loop while that mode
  * is on, so a separate button for it here would be redundant. Effects is a
  * reversible bypass, not the Edit popup's "Reset dials": it plays the pad as
  * if every dial were neutral without touching the stored values, so turning

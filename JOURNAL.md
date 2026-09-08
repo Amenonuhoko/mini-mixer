@@ -940,3 +940,30 @@ Full verification: `tsc -b` (clean), `oxlint` (same three pre-existing, already-
 - Autosave's per-write full sample re-encode (a performance concern, not correctness) remains open.
 - The three expected/accepted oxlint `only-export-components` warnings remain unchanged.
 - No other items are currently queued.
+
+---
+
+## 2026-09-08 — Instrument Mode gets its own dedicated header button
+
+### Context
+"move instrument mode somewhere else in the pads like a dedicated button somewhere and make it just the icon of an instrument keep the confirmation for replacing pads with it" — pulling Instrument Mode out of the grid-mode FAB's menu into an always-visible control, mirroring what Loop Mode already got a few rounds back, with an explicit instruction to keep the overwrite-confirmation step intact.
+
+### Decision(s)
+**New `InstrumentModeButton.tsx`** — a plain round icon-only button (the same piano-keys glyph the grid-mode FAB used to show for this mode), placed in the Pads panel header alongside `LoopModeSwitch` and `PadEffectsMenuButton`. Unlike Loop Mode's switch, this isn't a bare on/off flip: turning Instrument Mode on always has to ask "which instrument?" first (no implicit "whatever was there before" — an existing, explicit design rule this round didn't touch), so the button's click handler branches on current state: **off → tap opens the instrument picker** (same overlay, same list, same overwrite-confirmation dialog when any pad already has a sound — moved verbatim, not rebuilt); **on → tap turns Instrument Mode off directly**, no picker needed since there's nothing left to ask. Disabled (with an explanatory tooltip) whenever no instrument exists yet and it's currently off — turning off never needs that gate, since off doesn't depend on having an instrument.
+
+**`GridModeButton.tsx` shrank to just Off/Mixer Mode.** All of the instrument-picker state (`pickingInstrument`, `confirmInstrumentId`), handlers (`openInstrumentPicker`, `applyInstrument`, `handlePickInstrument`), and the picker `<Overlay>` itself moved to the new component wholesale — GridModeButton no longer imports `instrumentIcon` or needs the `instruments`/`anyPadFilled` derived values at all. The FAB's mode-detection and icon-display logic is untouched: it still computes `mode` from all three transport flags and still shows the piano-keys icon when Instrument Mode is active, exactly the same treatment Loop Mode already got when *it* moved out — the FAB's icon has always been "whichever mode is actually on," independent of whether that mode is selectable from its own menu.
+
+### Alternatives considered
+- **Making the new button double as a mini on/off switch like LoopModeSwitch** (matching its exact `role="switch"` visual) — rejected: Instrument Mode turning on is never a bare toggle, it's "pick an instrument, then it's on," so a switch's implied "flip and you're done" semantics would misrepresent what tapping it while off actually does. A plain icon button that opens a picker (or turns off directly, symmetrically) reads more honestly.
+- **Leaving Instrument Mode's off-path also going through a picker/menu** (for consistency with how it always required a picker before) — rejected: turning off has no decision to make, so gating it behind any UI beyond a single tap would be pure friction with no benefit, and directly contradicts the "less friction" reason this whole move exists for.
+
+### Reasoning
+This is a near-exact repeat of the Loop Mode extraction from a few rounds ago — pull an always-reached-for pad-grid mode out of a menu into its own header control, keep the FAB's icon reflecting it, keep the reducer's mutual-exclusivity untouched since none of that logic lives in the UI layer. The one real design decision was what "tap while on" should do, since Instrument Mode (unlike Loop Mode) isn't naturally a toggle — resolved by keeping the picker exclusively on the "turning on" path and making "turning off" a plain, immediate action.
+
+### Outcome
+Full verification: `tsc -b` (clean), `oxlint` (same three pre-existing, already-accepted warnings), `vitest run` (74/74, unchanged — this move is pure UI relocation with no reducer/engine changes). `vite build` clean. Playwright pass on a 390×844 viewport: confirmed the grid-mode FAB's menu now lists only Off/Mixer Mode; confirmed the new instrument button is disabled before any instrument exists and enables once one's built; confirmed tapping it while off opens the picker directly (no menu detour); confirmed tapping it while on turns Instrument Mode off immediately with no picker; confirmed picking an instrument on an empty grid applies with no confirmation, while re-picking on an already-filled grid still shows the "Replace every pad's current sound with this instrument?" confirm-overwrite prompt, unchanged from before the move. Zero console errors. Also fixed a small pre-existing stale doc comment in `PadsPage.tsx` noticed in passing (it referenced `GridModeButton` for Loop Mode's control, which actually moved to `LoopModeSwitch` several rounds ago). `project.md` updated: the Pad Playback Behavior and Layout sections both rewritten to describe Instrument Mode's new dedicated button and the grid-mode FAB's now-Mixer-Mode-only menu.
+
+### Open questions / carried forward
+- Autosave's per-write full sample re-encode (a performance concern, not correctness) remains open.
+- The three expected/accepted oxlint `only-export-components` warnings remain unchanged.
+- No other items are currently queued.
