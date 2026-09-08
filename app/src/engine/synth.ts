@@ -399,7 +399,7 @@ function semitoneOffsets(): number[] {
  * remote rather than bundled: this adds real electric-guitar articulation
  * without turning a small web instrument into a multi-megabyte initial load.
  */
-const WAVEBASE_GUITAR_BASE_URL = 'https://raw.githubusercontent.com/cluesurf/wavebase/make/base/guitar/'
+const WAVEBASE_GUITAR_BASE_URL = 'https://raw.githubusercontent.com/cluesurf/wavebase/make/base/guitar/stratocaster/'
 const WAVEBASE_GUITAR_NOTE_FILES = [
   'string-4-E-as-E3.wav',
   'string-4-F-as-F3.wav',
