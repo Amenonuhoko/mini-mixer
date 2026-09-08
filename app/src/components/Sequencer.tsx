@@ -44,9 +44,13 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmRemoveSteps, setConfirmRemoveSteps] = useState(false)
 
   const patternHasSteps = pattern
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
+    : false
+  const tailHasSteps = pattern
+    ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).slice(-4).some((sampleId) => sampleId !== null))
     : false
 
   const handleBounce = async (toNewPad = false) => {
@@ -93,7 +97,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
       <p className="muted sequencer-hint">Swipe sideways for all 16 steps on narrow screens.</p>
       <div className="sequencer-scroll">
         <div className="sequencer-grid">
-          <div className="sequencer-row sequencer-header-row" aria-hidden="true">
+          <div className="sequencer-row sequencer-header-row">
             <span className="sequencer-row-label sequencer-row-label-spacer" />
             {chunk(
               Array.from({ length: pattern.stepCount }, (_, i) => i),
@@ -103,16 +107,28 @@ export function Sequencer({ onBounced }: SequencerProps) {
                 <span className="step-group-number">{group[0]! + 1}</span>
               </div>
             ))}
-            <button
-              type="button"
-              className="step-group step-add-right"
-              onClick={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
-              disabled={pattern.stepCount >= MAX_STEP_COUNT}
-              title={pattern.stepCount >= MAX_STEP_COUNT ? 'Maximum pattern length reached' : 'Add four steps to the right'}
-              aria-label="Add four steps to the right"
-            >
-              +4
-            </button>
+            <div className="step-length-controls">
+              <button
+                type="button"
+                className="step-add-right"
+                onClick={() => setConfirmRemoveSteps(true)}
+                disabled={pattern.stepCount <= 16}
+                title={pattern.stepCount <= 16 ? 'A pattern needs at least 16 steps' : 'Remove the last four steps'}
+                aria-label="Remove four steps from the right"
+              >
+                −4
+              </button>
+              <button
+                type="button"
+                className="step-add-right"
+                onClick={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
+                disabled={pattern.stepCount >= MAX_STEP_COUNT}
+                title={pattern.stepCount >= MAX_STEP_COUNT ? 'Maximum pattern length reached' : 'Add four steps to the right'}
+                aria-label="Add four steps to the right"
+              >
+                +4
+              </button>
+            </div>
           </div>
           {visiblePads.map((pad, padIndex) => (
             <SequencerRow
@@ -132,8 +148,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
             />
           ))}
         </div>
-      </div>
-      <div className="sequencer-footer-actions">
+        <div className="sequencer-footer-actions">
         <button
           type="button"
           className="btn btn-secondary sequencer-add-row"
@@ -192,7 +207,30 @@ export function Sequencer({ onBounced }: SequencerProps) {
         >
           Clear Sequence
         </button>
+        </div>
       </div>
+      {confirmRemoveSteps && (
+        <div className="confirm-overwrite">
+          <span>
+            {tailHasSteps
+              ? 'Remove the last four steps? Their programmed placements will be removed.'
+              : 'Remove the last four empty steps?'}
+          </span>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => {
+              dispatch({ type: 'REMOVE_PATTERN_STEPS', patternId: pattern.id })
+              setConfirmRemoveSteps(false)
+            }}
+          >
+            Remove 4
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirmRemoveSteps(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
       {confirmClear && (
         <div className="confirm-overwrite">
           <span>Clear every step in this pattern? This can't be undone.</span>
