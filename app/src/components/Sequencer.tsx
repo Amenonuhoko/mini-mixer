@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
-import { MAX_STEP_COUNT } from '../state/constants'
+import { MAX_PAD_COUNT, MAX_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
