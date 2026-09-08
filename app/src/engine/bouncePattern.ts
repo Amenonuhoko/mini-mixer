@@ -2,12 +2,15 @@ import { STEP_COUNT } from '../state/constants'
 import type { AppState, EffectId, EffectSetting, Pad, Sample } from '../state/types'
 import {
   buildGritCurve,
+  buildReverbImpulse,
   dialToDetuneCents,
   dialToEchoParams,
   dialToFilterParams,
   dialToGain,
   dialToGritParams,
+  dialToPan,
   dialToPlaybackRate,
+  dialToReverbParams,
   mixLevelToGain,
 } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
@@ -97,8 +100,17 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
     feedback.gain.value = echoParams.feedback
     wet.gain.value = echoParams.wetMix
 
+    const convolver = ctx.createConvolver()
+    const reverbWet = ctx.createGain()
+    const reverbParams = dialToReverbParams(effectValue(effects, 'reverb'))
+    convolver.buffer = buildReverbImpulse(ctx, reverbParams.decaySeconds)
+    reverbWet.gain.value = reverbParams.wetMix
+
     const mixGain = ctx.createGain()
     mixGain.gain.value = mixLevelToGain(pad.mixLevel)
+
+    const panner = ctx.createStereoPanner()
+    panner.pan.value = dialToPan(effectValue(effects, 'pan'))
 
     source.connect(filter)
     filter.connect(shaper)
@@ -109,7 +121,11 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
     feedback.connect(delay)
     delay.connect(wet)
     wet.connect(mixGain)
-    mixGain.connect(ctx.destination)
+    gain.connect(convolver)
+    convolver.connect(reverbWet)
+    reverbWet.connect(mixGain)
+    mixGain.connect(panner)
+    panner.connect(ctx.destination)
 
     source.start(offsetSeconds, window.offset, Math.max(0.01, window.duration))
   })

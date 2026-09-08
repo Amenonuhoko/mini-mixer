@@ -38,10 +38,11 @@ export function PadEffectsMenuButton() {
       filter: preset.filter,
       grit: preset.grit,
       echo: preset.echo,
+      reverb: preset.reverb,
     })
     for (const pad of visiblePads) {
       if (!engine.isPadLooping(pad.id)) continue
-      for (const effectId of ['filter', 'grit', 'echo'] as const) {
+      for (const effectId of ['filter', 'grit', 'echo', 'reverb'] as const) {
         engine.updateLoopingPadEffect(pad.id, effectId, preset[effectId])
       }
     }
@@ -141,7 +142,7 @@ export function PadEffectsMenuButton() {
             <div className="confirm-overwrite">
               <span>
                 {pendingConfirm.kind === 'preset'
-                  ? `Apply ${pendingConfirm.preset.name} to all ${visiblePads.length} pads? This overwrites each pad's Filter/Grit/Echo dials.`
+                  ? `Apply ${pendingConfirm.preset.name} to all ${visiblePads.length} pads? This overwrites each pad's Filter/Grit/Echo/Reverb dials.`
                   : `Reset all ${visiblePads.length} pads' effect dials to neutral?`}
               </span>
               <button

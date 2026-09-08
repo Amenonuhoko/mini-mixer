@@ -69,6 +69,59 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       lowpassHz: 3000,
     },
   },
+  {
+    name: 'Pad',
+    rootHz: 261.63, // C4
+    patch: {
+      waveform: 'sine',
+      overtoneGain: 0.15,
+      attackSeconds: 0.4,
+      decaySeconds: 0.3,
+      sustainLevel: 0.8,
+      releaseSeconds: 1.5,
+      totalDurationSeconds: 3.0,
+      lowpassHz: 2000,
+    },
+  },
+  {
+    name: 'Pluck',
+    rootHz: 261.63, // C4
+    patch: {
+      waveform: 'triangle',
+      attackSeconds: 0.002,
+      decaySeconds: 0.12,
+      sustainLevel: 0.05,
+      releaseSeconds: 0.15,
+      totalDurationSeconds: 0.35,
+    },
+  },
+  {
+    name: 'Organ',
+    rootHz: 261.63, // C4
+    patch: {
+      waveform: 'square',
+      overtoneGain: 0.4,
+      attackSeconds: 0.01,
+      decaySeconds: 0.05,
+      sustainLevel: 0.9,
+      releaseSeconds: 0.2,
+      totalDurationSeconds: 1.2,
+      lowpassHz: 4000,
+    },
+  },
+  {
+    name: 'Bell',
+    rootHz: 261.63, // C4
+    patch: {
+      waveform: 'sine',
+      overtoneGain: 0.5,
+      attackSeconds: 0.002,
+      decaySeconds: 1.0,
+      sustainLevel: 0.05,
+      releaseSeconds: 1.0,
+      totalDurationSeconds: 2.2,
+    },
+  },
 ]
 
 /**

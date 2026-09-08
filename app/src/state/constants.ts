@@ -21,28 +21,37 @@ export const EFFECT_STEP = 25
 
 // Ordered by how often each gets reached for in practice: Volume is adjusted
 // on nearly every pad (basic mix level), Speed/Pitch are the classic sample-
-// flipping tools, Filter is a common tone-shaping move, and Grit/Echo are
-// occasional "spice" character effects — least reached for of the six.
-export const EFFECT_IDS = ['volume', 'speed', 'pitch', 'filter', 'grit', 'echo'] as const
+// flipping tools, Filter is a common tone-shaping move, Pan is a quick
+// spatial-placement tool reached about as often, and Grit/Echo/Reverb are
+// occasional "spice"/space character effects — Reverb the most occasional of
+// all, since it's the most transformative of the eight.
+export const EFFECT_IDS = ['volume', 'speed', 'pitch', 'filter', 'pan', 'grit', 'echo', 'reverb'] as const
 
 /**
- * Quick-start combos across Echo/Filter/Grit — the three "character" dials —
- * so you don't have to hand-dial three sliders to get somewhere interesting.
- * Applying one only touches these three; Pitch/Speed/Volume are left alone.
- * All values land on the same 25-point anchors the dials themselves snap to.
+ * Quick-start combos across Filter/Grit/Echo/Reverb — the four "character"
+ * dials — so you don't have to hand-dial four sliders to get somewhere
+ * interesting. Applying one only touches these four; Pitch/Speed/Volume/Pan
+ * are left alone (Pan especially — a preset is about acoustic character, not
+ * stereo position). All values land on the same 25-point anchors the dials
+ * themselves snap to.
  */
 export interface EffectPreset {
   name: string
   filter: number
   grit: number
   echo: number
+  reverb: number
 }
 
 export const EFFECT_PRESETS: EffectPreset[] = [
-  { name: 'Telephone', filter: 75, grit: -25, echo: 0 },
-  { name: 'Underwater', filter: -75, grit: 0, echo: 50 },
-  { name: 'Vinyl', filter: -25, grit: -50, echo: -25 },
-  { name: 'Cavern', filter: -50, grit: 0, echo: 100 },
+  { name: 'Telephone', filter: 75, grit: -25, echo: 0, reverb: 0 },
+  { name: 'Underwater', filter: -75, grit: 0, echo: 50, reverb: 25 },
+  { name: 'Vinyl', filter: -25, grit: -50, echo: -25, reverb: 0 },
+  { name: 'Cavern', filter: -50, grit: 0, echo: 100, reverb: 100 },
+  { name: 'Radio', filter: 60, grit: -15, echo: -20, reverb: 0 },
+  { name: 'Lo-Fi', filter: -30, grit: -60, echo: 0, reverb: 10 },
+  { name: 'Crunch', filter: 25, grit: 75, echo: 0, reverb: 0 },
+  { name: 'Slapback', filter: 0, grit: 0, echo: -75, reverb: 0 },
 ]
 
 /** Trim handles can't collapse closer than this (fraction of the sample's duration). */

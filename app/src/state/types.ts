@@ -1,4 +1,4 @@
-export type EffectId = 'pitch' | 'speed' | 'filter' | 'volume' | 'grit' | 'echo'
+export type EffectId = 'pitch' | 'speed' | 'filter' | 'volume' | 'pan' | 'grit' | 'echo' | 'reverb'
 
 export interface EffectSetting {
   id: EffectId

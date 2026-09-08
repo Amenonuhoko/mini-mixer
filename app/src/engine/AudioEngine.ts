@@ -2,12 +2,15 @@ import { DEFAULT_BPM, EFFECT_IDS, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
 import {
   buildGritCurve,
+  buildReverbImpulse,
   dialToDetuneCents,
   dialToEchoParams,
   dialToFilterParams,
   dialToGain,
   dialToGritParams,
+  dialToPan,
   dialToPlaybackRate,
+  dialToReverbParams,
   mixLevelToGain,
 } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
@@ -38,8 +41,11 @@ interface PlayingNodes {
   delay: DelayNode
   feedback: GainNode
   wet: GainNode
-  /** The Mixer Mode fader gain — separate from `gain` (the Volume effect dial), applied last, after the dry/wet mix, so it scales the pad's whole output including its echo tail. */
+  convolver: ConvolverNode
+  reverbWet: GainNode
+  /** The Mixer Mode fader gain — separate from `gain` (the Volume effect dial), applied after the dry/echo/reverb mix so it scales the pad's whole output including both tails; the panner comes after this and spatializes that already-scaled signal on its way to the master bus. */
   mixGain: GainNode
+  panner: StereoPannerNode
 }
 
 /**
@@ -192,11 +198,26 @@ export class AudioEngine {
     feedback.gain.value = echoParams.feedback
     wet.gain.value = echoParams.wetMix
 
+    // Reverb: a parallel convolution branch off the same dry `gain` node Echo
+    // branches from, mixed back in alongside it — always wired up (wet at 0
+    // when the dial is neutral), same "never rewire the topology" reasoning.
+    const convolver = ctx.createConvolver()
+    const reverbWet = ctx.createGain()
+    const reverbParams = dialToReverbParams(effectValue(effects, 'reverb'))
+    convolver.buffer = buildReverbImpulse(ctx, reverbParams.decaySeconds)
+    reverbWet.gain.value = reverbParams.wetMix
+
     // Mixer Mode's fader — separate from `gain` (the Volume effect dial) —
-    // applied last so it scales the pad's whole output, dry signal and echo
-    // tail alike, rather than just the dry path.
+    // scales the pad's whole output, dry signal and echo/reverb tails alike,
+    // rather than just the dry path.
     const mixGain = ctx.createGain()
     mixGain.gain.value = mixLevelToGain(mixLevel)
+
+    // Pan: applied last, after Mixer Mode's fader, so it positions the final
+    // fader-scaled signal (every other effect included) rather than just the
+    // dry path.
+    const panner = ctx.createStereoPanner()
+    panner.pan.value = dialToPan(effectValue(effects, 'pan'))
 
     const masterBus = this.getMasterBus()
     source.connect(filter)
@@ -208,7 +229,11 @@ export class AudioEngine {
     feedback.connect(delay)
     delay.connect(wet)
     wet.connect(mixGain)
-    mixGain.connect(masterBus)
+    gain.connect(convolver)
+    convolver.connect(reverbWet)
+    reverbWet.connect(mixGain)
+    mixGain.connect(panner)
+    panner.connect(masterBus)
 
     this.markStarted(padId)
     this.activeSources.add(source)
@@ -226,7 +251,7 @@ export class AudioEngine {
     } else {
       source.start(startTime, window.offset, window.duration)
     }
-    return { source, filter, shaper, gain, delay, feedback, wet, mixGain }
+    return { source, filter, shaper, gain, delay, feedback, wet, convolver, reverbWet, mixGain, panner }
   }
 
   /**
@@ -313,7 +338,7 @@ export class AudioEngine {
     const nodes = this.loopingNodes.get(padId)
     if (!nodes) return
     const ctx = this.getContext()
-    const { source, filter, shaper, gain, delay, feedback, wet } = nodes
+    const { source, filter, shaper, gain, delay, feedback, wet, convolver, reverbWet, panner } = nodes
     switch (effectId) {
       case 'pitch':
         source.detune.setTargetAtTime(dialToDetuneCents(value), ctx.currentTime, PARAM_RAMP_SECONDS)
@@ -348,6 +373,18 @@ export class AudioEngine {
         wet.gain.setTargetAtTime(params.wetMix, ctx.currentTime, PARAM_RAMP_SECONDS)
         break
       }
+      case 'reverb': {
+        // Like Grit's curve, ConvolverNode.buffer isn't an AudioParam — swapping
+        // the impulse response is a plain reassignment (a room-size "jump"), but
+        // the wet mix level still ramps smoothly via its GainNode.
+        const params = dialToReverbParams(value)
+        convolver.buffer = buildReverbImpulse(ctx, params.decaySeconds)
+        reverbWet.gain.setTargetAtTime(params.wetMix, ctx.currentTime, PARAM_RAMP_SECONDS)
+        break
+      }
+      case 'pan':
+        panner.pan.setTargetAtTime(dialToPan(value), ctx.currentTime, PARAM_RAMP_SECONDS)
+        break
     }
   }
 

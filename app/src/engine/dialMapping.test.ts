@@ -1,13 +1,36 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildGritCurve,
+  buildReverbImpulse,
   dialToDetuneCents,
   dialToEchoParams,
   dialToFilterParams,
   dialToGain,
   dialToGritParams,
+  dialToPan,
   dialToPlaybackRate,
+  dialToReverbParams,
 } from './dialMapping'
+
+/**
+ * A minimal fake standing in for BaseAudioContext — just enough (sampleRate +
+ * createBuffer) for buildReverbImpulse, so this stays testable with no real
+ * AudioContext, same as every other mapping in this file.
+ */
+function fakeAudioContext(sampleRate = 44100): BaseAudioContext {
+  return {
+    sampleRate,
+    createBuffer: (channels: number, length: number, sr: number) => {
+      const channelData = Array.from({ length: channels }, () => new Float32Array(length))
+      return {
+        numberOfChannels: channels,
+        length,
+        sampleRate: sr,
+        getChannelData: (channel: number) => channelData[channel]!,
+      } as unknown as AudioBuffer
+    },
+  } as unknown as BaseAudioContext
+}
 
 describe('dialToDetuneCents', () => {
   it('is 0 cents at neutral (0)', () => {
@@ -115,5 +138,46 @@ describe('dialToEchoParams', () => {
     expect(dialToEchoParams(-50).wetMix).toBeGreaterThan(0)
     expect(dialToEchoParams(50).wetMix).toBeGreaterThan(0)
     expect(dialToEchoParams(100).wetMix).toBeGreaterThan(dialToEchoParams(50).wetMix)
+  })
+})
+
+describe('dialToPan', () => {
+  it('is centered (0) at neutral', () => {
+    expect(dialToPan(0)).toBe(0)
+  })
+  it('spans hard left (-1) to hard right (+1) at the extremes', () => {
+    expect(dialToPan(-100)).toBe(-1)
+    expect(dialToPan(100)).toBe(1)
+  })
+})
+
+describe('dialToReverbParams', () => {
+  it('is fully dry at neutral (0)', () => {
+    expect(dialToReverbParams(0).wetMix).toBe(0)
+  })
+  it('is a short room below neutral and a longer hall above it', () => {
+    expect(dialToReverbParams(-100).decaySeconds).toBeLessThan(dialToReverbParams(100).decaySeconds)
+  })
+  it('wet mix grows with distance from neutral in either direction', () => {
+    expect(dialToReverbParams(-50).wetMix).toBeGreaterThan(0)
+    expect(dialToReverbParams(50).wetMix).toBeGreaterThan(0)
+    expect(dialToReverbParams(100).wetMix).toBeGreaterThan(dialToReverbParams(50).wetMix)
+  })
+})
+
+describe('buildReverbImpulse', () => {
+  it('renders a stereo buffer whose length matches the requested decay time', () => {
+    const ctx = fakeAudioContext(44100)
+    const impulse = buildReverbImpulse(ctx, 1)
+    expect(impulse.numberOfChannels).toBe(2)
+    expect(impulse.length).toBe(44100)
+  })
+  it('decays toward silence — later samples are quieter on average than early ones', () => {
+    const ctx = fakeAudioContext(44100)
+    const impulse = buildReverbImpulse(ctx, 0.5)
+    const data = impulse.getChannelData(0)
+    const early = data.slice(0, 100).reduce((sum, v) => sum + Math.abs(v), 0)
+    const late = data.slice(-100).reduce((sum, v) => sum + Math.abs(v), 0)
+    expect(late).toBeLessThan(early)
   })
 })

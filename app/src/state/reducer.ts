@@ -25,7 +25,13 @@ export type Action =
   | { type: 'SET_PAD_EFFECTS_BYPASSED'; padId: string; bypassed: boolean }
   | { type: 'SET_PAD_EFFECT'; padId: string; effectId: EffectId; value: number }
   | { type: 'RESET_PAD_EFFECTS'; padId: string }
-  | { type: 'APPLY_EFFECT_PRESET_TO_ALL_PADS'; filter: number; grit: number; echo: number }
+  | {
+      type: 'APPLY_EFFECT_PRESET_TO_ALL_PADS'
+      filter: number
+      grit: number
+      echo: number
+      reverb: number
+    }
   | { type: 'SET_ALL_PADS_EFFECTS_BYPASSED'; bypassed: boolean }
   | { type: 'RESET_ALL_PADS_EFFECTS' }
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
@@ -198,7 +204,10 @@ export function reducer(state: AppState, action: Action): AppState {
           return {
             ...pad,
             effects: pad.effects.map((effect) =>
-              effect.id === 'filter' || effect.id === 'grit' || effect.id === 'echo'
+              effect.id === 'filter' ||
+              effect.id === 'grit' ||
+              effect.id === 'echo' ||
+              effect.id === 'reverb'
                 ? { ...effect, value: action[effect.id] }
                 : effect,
             ),

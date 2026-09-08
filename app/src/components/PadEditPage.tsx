@@ -16,8 +16,10 @@ const EFFECT_LABELS: Record<EffectId, string> = {
   speed: 'Speed',
   filter: 'Filter',
   volume: 'Volume',
+  pan: 'Pan',
   grit: 'Grit',
   echo: 'Echo',
+  reverb: 'Reverb',
 }
 
 const EFFECT_DESCRIPTIONS: Record<EffectId, string> = {
@@ -29,8 +31,11 @@ const EFFECT_DESCRIPTIONS: Record<EffectId, string> = {
     'A tone control: negative muffles the sound (like turning down the treble), positive thins it out, 0 leaves it untouched.',
   volume:
     "Turns this pad up or down on its own. 0 is normal volume, -100 is silent, +100 is a loud boost that can distort if you push it — that's a feature, not a bug.",
+  pan: 'Places the sound left or right in stereo. 0 is centered, negative moves it left, positive moves it right.',
   grit: 'A character dial: negative crushes the sound into a harsh, digital lo-fi crunch, positive drives it into warm analog-style saturation. 0 is clean.',
   echo: 'Adds a repeating echo: negative is a tight, quick slapback, positive is a longer, spacier delay. 0 is dry, no echo at all.',
+  reverb:
+    'Adds room ambience: negative is a small, tight space, positive is a large, spacious hall. 0 is dry, no reverb at all.',
 }
 
 /** Anchor points the dial snaps to, e.g. [-100, -75, -50, ... 100]. */
@@ -158,8 +163,9 @@ export function PadEditPage() {
         <div className="dial-label-row">
           <span className="dial-label-text">Presets</span>
           <InfoTip label="About presets">
-            Quick-start combos across Filter, Grit, and Echo — the character dials. Applying one
-            only changes those three; Pitch, Speed, and Volume are left as they are.
+            Quick-start combos across Filter, Grit, Echo, and Reverb — the character dials.
+            Applying one only changes those four; Pitch, Speed, Volume, and Pan are left as they
+            are.
           </InfoTip>
         </div>
         <div className="effect-presets">
@@ -169,7 +175,7 @@ export function PadEditPage() {
               type="button"
               className="btn btn-secondary preset-btn"
               onClick={() => {
-                for (const effectId of ['filter', 'grit', 'echo'] as const) {
+                for (const effectId of ['filter', 'grit', 'echo', 'reverb'] as const) {
                   const value = preset[effectId]
                   dispatch({ type: 'SET_PAD_EFFECT', padId: pad.id, effectId, value })
                   if (looping) engine.updateLoopingPadEffect(pad.id, effectId, value)

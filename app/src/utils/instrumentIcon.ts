@@ -5,6 +5,10 @@ const PRESET_ICONS: Record<string, string> = {
   Piano: '🎹',
   Bass: '🎸',
   Lead: '🎺',
+  Pad: '🌫️',
+  Pluck: '🪕',
+  Organ: '⛪',
+  Bell: '🔔',
 }
 
 /** A small, stable glyph for an instrument — shown on any pad holding one of its keys. */

@@ -284,14 +284,17 @@ describe('reducer', () => {
       filter: 75,
       grit: -25,
       echo: 0,
+      reverb: 50,
     })
 
     for (const pad of applied.pads.slice(0, 2)) {
       expect(pad.effects.find((e) => e.id === 'filter')!.value).toBe(75)
       expect(pad.effects.find((e) => e.id === 'grit')!.value).toBe(-25)
       expect(pad.effects.find((e) => e.id === 'echo')!.value).toBe(0)
-      // Pitch/Speed/Volume are left alone, same as the single-pad preset buttons.
+      expect(pad.effects.find((e) => e.id === 'reverb')!.value).toBe(50)
+      // Pitch/Speed/Volume/Pan are left alone, same as the single-pad preset buttons.
       expect(pad.effects.find((e) => e.id === 'pitch')!.value).toBe(0)
+      expect(pad.effects.find((e) => e.id === 'pan')!.value).toBe(0)
     }
     // The 3rd pad is beyond visiblePadCount and shouldn't be touched.
     expect(applied.pads[2]!.effects.find((e) => e.id === 'filter')!.value).toBe(0)
