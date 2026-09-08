@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { DRUM_KIT_VOICES } from '../engine/drumSynth'
+import { getDrumKitByName, isDrumInstrumentName } from '../engine/drumSynth'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { usePadPlaying } from '../hooks/usePadPlaying'
 import { useAppState } from '../state/AppStateContext'
@@ -50,9 +50,10 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
     // The Drum Kit is the one bundled instrument whose keys are genuinely
     // different sounds rather than the same one pitch-shifted — its name is
     // stable (instruments can't be renamed), so this is a safe, permanent check.
-    const isDrumKit = instrument.name === 'Drum Kit'
+    const drumKit = getDrumKitByName(instrument.name)
+    const isDrumKit = isDrumInstrumentName(instrument.name)
     instrument.keySampleIds.forEach((sampleId, i) => {
-      const icon = isDrumKit ? drumVoiceIcon(DRUM_KIT_VOICES[i]!.kind) : instrumentIcon(instrument)
+      const icon = isDrumKit ? drumVoiceIcon(drumKit?.voices[i]?.kind ?? 'clap') : instrumentIcon(instrument)
       sampleKeyInfo.set(sampleId, { keyNumber: i + 1, icon })
     })
   }

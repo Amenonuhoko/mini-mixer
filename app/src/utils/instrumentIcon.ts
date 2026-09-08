@@ -11,7 +11,10 @@ const PRESET_ICONS: Record<string, string> = {
   Organ: '⛪',
   Bell: '🔔',
   Guitar: '🎸',
-  'Drum Kit': '🥁',
+  'Acoustic Drums': '🥁',
+  'Cymbals & Metal': '💿',
+  'Hand Percussion': '🪘',
+  'Electronic Drums': '⚡',
 }
 
 /** A small, stable glyph for an instrument — shown on any pad holding one of its keys. */
@@ -34,6 +37,13 @@ const DRUM_VOICE_ICONS: Record<DrumVoiceKind, string> = {
   rim: '🎯',
   cowbell: '🛎️',
   crash: '💥',
+  china: '💥',
+  ride: '💿',
+  shaker: '✨',
+  tambourine: '🪘',
+  claves: '🎯',
+  conga: '🪘',
+  bongo: '🪘',
 }
 
 export function drumVoiceIcon(kind: DrumVoiceKind): string {

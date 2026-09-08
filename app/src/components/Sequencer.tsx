@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
-import { MAX_PAD_COUNT, MAX_STEP_COUNT } from '../state/constants'
+import { MAX_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
@@ -91,8 +91,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
           type="button"
           className="step-add-right"
           onClick={() => dispatch({ type: 'REMOVE_PATTERN_STEPS', patternId: pattern.id })}
-          disabled={pattern.stepCount <= 16}
-          title={pattern.stepCount <= 16 ? 'A pattern needs at least 16 steps' : 'Remove the last four steps'}
+          disabled={pattern.stepCount <= MIN_STEP_COUNT}
+          title={pattern.stepCount <= MIN_STEP_COUNT ? 'A pattern needs at least 4 steps' : 'Remove the last four steps'}
           aria-label="Remove four steps from the right"
         >
           −4
@@ -108,50 +108,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
           +4
         </button>
       </div>
-      <div className="sequencer-scroll">
-        <div className="sequencer-grid">
-          <div className="sequencer-row sequencer-header-row">
-            <span className="sequencer-row-label sequencer-row-label-spacer" />
-            {chunk(
-              Array.from({ length: pattern.stepCount }, (_, i) => i),
-              GROUP_SIZE,
-            ).map((group, gi) => (
-              <div className="step-group" key={gi}>
-                <span className="step-group-number">{group[0]! + 1}</span>
-              </div>
-            ))}
-            </div>
-          {visiblePads.map((pad, padIndex) => (
-            <SequencerRow
-              key={pad.id}
-              pad={pad}
-              padIndex={padIndex}
-              patternId={pattern.id}
-              steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
-              traceSteps={pattern.traceSteps?.[pad.id] ?? []}
-              sampleLabels={Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))}
-              transport={state.transport}
-              engine={engine}
-              onToggleStep={(stepIndex) =>
-                dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
-              }
-              onSwapSound={() => setSwappingPadId(pad.id)}
-            />
-          ))}
-          {state.visiblePadCount < MAX_PAD_COUNT && (
-            <div className="sequencer-add-row-slot">
-              <span className="sequencer-row-label sequencer-row-label-spacer" />
-              <button
-                type="button"
-                className="sequencer-add-row"
-                onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-              >
-                + Add row
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="sequencer-footer-actions">
+        <div className="sequencer-floating-actions">
         <button
           type="button"
           className="btn btn-secondary sequencer-bounce"
@@ -201,6 +158,50 @@ export function Sequencer({ onBounced }: SequencerProps) {
           Clear Sequence
         </button>
         </div>
+      <div className="sequencer-scroll">
+        <div className="sequencer-grid">
+          <div className="sequencer-row sequencer-header-row">
+            <span className="sequencer-row-label sequencer-row-label-spacer" />
+            {chunk(
+              Array.from({ length: pattern.stepCount }, (_, i) => i),
+              GROUP_SIZE,
+            ).map((group, gi) => (
+              <div className="step-group" key={gi}>
+                <span className="step-group-number">{group[0]! + 1}</span>
+              </div>
+            ))}
+            </div>
+          {visiblePads.map((pad, padIndex) => (
+            <SequencerRow
+              key={pad.id}
+              pad={pad}
+              padIndex={padIndex}
+              patternId={pattern.id}
+              steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
+              traceSteps={pattern.traceSteps?.[pad.id] ?? []}
+              sampleLabels={Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))}
+              transport={state.transport}
+              engine={engine}
+              onToggleStep={(stepIndex) =>
+                dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
+              }
+              onSwapSound={() => setSwappingPadId(pad.id)}
+            />
+          ))}
+          {state.visiblePadCount < MAX_PAD_COUNT && (
+            <div className="sequencer-add-row-slot">
+              <span className="sequencer-row-label sequencer-row-label-spacer" />
+              <button
+                type="button"
+                className="sequencer-add-row"
+                onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
+              >
+                + Add row
+              </button>
+            </div>
+          )}
+        </div>
+
       </div>
       {confirmClear && (
         <div className="confirm-overwrite">

@@ -6,6 +6,7 @@ import {
   MIN_PAD_COUNT,
   MAX_PAD_COUNT,
   MAX_STEP_COUNT,
+  MIN_STEP_COUNT,
   STEP_ADD_COUNT,
   STEP_COUNT,
   MIN_TRIM_GAP,
@@ -419,8 +420,8 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'REMOVE_PATTERN_STEPS':
       return updatePattern(state, action.patternId, (pattern) => {
-        if (pattern.stepCount <= STEP_COUNT) return pattern
-        const stepCount = Math.max(STEP_COUNT, pattern.stepCount - STEP_ADD_COUNT)
+        if (pattern.stepCount <= MIN_STEP_COUNT) return pattern
+        const stepCount = Math.max(MIN_STEP_COUNT, pattern.stepCount - STEP_ADD_COUNT)
         return {
           ...pattern,
           stepCount,

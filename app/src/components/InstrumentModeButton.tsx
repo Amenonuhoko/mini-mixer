@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { buildDrumKitKeys, DRUM_KIT_VOICES } from '../engine/drumSynth'
+import { buildDrumKitKeys, DRUM_KITS, type DrumKitPreset } from '../engine/drumSynth'
 import { buildInstrumentKeysFromPreset, INSTRUMENT_PRESETS, type InstrumentPreset } from '../engine/synth'
 import { useAppState } from '../state/AppStateContext'
 import { createId } from '../state/defaults'
@@ -9,7 +9,7 @@ import { instrumentIconForName } from '../utils/instrumentIcon'
 import { Overlay } from './Overlay'
 
 /** A quick-build choice offered by this button's picker: a pitched synth preset, or the fixed Drum Kit (which has no InstrumentPreset shape of its own — see engine/drumSynth.ts). */
-type PresetChoice = InstrumentPreset | 'drum-kit'
+type PresetChoice = InstrumentPreset | DrumKitPreset
 
 /**
  * Dedicated icon button for Instrument Mode, top-right of the Pads panel
@@ -61,14 +61,12 @@ export function InstrumentModeButton() {
   }
 
   const buildAndApplyPreset = async (preset: PresetChoice) => {
-    const name = preset === 'drum-kit' ? 'Drum Kit' : preset.name
+    const name = preset.name
     setBuilding(name)
     try {
-      const buffers = preset === 'drum-kit' ? await buildDrumKitKeys() : await buildInstrumentKeysFromPreset(preset)
+      const buffers = 'id' in preset ? await buildDrumKitKeys(preset.id) : await buildInstrumentKeysFromPreset(preset)
       const labels =
-        preset === 'drum-kit'
-          ? DRUM_KIT_VOICES.map((voice) => voice.name)
-          : buffers.map((_, i) => `${name} ${i + 1}`)
+        'id' in preset ? preset.voices.map((voice) => voice.name) : buffers.map((_, i) => `${name} ${i + 1}`)
       const keySamples = buildKeySamples(buffers, labels)
       // Snapshot every existing pad the instrument will expose, including
       // currently hidden slots, before its keys replace their assignments.
@@ -149,19 +147,16 @@ export function InstrumentModeButton() {
               </ul>
             </section>
           ))}
-          <span className="settings-label">Drums</span>
+          <span className="settings-label">Drums & percussion</span>
           <ul className="instrument-picker-list">
-            <li>
-              <button
-                type="button"
-                className="btn btn-secondary instrument-picker-btn"
-                onClick={() => handlePickPreset('drum-kit')}
-                disabled={building !== null}
-              >
-                <span aria-hidden="true">{instrumentIconForName('Drum Kit')}</span>
-                {building === 'Drum Kit' ? 'Building…' : 'Drum Kit'}
-              </button>
-            </li>
+            {DRUM_KITS.map((kit) => (
+              <li key={kit.id}>
+                <button type="button" className="btn btn-secondary instrument-picker-btn" onClick={() => handlePickPreset(kit)} disabled={building !== null}>
+                  <span aria-hidden="true">{instrumentIconForName(kit.name)}</span>
+                  {building === kit.name ? 'Building…' : kit.name}
+                </button>
+              </li>
+            ))}
           </ul>
 
 

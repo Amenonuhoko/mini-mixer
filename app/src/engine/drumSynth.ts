@@ -1,176 +1,189 @@
 /**
- * A synthesized drum kit — the percussion counterpart to synth.ts's pitched
- * instrument presets. Deliberately a separate module rather than another
- * InstrumentPreset: a pitched preset is one patch pitch-shifted across 16
- * keys (renderSynthNote + semitone offsets), but a drum kit's 16 keys are 16
- * genuinely different voices (a kick doesn't sound like a snare pitched up)
- * — there's no single root/patch to shift, so the whole build shape here is
- * different: one distinct OfflineAudioContext render per named voice.
+ * Temporary pad layouts for percussion. Acoustic Drums and Cymbals & Metal
+ * use a CC0 recorded kit; the other two layouts remain deliberately focused
+ * synthetic instruments rather than pretending one generic noise source is a
+ * full drum set.
+ *
+ * Recorded source: Virtuosity Drums (CC0 1.0), prepared by ferrosintesis.
+ * https://github.com/0x4D44/ferrosintesis/tree/main/crates/ferrosintesis-samples-drumkit
  */
-
-export type DrumVoiceKind = 'kick' | 'snare' | 'hihat' | 'clap' | 'tom' | 'rim' | 'cowbell' | 'crash'
+export type DrumVoiceKind =
+  | 'kick' | 'snare' | 'hihat' | 'tom' | 'ride' | 'crash' | 'china'
+  | 'clap' | 'rim' | 'cowbell' | 'shaker' | 'tambourine' | 'claves' | 'conga' | 'bongo'
 
 export interface DrumVoice {
   name: string
   kind: DrumVoiceKind
-  /** Base pitch for tonal voices (kick/tom/cowbell) — ignored for noise-based kinds. */
-  freqHz?: number
-  /** How long the hit rings out before it's effectively silent. */
   decaySeconds: number
-  /** Highpass cutoff for noise-based kinds (snare/hihat/clap/rim/crash) — higher is brighter/thinner. */
+  freqHz?: number
   filterHz?: number
+  /** A real, licensed recording to prefer over the synthesis fallback. */
+  recordedFile?: string
+  recordedBank?: 'core' | 'cymbals'
 }
 
-/**
- * A single fixed 16-voice kit, ordered the way a hand would reach for them on
- * a pad grid rather than by pitch (there is no meaningful pitch order across
- * different drum sounds) — kick/snare/hats first as the most-used core,
- * toms/clap/rim/cowbell/cymbals filling out the rest, two "alt" variations of
- * the two most-used voices at the end for quick layering/variety.
- */
-export const DRUM_KIT_VOICES: DrumVoice[] = [
-  { name: 'Kick', kind: 'kick', freqHz: 55, decaySeconds: 0.35 },
-  { name: 'Snare', kind: 'snare', decaySeconds: 0.18, filterHz: 1800 },
-  { name: 'Closed Hat', kind: 'hihat', decaySeconds: 0.06, filterHz: 7000 },
-  { name: 'Open Hat', kind: 'hihat', decaySeconds: 0.35, filterHz: 6000 },
-  { name: 'Low Tom', kind: 'tom', freqHz: 90, decaySeconds: 0.4 },
-  { name: 'Mid Tom', kind: 'tom', freqHz: 130, decaySeconds: 0.35 },
-  { name: 'High Tom', kind: 'tom', freqHz: 180, decaySeconds: 0.3 },
-  { name: 'Clap', kind: 'clap', decaySeconds: 0.25, filterHz: 1200 },
-  { name: 'Rimshot', kind: 'rim', decaySeconds: 0.08, filterHz: 3500 },
-  { name: 'Cowbell', kind: 'cowbell', freqHz: 560, decaySeconds: 0.3 },
-  { name: 'Crash', kind: 'crash', decaySeconds: 1.8, filterHz: 5000 },
-  { name: 'Ride', kind: 'crash', decaySeconds: 0.9, filterHz: 8000 },
-  { name: 'Kick 2', kind: 'kick', freqHz: 70, decaySeconds: 0.22 },
-  { name: 'Snare 2', kind: 'snare', decaySeconds: 0.12, filterHz: 2400 },
-  { name: 'Shaker', kind: 'hihat', decaySeconds: 0.12, filterHz: 4000 },
-  { name: 'Tambourine', kind: 'clap', decaySeconds: 0.15, filterHz: 4500 },
+export interface DrumKitPreset {
+  id: 'acoustic-drums' | 'cymbals-metal' | 'hand-percussion' | 'electronic-drums'
+  name: string
+  voices: DrumVoice[]
+}
+
+const CORE = 'https://raw.githubusercontent.com/0x4D44/ferrosintesis/main/crates/ferrosintesis-samples-drumkit/samples/'
+const CYMBALS = 'https://raw.githubusercontent.com/0x4D44/ferrosintesis/main/crates/ferrosintesis-samples-drumkit2/samples/'
+
+export const DRUM_KITS: DrumKitPreset[] = [
+  {
+    id: 'acoustic-drums',
+    name: 'Acoustic Drums',
+    voices: [
+      { name: 'Kick', kind: 'kick', decaySeconds: .7, recordedFile: 'kick_vl4_rr1.flac', recordedBank: 'core' },
+      { name: 'Snare', kind: 'snare', decaySeconds: .45, recordedFile: 'snare_vl5_rr1.flac', recordedBank: 'core' },
+      { name: 'Side Stick', kind: 'claves', decaySeconds: .12, recordedFile: 'sidestick_vl3_rr1.flac', recordedBank: 'core' },
+      { name: 'Closed Hat', kind: 'hihat', decaySeconds: .16, recordedFile: 'hhc_vl4_rr1.flac', recordedBank: 'core' },
+      { name: 'Pedal Hat', kind: 'hihat', decaySeconds: .28, recordedFile: 'hhp_vl3_rr1.flac', recordedBank: 'core' },
+      { name: 'Open Hat', kind: 'hihat', decaySeconds: .8, recordedFile: 'hho_vl3_rr1.flac', recordedBank: 'core' },
+      { name: 'High Tom', kind: 'tom', decaySeconds: .55, recordedFile: 'tomhi_vl3_rr1.flac', recordedBank: 'core' },
+      { name: 'Floor Tom', kind: 'tom', decaySeconds: .75, recordedFile: 'tomlo_vl3_rr1.flac', recordedBank: 'core' },
+      { name: 'Ride Bow', kind: 'ride', decaySeconds: 1.5, recordedFile: 'ride_vl3_rr1.flac', recordedBank: 'core' },
+      { name: 'Ride Bell', kind: 'ride', decaySeconds: 1.8, recordedFile: 'ridebell_vl3_rr1.flac', recordedBank: 'core' },
+    ],
+  },
+  {
+    id: 'cymbals-metal',
+    name: 'Cymbals & Metal',
+    voices: [
+      { name: 'Crash', kind: 'crash', decaySeconds: 3, recordedFile: 'crash_vl3_rr1.flac', recordedBank: 'cymbals' },
+      { name: 'Splash', kind: 'crash', decaySeconds: 1.4, recordedFile: 'splash_vl3_rr1.flac', recordedBank: 'cymbals' },
+      { name: 'China', kind: 'china', decaySeconds: 2.8, recordedFile: 'china_vl5_rr1.flac', recordedBank: 'cymbals' },
+      { name: 'Ride', kind: 'ride', decaySeconds: 1.5, recordedFile: 'ride_vl3_rr2.flac', recordedBank: 'core' },
+      { name: 'Ride Bell', kind: 'ride', decaySeconds: 1.8, recordedFile: 'ridebell_vl3_rr2.flac', recordedBank: 'core' },
+      { name: 'Cowbell', kind: 'cowbell', decaySeconds: .35, freqHz: 560 },
+      { name: 'Tambourine', kind: 'tambourine', decaySeconds: .55, filterHz: 4600 },
+      { name: 'Claves', kind: 'claves', decaySeconds: .16, freqHz: 2100 },
+    ],
+  },
+  {
+    id: 'hand-percussion',
+    name: 'Hand Percussion',
+    voices: [
+      { name: 'Low Conga', kind: 'conga', decaySeconds: .8, freqHz: 115 },
+      { name: 'High Conga', kind: 'conga', decaySeconds: .55, freqHz: 190 },
+      { name: 'Low Bongo', kind: 'bongo', decaySeconds: .5, freqHz: 170 },
+      { name: 'High Bongo', kind: 'bongo', decaySeconds: .38, freqHz: 255 },
+      { name: 'Claves', kind: 'claves', decaySeconds: .16, freqHz: 2100 },
+      { name: 'Shaker', kind: 'shaker', decaySeconds: .22, filterHz: 5000 },
+      { name: 'Tambourine', kind: 'tambourine', decaySeconds: .55, filterHz: 4200 },
+      { name: 'Hand Clap', kind: 'clap', decaySeconds: .32, filterHz: 1400 },
+    ],
+  },
+  {
+    id: 'electronic-drums',
+    name: 'Electronic Drums',
+    voices: [
+      { name: '808 Kick', kind: 'kick', decaySeconds: .8, freqHz: 48 },
+      { name: 'Punch Kick', kind: 'kick', decaySeconds: .3, freqHz: 72 },
+      { name: 'Electronic Snare', kind: 'snare', decaySeconds: .2, filterHz: 2200 },
+      { name: 'Clap', kind: 'clap', decaySeconds: .26, filterHz: 1300 },
+      { name: 'Closed Hat', kind: 'hihat', decaySeconds: .08, filterHz: 7600 },
+      { name: 'Open Hat', kind: 'hihat', decaySeconds: .45, filterHz: 6500 },
+      { name: 'Low Tom', kind: 'tom', decaySeconds: .5, freqHz: 92 },
+      { name: 'High Tom', kind: 'tom', decaySeconds: .32, freqHz: 180 },
+      { name: 'Cowbell', kind: 'cowbell', decaySeconds: .34, freqHz: 560 },
+      { name: 'Crash', kind: 'crash', decaySeconds: 1.5, filterHz: 5200 },
+    ],
+  },
 ]
 
-function createNoiseBuffer(ctx: OfflineAudioContext, seconds: number): AudioBuffer {
-  const length = Math.max(1, Math.ceil(seconds * ctx.sampleRate))
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
-  const data = buffer.getChannelData(0)
-  for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1
+export const DRUM_KIT_VOICES = DRUM_KITS[0]!.voices
+
+export function getDrumKitByName(name: string): DrumKitPreset | undefined {
+  return DRUM_KITS.find((kit) => kit.name === name)
+}
+export function isDrumInstrumentName(name: string): boolean {
+  return getDrumKitByName(name) !== undefined
+}
+
+function normalize(buffer: AudioBuffer, targetRms = .16, ceiling = .82): AudioBuffer {
+  let energy = 0, peak = 0
+  for (const data of Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel))) {
+    for (const value of data) { energy += value * value; peak = Math.max(peak, Math.abs(value)) }
+  }
+  const rms = Math.sqrt(energy / Math.max(1, buffer.length * buffer.numberOfChannels))
+  if (!rms || !peak) return buffer
+  const gain = Math.min(targetRms / rms, ceiling / peak)
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    const data = buffer.getChannelData(channel)
+    for (let i = 0; i < data.length; i++) data[i] = (data[i] ?? 0) * gain
+  }
   return buffer
 }
 
-/** Renders one drum voice into a standalone AudioBuffer — self-contained, no live AudioContext needed, same shape as synth.ts's renderSynthNote. */
-export async function renderDrumVoice(voice: DrumVoice): Promise<AudioBuffer> {
-  const sampleRate = 44100
-  const totalSeconds = voice.decaySeconds + 0.05
-  const ctx = new OfflineAudioContext(1, Math.ceil(totalSeconds * sampleRate), sampleRate)
-
-  switch (voice.kind) {
-    case 'kick':
-    case 'tom': {
-      // A sine with a fast downward pitch sweep is the classic cheap way to
-      // fake a drum shell's thump with no sample — the sweep gives it an
-      // attack transient a plain tone at one pitch wouldn't have.
-      const root = voice.freqHz ?? 60
-      const osc = ctx.createOscillator()
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(root * 4, 0)
-      osc.frequency.exponentialRampToValueAtTime(root, 0.05)
-      const envelope = ctx.createGain()
-      envelope.gain.setValueAtTime(1, 0)
-      envelope.gain.exponentialRampToValueAtTime(0.001, voice.decaySeconds)
-      osc.connect(envelope)
-      envelope.connect(ctx.destination)
-      osc.start(0)
-      osc.stop(totalSeconds)
-      break
-    }
-
-    case 'cowbell': {
-      // Two square oscillators at an inharmonic ratio through a bandpass —
-      // the standard analog-drum-machine cowbell recipe.
-      const root = voice.freqHz ?? 560
-      const envelope = ctx.createGain()
-      envelope.gain.setValueAtTime(1, 0)
-      envelope.gain.exponentialRampToValueAtTime(0.001, voice.decaySeconds)
-      const filter = ctx.createBiquadFilter()
-      filter.type = 'bandpass'
-      filter.frequency.value = root
-      filter.Q.value = 4
-      filter.connect(envelope)
-      envelope.connect(ctx.destination)
-      for (const ratio of [1, 1.48]) {
-        const osc = ctx.createOscillator()
-        osc.type = 'square'
-        osc.frequency.value = root * ratio
-        osc.connect(filter)
-        osc.start(0)
-        osc.stop(totalSeconds)
-      }
-      break
-    }
-
-    // Snare/Hi-Hat/Clap/Rimshot/Crash are all fundamentally filtered noise —
-    // the difference between them is just the filter cutoff and decay shape.
-    case 'snare':
-    case 'hihat':
-    case 'rim':
-    case 'crash': {
-      const noise = ctx.createBufferSource()
-      noise.buffer = createNoiseBuffer(ctx, totalSeconds)
-      const filter = ctx.createBiquadFilter()
-      filter.type = 'highpass'
-      filter.frequency.value = voice.filterHz ?? 2000
-      const envelope = ctx.createGain()
-      envelope.gain.setValueAtTime(1, 0)
-      envelope.gain.exponentialRampToValueAtTime(0.001, voice.decaySeconds)
-      noise.connect(filter)
-      filter.connect(envelope)
-      envelope.connect(ctx.destination)
-      noise.start(0)
-
-      if (voice.kind === 'snare') {
-        // A short low tonal thump under the noise gives the snare body,
-        // rather than sounding like pure hiss.
-        const osc = ctx.createOscillator()
-        osc.type = 'triangle'
-        osc.frequency.value = 180
-        const toneEnvelope = ctx.createGain()
-        toneEnvelope.gain.setValueAtTime(0.6, 0)
-        toneEnvelope.gain.exponentialRampToValueAtTime(0.001, voice.decaySeconds * 0.6)
-        osc.connect(toneEnvelope)
-        toneEnvelope.connect(ctx.destination)
-        osc.start(0)
-        osc.stop(totalSeconds)
-      }
-      break
-    }
-
-    case 'clap': {
-      // Three quick noise bursts in place of one smooth decay is what makes
-      // a clap read as a clap rather than a snare — a hand-clap is several
-      // near-simultaneous slaps, not one continuous sound.
-      const noise = ctx.createBufferSource()
-      noise.buffer = createNoiseBuffer(ctx, totalSeconds)
-      const filter = ctx.createBiquadFilter()
-      filter.type = 'bandpass'
-      filter.frequency.value = voice.filterHz ?? 1200
-      const envelope = ctx.createGain()
-      envelope.gain.setValueAtTime(0, 0)
-      for (const burstStart of [0, 0.012, 0.024]) {
-        envelope.gain.setValueAtTime(1, burstStart)
-        envelope.gain.exponentialRampToValueAtTime(0.2, burstStart + 0.01)
-      }
-      envelope.gain.setValueAtTime(0.6, 0.024)
-      envelope.gain.exponentialRampToValueAtTime(0.001, voice.decaySeconds)
-      noise.connect(filter)
-      filter.connect(envelope)
-      envelope.connect(ctx.destination)
-      noise.start(0)
-      break
-    }
+const recordedCache = new Map<string, Promise<AudioBuffer>>()
+async function recordedVoice(voice: DrumVoice): Promise<AudioBuffer> {
+  const url = `${voice.recordedBank === 'cymbals' ? CYMBALS : CORE}${voice.recordedFile}`
+  let cached = recordedCache.get(url)
+  if (!cached) {
+    cached = (async () => {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`Could not load drum sample (${response.status})`)
+      const decoder = new OfflineAudioContext(1, 1, 44100)
+      return normalize(await decoder.decodeAudioData(await response.arrayBuffer()))
+    })().catch((error: unknown) => { recordedCache.delete(url); throw error })
+    recordedCache.set(url, cached)
   }
-
-  return ctx.startRendering()
+  return cached
 }
 
-/** Builds every kit voice in parallel — each render is independent, same as buildInstrumentKeysFromPreset. */
-export async function buildDrumKitKeys(): Promise<AudioBuffer[]> {
-  return Promise.all(DRUM_KIT_VOICES.map((voice) => renderDrumVoice(voice)))
+function noise(ctx: OfflineAudioContext, seconds: number): AudioBuffer {
+  const buffer = ctx.createBuffer(1, Math.max(1, Math.ceil(seconds * ctx.sampleRate)), ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  return buffer
+}
+
+export async function renderDrumVoice(voice: DrumVoice): Promise<AudioBuffer> {
+  const seconds = voice.decaySeconds + .08
+  const ctx = new OfflineAudioContext(1, Math.ceil(seconds * 44100), 44100)
+  const output = ctx.createGain(); output.connect(ctx.destination)
+  const env = ctx.createGain(); env.gain.setValueAtTime(1, 0); env.gain.exponentialRampToValueAtTime(.001, voice.decaySeconds)
+  if (voice.kind === 'kick' || voice.kind === 'tom' || voice.kind === 'conga' || voice.kind === 'bongo') {
+    const osc = ctx.createOscillator(); const root = voice.freqHz ?? 110
+    osc.type = voice.kind === 'kick' ? 'sine' : 'triangle'
+    osc.frequency.setValueAtTime(root * (voice.kind === 'kick' ? 3.5 : 1.7), 0)
+    osc.frequency.exponentialRampToValueAtTime(root, .05)
+    osc.connect(env); env.connect(output); osc.start(); osc.stop(seconds)
+  } else if (voice.kind === 'cowbell' || voice.kind === 'claves') {
+    const root = voice.freqHz ?? 700
+    for (const ratio of voice.kind === 'claves' ? [1] : [1, 1.48]) {
+      const osc=ctx.createOscillator(); osc.type='square'; osc.frequency.value=root*ratio; osc.connect(env); osc.start(); osc.stop(seconds)
+    }
+    env.connect(output)
+  } else {
+    const source=ctx.createBufferSource(); source.buffer=noise(ctx, seconds)
+    const filter=ctx.createBiquadFilter(); filter.type=voice.kind === 'clap' ? 'bandpass' : 'highpass'
+    filter.frequency.value=voice.filterHz ?? (voice.kind === 'snare' ? 1800 : 5200)
+    source.connect(filter); filter.connect(env); env.connect(output); source.start()
+    if (voice.kind === 'snare') {
+      const body=ctx.createOscillator(); const bodyEnv=ctx.createGain()
+      body.type='triangle'; body.frequency.value=180; bodyEnv.gain.setValueAtTime(.5,0); bodyEnv.gain.exponentialRampToValueAtTime(.001,.13)
+      body.connect(bodyEnv); bodyEnv.connect(output); body.start(); body.stop(seconds)
+    }
+    if (voice.kind === 'clap') {
+      env.gain.setValueAtTime(0,0)
+      for (const at of [0,.012,.024]) { env.gain.setValueAtTime(1,at); env.gain.exponentialRampToValueAtTime(.2,at+.01) }
+      env.gain.setValueAtTime(.6,.024); env.gain.exponentialRampToValueAtTime(.001,voice.decaySeconds)
+    }
+  }
+  return normalize(await ctx.startRendering())
+}
+
+export async function buildDrumKitKeys(kitId: DrumKitPreset['id'] = 'acoustic-drums'): Promise<AudioBuffer[]> {
+  const kit = DRUM_KITS.find((item) => item.id === kitId) ?? DRUM_KITS[0]!
+  return Promise.all(kit.voices.map(async (voice) => {
+    if (voice.recordedFile) {
+      try { return await recordedVoice(voice) }
+      catch (error) { console.warn(`Recorded ${voice.name} unavailable; using fallback.`, error) }
+    }
+    return renderDrumVoice(voice)
+  }))
 }

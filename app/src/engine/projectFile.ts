@@ -1,4 +1,4 @@
-import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, STEP_COUNT } from '../state/constants'
+import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, MIN_STEP_COUNT, STEP_COUNT } from '../state/constants'
 import { computePeaks } from '../utils/waveform'
 import type {
   AppState,
@@ -163,8 +163,8 @@ export function normalizePads(pads: Pad[]): Pad[] {
 export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
   const sampleIdByPad = new Map(pads.map((pad) => [pad.id, pad.sampleId]))
   return patterns.map((pattern) => {
-    const longestRow = Math.max(STEP_COUNT, ...Object.values(pattern.steps).map((steps) => steps.length))
-    const stepCount = Math.min(MAX_STEP_COUNT, Math.max(STEP_COUNT, pattern.stepCount ?? longestRow))
+    const longestRow = Math.max(MIN_STEP_COUNT, ...Object.values(pattern.steps).map((steps) => steps.length))
+    const stepCount = Math.min(MAX_STEP_COUNT, Math.max(MIN_STEP_COUNT, pattern.stepCount ?? longestRow))
     return {
       ...pattern,
       stepCount,

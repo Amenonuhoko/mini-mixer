@@ -1418,3 +1418,22 @@ Instrument selection is an immediate performance state, not a second asset-manag
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-09 — Split percussion layouts and persistent effect presets
+
+### Context
+The original Drum Kit was a single, small procedural preset that did not resemble a full playable kit. Sequencer actions also needed to stay reachable independent of horizontal timeline position, while the whole-pad effect surface needed more useful starting points and a way to retain a user-created sound.
+
+### Decision(s)
+- Replaced the single drum entry with Acoustic Drums, Cymbals & Metal, Hand Percussion, and Electronic Drums. Acoustic and cymbal layouts prefer CC0 recorded Virtuosity Drums sources, normalized on load; focused synthesis remains an offline fallback if a source cannot be fetched.
+- Moved sequence save/hide/clear actions into one sticky top-right rail outside the horizontal grid.
+- Expanded the global effect collection to sixteen presets and added browser-local custom preset saving from the current grid character.
+
+### Reasoning
+Separate kits keep a pad layout playable rather than treating 32 slots as a dumping ground. A network sample source must never make the picker unusable, so every recorded voice retains a musical fallback. Local custom presets are appropriate for a personal browser-based tool and avoid increasing project-file size.
+
+### Open questions / carried forward
+Round-robin playback and true velocity response require a future pad-trigger metadata layer; the current pads remain one-shot samples by design.

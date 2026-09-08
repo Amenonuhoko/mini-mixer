@@ -4,6 +4,8 @@ export const MAX_PAD_COUNT = 32
 /** One key per pad slot up to the max pad count, so applying an instrument to the grid never runs short regardless of the current pad count. */
 export const INSTRUMENT_KEY_COUNT = MAX_PAD_COUNT
 export const STEP_COUNT = 16
+/** Patterns may shrink in four-step groups to this one-beat minimum. */
+export const MIN_STEP_COUNT = 4
 /** A pattern can grow in groups of four beats up to four bars. */
 export const MAX_STEP_COUNT = 64
 export const STEP_ADD_COUNT = 4
@@ -55,6 +57,14 @@ export const EFFECT_PRESETS: EffectPreset[] = [
   { name: 'Lo-Fi', filter: -30, grit: -60, echo: 0, reverb: 10 },
   { name: 'Crunch', filter: 25, grit: 75, echo: 0, reverb: 0 },
   { name: 'Slapback', filter: 0, grit: 0, echo: -75, reverb: 0 },
+  { name: 'Clean Air', filter: 25, grit: 0, echo: 0, reverb: 15 },
+  { name: 'Warm Tape', filter: -25, grit: -25, echo: -25, reverb: 10 },
+  { name: 'Wide Hall', filter: 0, grit: 0, echo: 25, reverb: 75 },
+  { name: 'Dub', filter: -25, grit: 0, echo: 75, reverb: 25 },
+  { name: 'Bitcrush', filter: 25, grit: 100, echo: 0, reverb: 0 },
+  { name: 'Dream', filter: -25, grit: 0, echo: 25, reverb: 100 },
+  { name: 'Ice', filter: 100, grit: 0, echo: 25, reverb: 50 },
+  { name: 'Tunnel', filter: -100, grit: 50, echo: -25, reverb: -25 },
 ]
 
 /** Trim handles can't collapse closer than this (fraction of the sample's duration). */
