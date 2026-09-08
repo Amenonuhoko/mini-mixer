@@ -1135,3 +1135,21 @@ Mutual exclusivity here is about a pad’s gesture vocabulary—play/gate, loop 
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Non-destructive instrument replacement and level-matched presets
+
+### Context
+After a quick instrument was laid across the pads, tapping Instrument Mode again still treated that tap as an off action and cleared the active layout before a replacement could be chosen. The procedural preset models also had materially different output levels, particularly between transient-heavy and sustained voices.
+
+### Decision(s)
+- Instrument Mode now always opens its picker. With a quick instrument active, the current pad assignments remain untouched until the user chooses and confirms a replacement; replacing a quick preset still removes its superseded generated key samples.
+- Every generated preset key, including the offline-rendered Lead and Pad voices, now receives RMS normalisation to a shared target, capped by a safe peak ceiling.
+
+### Reasoning
+The Instrument button is a fast selection surface, not a destructive toggle: an active instrument should make choosing a different one immediate. RMS matching is more useful than peak-only limiting for musical consistency because it aligns the usable average level of percussive and sustained models while retaining headroom against clipping.
+
+### Open questions / carried forward
+None.
