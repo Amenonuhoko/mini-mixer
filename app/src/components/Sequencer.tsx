@@ -166,16 +166,26 @@ export function Sequencer({ onBounced }: SequencerProps) {
           className="btn btn-secondary sequencer-trace"
           onClick={() => dispatch({ type: 'CAPTURE_PATTERN_TRACE', patternId: pattern.id })}
           disabled={!patternHasSteps}
-          title={patternHasSteps ? 'Keep these placements as a visual-only guide' : 'Program a step first'}
+          title={patternHasSteps ? 'Hide this sequence while retaining it as a visual guide' : 'Program a step first'}
         >
-          Trace current
+          Hide sequence
         </button>
+        {pattern.traceSource === 'hidden' && (
+          <button
+            type="button"
+            className="btn btn-secondary sequencer-trace"
+            onClick={() => dispatch({ type: 'RESTORE_PATTERN_TRACE', patternId: pattern.id })}
+            title="Restore this hidden sequence to playback"
+          >
+            Show sequence
+          </button>
+        )}
         {pattern.traceSteps && (
           <button
             type="button"
             className="btn btn-secondary sequencer-trace"
             onClick={() => dispatch({ type: 'CLEAR_PATTERN_TRACE', patternId: pattern.id })}
-            title="Hide and remove the visual trace"
+            title="Remove the visual trace"
           >
             Clear trace
           </button>
