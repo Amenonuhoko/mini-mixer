@@ -198,6 +198,24 @@ function PadButton({
     if (playbackMode === 'gate') stopActiveSource()
   }
 
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Pointer down/up already handles touch and mouse clicks. A click with
+    // detail 0 is keyboard activation (Enter/Space), which has no pointer
+    // lifecycle; give it the full one-shot behavior so desktop keyboard users
+    // can play pads reliably without an invisible press-and-hold requirement.
+    if (event.detail !== 0) return
+    onSelect(pad.id)
+    if (!pad.sampleId) return
+
+    const sample = state.samples[pad.sampleId]
+    if (!sample) return
+    if (loopModeEnabled) {
+      if (!pad.muted || looping) engine.toggleLoop(pad, sample.buffer)
+      return
+    }
+    if (!pad.muted) engine.triggerPad(pad, sample.buffer)
+  }
+
   return (
     <button
       type="button"
@@ -222,6 +240,7 @@ function PadButton({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      onClick={handleClick}
     >
       {sample && sample.peaks.length > 0 && (
         <span className="pad-waveform-backdrop" aria-hidden="true">
