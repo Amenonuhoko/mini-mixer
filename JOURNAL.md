@@ -1230,3 +1230,22 @@ Source balance and total listening level solve different problems and need separ
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Sequencer cells retain their original sound
+
+### Context
+A sequencer row can be reassigned from one sound to another after notes have already been programmed. Previously its cells were boolean gates, so playback and bounce always read the row's current pad sound and silently rewrote the earlier musical decision.
+
+### Decision(s)
+Each sequencer cell now stores either `null` or the precise sample ID that was on the pad when that cell was added. The playback scheduler and Bounce to Pad renderer resolve that stored reference, not the pad's later assignment. For example, a step entered as Piano 1 remains Piano 1 after the pad is changed; a subsequent step can be Guitar 1.
+
+Older project files and browser autosaves with boolean cells are migrated on load: each prior `true` becomes the sound that was assigned to that pad at migration time. If a transient Instrument Mode asset is dismissed while a pattern still references one of its key samples, that otherwise-hidden asset is retained as sequence backing data so the historical cell remains playable.
+
+### Reasoning
+A programmed pattern is musical history, not a live view of the pad grid. Capturing the source at entry time makes sound replacement additive and predictable while still allowing current pad mix, effects, trim, and mute controls to shape the row as a whole.
+
+### Open questions / carried forward
+None.
