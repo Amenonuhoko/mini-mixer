@@ -1037,3 +1037,24 @@ Full verification: `tsc -b` (clean), `oxlint` (same three pre-existing, already-
 - Autosave's per-write full sample re-encode (a performance concern, not correctness) remains open.
 - The three expected/accepted oxlint `only-export-components` warnings remain unchanged.
 - No other items are currently queued.
+
+
+---
+
+## 2026-09-08 — Simplify the Library to samples only
+
+### Context
+After reviewing the live mobile UI, the Instruments panel occupied the top of the Library page before a user could reach their recordings and bounced sequence samples. The user asked to remove that section for now.
+
+### Decision(s)
+Removed the Instruments panel from the Library page. The page now opens directly on the sample-card library. Existing instrument data, generated note samples, and the Pads-page Instrument Mode picker remain unchanged, so this is a UI-surface removal rather than deletion of instrument capabilities or user-created instruments.
+
+### Alternatives considered
+- Delete the instrument model and its generated samples — rejected; that would be destructive and would also break the existing Instrument Mode flow.
+- Move instrument controls elsewhere in Library — rejected for now; the goal is a clean, sample-focused Library, and the Pads page already owns applying instruments to the grid.
+
+### Reasoning
+Library is the natural place to browse and manage playable recordings, while Instrument Mode is a performance/grid concern. Separating them makes the first Library screen faster to scan on a phone without reducing the current instrument workflow.
+
+### Open questions / carried forward
+Whether instruments eventually need a dedicated management surface outside Library can be revisited if the existing Pads-page picker becomes insufficient.
