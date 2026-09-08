@@ -29,11 +29,12 @@ type PendingChoice =
  * Picking a quick preset here builds a brand-new instrument on the spot,
  * with no need to visit the Library first — this button is always usable
  * even with an empty library. Since that instrument only exists for this one
- * performance, turning Instrument Mode back off *through this same button*
- * removes it (and its generated key samples) again, so quick experiments
- * don't quietly pile up in the library. Applying an instrument you already
- * built on purpose (via the Library page, listed under "Your library" below)
- * never gets auto-removed — only the one this button just created itself.
+ * performance, turning Instrument Mode off removes it (and its generated key
+ * samples) again, so quick experiments do not quietly pile up in project data.
+ * The same cleanup also runs if another mutually exclusive grid mode turns
+ * Instrument Mode off, or before a new quick instrument replaces the old one.
+ * Older saved instruments remain selectable under "Your library" and are not
+ * silently deleted.
  */
 export function InstrumentModeButton() {
   const { state, dispatch } = useAppState()
@@ -59,7 +60,12 @@ export function InstrumentModeButton() {
     setPendingChoice(null)
   }
 
+  const removeAutoInstrument = () => {
+    if (autoInstrumentId) dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: autoInstrumentId })
+  }
+
   const applyExisting = (instrumentId: string) => {
+    removeAutoInstrument()
     dispatch({ type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId })
     dispatch({ type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: true })
     // Applying something you deliberately built (or a still-active quick
@@ -84,6 +90,7 @@ export function InstrumentModeButton() {
         source: 'preset',
         keySampleIds: keySamples.map((s) => s.id),
       }
+      removeAutoInstrument()
       dispatch({ type: 'ADD_INSTRUMENT', instrument, keySamples })
       dispatch({ type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
       dispatch({ type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: true })
@@ -113,9 +120,7 @@ export function InstrumentModeButton() {
   const handleClick = () => {
     if (enabled) {
       dispatch({ type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: false })
-      if (autoInstrumentId) {
-        dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: autoInstrumentId })
-      }
+      removeAutoInstrument()
     } else {
       setPickingInstrument(true)
     }
