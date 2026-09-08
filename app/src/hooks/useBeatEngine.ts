@@ -65,6 +65,10 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     engineRef.current?.setBpm(state.transport.bpm)
   }, [state.transport.bpm])
 
+  useEffect(() => {
+    engineRef.current?.setMasterVolume(state.transport.masterVolume)
+  }, [state.transport.masterVolume])
+
   // The lookahead clock itself runs whenever *either* the sequencer is playing or
   // the metronome is on — the metronome toggle starts/stops it independently of
   // the play/pause button, per its own explicit control, while still sharing one
