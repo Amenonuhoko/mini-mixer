@@ -1307,3 +1307,20 @@ The trace separates reference from performance data, while sticky controls prese
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Imported project wins over delayed autosave
+
+### Context
+Loading an older exported JSON could appear to return the app to an earlier session. Startup restoration of the browser autosave decodes asynchronously, which meant it could finish after an explicit import and replace the imported state.
+
+### Decision(s)
+The autosave restore now applies only while the initial session state is untouched. Any explicit import or other user edit made before that restore resolves takes precedence, so a loaded project cannot be overwritten by the delayed autosave result.
+
+### Reasoning
+Autosave is a startup convenience, whereas loading a project is an explicit user decision. The latter must always win when the two operations race.
+
+### Open questions / carried forward
+None.
