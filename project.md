@@ -149,6 +149,7 @@ interface Pattern {
   id: string;
   name: string;
   // 16 cells per pad: null is empty; a sample id freezes the sound selected when that cell was added.
+  stepCount: number; // starts at 16; user can extend in groups of four up to 64
   steps: Record<string /* padId */, Array<string | null>>;
 }
 
