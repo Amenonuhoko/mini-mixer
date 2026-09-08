@@ -139,11 +139,29 @@ describe('reducer', () => {
     const patternId = state.activePatternId
     const padId = state.pads[0]!.id
 
-    const on = reducer(state, { type: 'TOGGLE_STEP', patternId, padId, stepIndex: 3 })
-    expect(on.patterns[0]!.steps[padId]![3]).toBe(true)
+    const on = reducer(state, { type: 'TOGGLE_STEP', patternId, padId, stepIndex: 3, sampleId: 'piano_1' })
+    expect(on.patterns[0]!.steps[padId]![3]).toBe('piano_1')
 
-    const off = reducer(on, { type: 'TOGGLE_STEP', patternId, padId, stepIndex: 3 })
-    expect(off.patterns[0]!.steps[padId]![3]).toBe(false)
+    const off = reducer(on, { type: 'TOGGLE_STEP', patternId, padId, stepIndex: 3, sampleId: 'piano_1' })
+    expect(off.patterns[0]!.steps[padId]![3]).toBeNull()
+  })
+
+  it('keeps a programmed step on its original sound when the pad is reassigned', () => {
+    const state = createInitialState(1)
+    const patternId = state.activePatternId
+    const padId = state.pads[0]!.id
+    const piano = makeSample('piano_1')
+    const guitar = makeSample('guitar_1')
+
+    let next = reducer(state, { type: 'ADD_SAMPLE', sample: piano })
+    next = reducer(next, { type: 'ADD_SAMPLE', sample: guitar })
+    next = reducer(next, { type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId: piano.id })
+    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId, stepIndex: 0, sampleId: piano.id })
+    next = reducer(next, { type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId: guitar.id })
+    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId, stepIndex: 1, sampleId: guitar.id })
+
+    expect(next.patterns[0]!.steps[padId]![0]).toBe(piano.id)
+    expect(next.patterns[0]!.steps[padId]![1]).toBe(guitar.id)
   })
 
   it('clears every step in a pattern across every pad it tracks', () => {
@@ -152,9 +170,9 @@ describe('reducer', () => {
     const padA = state.pads[0]!.id
     const padB = state.pads[1]!.id
 
-    let next = reducer(state, { type: 'TOGGLE_STEP', patternId, padId: padA, stepIndex: 0 })
-    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId: padA, stepIndex: 5 })
-    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId: padB, stepIndex: 2 })
+    let next = reducer(state, { type: 'TOGGLE_STEP', patternId, padId: padA, stepIndex: 0, sampleId: 'piano_1' })
+    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId: padA, stepIndex: 5, sampleId: 'piano_1' })
+    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId: padB, stepIndex: 2, sampleId: 'guitar_1' })
 
     const cleared = reducer(next, { type: 'CLEAR_PATTERN', patternId })
     expect(cleared.patterns[0]!.steps[padA]!.every((on) => !on)).toBe(true)
@@ -491,7 +509,7 @@ describe('reducer', () => {
     expect(next.pads).toHaveLength(3)
     const newPadId = next.pads[2]!.id
     expect(next.patterns[0]!.steps[newPadId]).toHaveLength(16)
-    expect(next.patterns[0]!.steps[newPadId]!.every((step) => step === false)).toBe(true)
+    expect(next.patterns[0]!.steps[newPadId]!.every((step) => step === null)).toBe(true)
   })
 
   it('CLEAR_ALL resets to a fresh default state at the same visible pad count', () => {
