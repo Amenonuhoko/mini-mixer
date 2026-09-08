@@ -103,6 +103,8 @@ export interface Transport {
   loopMode: LoopMode
   currentStep: number
   metronomeEnabled: boolean
+  /** Final listening-level control, 0-100. Applies after every pad's mix/effects path. */
+  masterVolume: number
   /**
    * Global mode switch for the pad grid: while on, tapping a pad toggles its
    * loop instead of playing a one-shot. Lives here alongside metronomeEnabled
