@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
-import type { Sample } from '../state/types'
+import { getLibrarySamples } from '../state/librarySamples'
 import { Overlay } from './Overlay'
 import { StaticWaveform } from './Waveform'
 
@@ -22,9 +22,7 @@ export function PadLibraryPicker({ padId, onClose }: PadLibraryPickerProps) {
   const { state, dispatch } = useAppState()
   const [confirmSampleId, setConfirmSampleId] = useState<string | null>(null)
   const pad = state.pads.find((p) => p.id === padId)
-  const samples = state.sampleOrder
-    .map((id) => state.samples[id])
-    .filter((sample): sample is Sample => sample !== undefined && sample.kind !== 'note')
+  const samples = getLibrarySamples(state)
 
   const assign = (sampleId: string) => {
     dispatch({ type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId })
