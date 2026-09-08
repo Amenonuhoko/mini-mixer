@@ -76,16 +76,6 @@ export function InstrumentModeButton() {
 
   const buildAndApplyPreset = async (preset: PresetChoice) => {
     const name = preset === 'drum-kit' ? 'Drum Kit' : preset.name
-    // Preserve the layout from before the first temporary instrument. A quick
-    // preset may be replaced, but it must never become the restore target.
-    const padSnapshot =
-      state.transport.autoInstrumentPadSnapshot ??
-      Object.fromEntries(
-        state.pads.slice(0, state.visiblePadCount).map((pad) => [
-          pad.id,
-          { sampleId: pad.sampleId, trimStart: pad.trimStart, trimEnd: pad.trimEnd },
-        ]),
-      )
     setBuilding(name)
     try {
       const buffers = preset === 'drum-kit' ? await buildDrumKitKeys() : await buildInstrumentKeysFromPreset(preset)
@@ -94,6 +84,16 @@ export function InstrumentModeButton() {
           ? DRUM_KIT_VOICES.map((voice) => voice.name)
           : buffers.map((_, i) => `${name} ${i + 1}`)
       const keySamples = buildKeySamples(buffers, labels)
+      // Snapshot every existing pad the instrument will expose, including
+      // currently hidden slots, before its keys replace their assignments.
+      const padSnapshot =
+        state.transport.autoInstrumentPadSnapshot ??
+        Object.fromEntries(
+          state.pads.slice(0, Math.max(state.visiblePadCount, keySamples.length)).map((pad) => [
+            pad.id,
+            { sampleId: pad.sampleId, trimStart: pad.trimStart, trimEnd: pad.trimEnd },
+          ]),
+        )
       const instrument: Instrument = {
         id: createId('instrument'),
         name,
