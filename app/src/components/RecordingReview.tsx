@@ -78,7 +78,7 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
         buffer: recording.buffer,
         recordedAt: timestampNow(),
         kind: recording.kind ?? 'recording',
-        sequenceTrace: recording.sequenceTrace,
+        ...(recording.sequenceTrace ? { sequenceTrace: recording.sequenceTrace } : {}),
         peaks: recording.peaks,
       },
     })
