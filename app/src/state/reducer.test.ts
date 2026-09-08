@@ -393,6 +393,44 @@ describe('reducer', () => {
     expect(removed.pads[0]!.sampleId).toBeNull()
   })
 
+  it('tracks and clears the auto-built instrument id (InstrumentModeButton’s quick-build cleanup)', () => {
+    const state = createInitialState(1)
+    expect(state.transport.autoInstrumentId).toBeNull()
+
+    const tracked = reducer(state, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: 'inst_1' })
+    expect(tracked.transport.autoInstrumentId).toBe('inst_1')
+
+    const untracked = reducer(tracked, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: null })
+    expect(untracked.transport.autoInstrumentId).toBeNull()
+  })
+
+  it('clears the tracked auto-instrument id when that exact instrument is removed', () => {
+    const state = createInitialState(1)
+    const keySamples = [makeSample('auto_key_0')]
+    const instrument = makeInstrument('auto_inst', ['auto_key_0'])
+    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
+    next = reducer(next, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: instrument.id })
+    expect(next.transport.autoInstrumentId).toBe(instrument.id)
+
+    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
+    expect(removed.transport.autoInstrumentId).toBeNull()
+  })
+
+  it('leaves the tracked auto-instrument id alone when a different instrument is removed', () => {
+    const state = createInitialState(1)
+    const autoKeySamples = [makeSample('auto_key_0')]
+    const autoInstrument = makeInstrument('auto_inst', ['auto_key_0'])
+    const otherKeySamples = [makeSample('other_key_0')]
+    const otherInstrument = makeInstrument('other_inst', ['other_key_0'])
+
+    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument: autoInstrument, keySamples: autoKeySamples })
+    next = reducer(next, { type: 'ADD_INSTRUMENT', instrument: otherInstrument, keySamples: otherKeySamples })
+    next = reducer(next, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: autoInstrument.id })
+
+    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: otherInstrument.id })
+    expect(removed.transport.autoInstrumentId).toBe(autoInstrument.id)
+  })
+
   it('shrinking pad count hides pads without discarding their data', () => {
     const state = createInitialState(4)
     const sample = makeSample('kept')

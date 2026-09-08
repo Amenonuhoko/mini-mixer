@@ -76,6 +76,7 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
       padInstrumentModeEnabled: false,
       padMixerModeEnabled: false,
       playthroughRecordingEnabled: false,
+      autoInstrumentId: null,
     },
   }
 }

@@ -129,6 +129,21 @@ export interface Transport {
    * the whole point.
    */
   playthroughRecordingEnabled: boolean
+  /**
+   * The id of an instrument InstrumentModeButton's quick-build picker created
+   * on the spot (as opposed to one deliberately built via the Library page),
+   * or null if none/not applicable. Lives here (in-memory app state, not
+   * component-local) specifically so it survives navigating away from the
+   * Pads page and back — the button component unmounts on every page switch,
+   * which would otherwise lose track of which instrument to clean up. Turning
+   * Instrument Mode off through that same button removes this instrument (see
+   * reducer.ts's SET_AUTO_INSTRUMENT_ID/REMOVE_INSTRUMENT). Deliberately
+   * transient, like isPlaying/currentStep: reset to null on every project
+   * load rather than persisted, since once a project has been explicitly
+   * saved, whatever instruments it contains are project data, not something
+   * still owed a silent auto-delete.
+   */
+  autoInstrumentId: string | null
 }
 
 export interface AppState {

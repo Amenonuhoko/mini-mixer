@@ -17,3 +17,8 @@ const PRESET_ICONS: Record<string, string> = {
 export function instrumentIcon(instrument: Instrument): string {
   return PRESET_ICONS[instrument.name] ?? (instrument.source === 'recording' ? '🎤' : '🎼')
 }
+
+/** Looks up a bundled preset's glyph by name alone — for places (like a preset picker) that have a preset's name but no full Instrument object yet to hand instrumentIcon(). */
+export function instrumentIconForName(name: string): string {
+  return PRESET_ICONS[name] ?? '🎼'
+}

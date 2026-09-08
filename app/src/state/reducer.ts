@@ -46,6 +46,7 @@ export type Action =
   | { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_MIXER_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PLAYTHROUGH_RECORDING_ENABLED'; enabled: boolean }
+  | { type: 'SET_AUTO_INSTRUMENT_ID'; instrumentId: string | null }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
   | { type: 'LOAD_PROJECT'; state: AppState }
@@ -147,6 +148,10 @@ export function reducer(state: AppState, action: Action): AppState {
         pads: state.pads.map((pad) =>
           pad.sampleId && keyIds.has(pad.sampleId) ? { ...pad, sampleId: null } : pad,
         ),
+        transport:
+          state.transport.autoInstrumentId === action.instrumentId
+            ? { ...state.transport, autoInstrumentId: null }
+            : state.transport,
       }
     }
 
@@ -336,6 +341,12 @@ export function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         transport: { ...state.transport, playthroughRecordingEnabled: action.enabled },
+      }
+
+    case 'SET_AUTO_INSTRUMENT_ID':
+      return {
+        ...state,
+        transport: { ...state.transport, autoInstrumentId: action.instrumentId },
       }
 
     case 'SET_CURRENT_STEP':

@@ -147,7 +147,13 @@ export function normalizePads(pads: Pad[]): Pad[] {
   return pads.map((pad) => ({ ...pad, mixLevel: pad.mixLevel ?? DEFAULT_MIX_LEVEL }))
 }
 
-/** isPlaying/currentStep are transient playback state, not project data — always reset. */
+/**
+ * isPlaying/currentStep/autoInstrumentId are transient session state, not
+ * project data — always reset. autoInstrumentId in particular: once a
+ * project has been explicitly saved, any instrument it contains is project
+ * data now, not something still owed InstrumentModeButton's silent
+ * auto-delete-on-off (see Transport.autoInstrumentId).
+ */
 export function buildTransport(meta: ProjectMeta['transport']): Transport {
   return {
     ...meta,
@@ -157,6 +163,7 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
     playthroughRecordingEnabled: meta.playthroughRecordingEnabled ?? false,
     isPlaying: false,
     currentStep: 0,
+    autoInstrumentId: null,
   }
 }
 

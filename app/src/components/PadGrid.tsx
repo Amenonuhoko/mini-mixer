@@ -11,13 +11,6 @@ import { LoopModeSwitch } from './LoopModeSwitch'
 import { PadEffectsMenuButton } from './PadEffectsMenuButton'
 import { StaticWaveform } from './Waveform'
 
-/**
- * How long a press has to be held before it's treated as "gating" the sound
- * (release stops it early) rather than a quick tap (plays through in full).
- * See PadButton's pointer handlers for the full behavior.
- */
-const GATE_HOLD_THRESHOLD_MS = 200
-
 interface PadGridProps {
   selectedPadId: string | null
   onSelectPad: (padId: string) => void
@@ -98,13 +91,13 @@ interface PadButtonProps {
 /**
  * A pad is one undivided tap target. Its behavior depends on the global loop
  * mode toggle (see GridModeButton): off (the default) — pressing plays the
- * sample, following your finger like a gate once you hold past a short
- * threshold (release cuts it off early), but a quick tap always plays
- * through in full, same as before this existed. On — pressing toggles this
- * pad's loop instead, and gating doesn't apply (there's nothing to gate,
- * it's a discrete on/off). Either way, loop and mute stay off the pad face
- * itself — see the selected-pad action bar in PadsPage — this is purely a
- * playback trigger, not a settings surface.
+ * sample and releasing stops it immediately, a gate every time regardless of
+ * how long the press was held — hold to let it ring out, release early to
+ * cut it short. On — pressing toggles this pad's loop instead, and gating
+ * doesn't apply (there's nothing to gate, it's a discrete on/off). Either
+ * way, loop and mute stay off the pad face itself — see the selected-pad
+ * action bar in PadsPage — this is purely a playback trigger, not a settings
+ * surface.
  */
 function PadButton({
   pad,
@@ -122,14 +115,15 @@ function PadButton({
   const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
 
   const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
-  const gatedRef = useRef(false)
-  const gateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const clearGateTimer = () => {
-    if (gateTimerRef.current !== null) {
-      clearTimeout(gateTimerRef.current)
-      gateTimerRef.current = null
+  const stopActiveSource = () => {
+    if (!activeSourceRef.current) return
+    try {
+      activeSourceRef.current.stop()
+    } catch {
+      // Already ended naturally between the press and this release — nothing to stop.
     }
+    activeSourceRef.current = null
   }
 
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -146,13 +140,7 @@ function PadButton({
 
     const sample = state.samples[pad.sampleId]
     if (!sample) return
-    const source = engine.triggerPad(pad, sample.buffer)
-    activeSourceRef.current = source
-    gatedRef.current = false
-    clearGateTimer()
-    gateTimerRef.current = setTimeout(() => {
-      gatedRef.current = true
-    }, GATE_HOLD_THRESHOLD_MS)
+    activeSourceRef.current = engine.triggerPad(pad, sample.buffer)
   }
 
   const handlePointerUp = () => {
@@ -168,33 +156,14 @@ function PadButton({
       return
     }
 
-    clearGateTimer()
-    if (gatedRef.current && activeSourceRef.current) {
-      try {
-        activeSourceRef.current.stop()
-      } catch {
-        // Already ended naturally between the hold crossing the gate
-        // threshold and this release — nothing left to stop.
-      }
-    }
-    activeSourceRef.current = null
-    gatedRef.current = false
+    stopActiveSource()
   }
 
   const handlePointerCancel = () => {
     // A dropped gesture (OS interruption, scroll takeover) behaves like a
     // release for gating purposes, but never toggles a loop — an incomplete
     // gesture shouldn't commit to a discrete on/off action.
-    clearGateTimer()
-    if (gatedRef.current && activeSourceRef.current) {
-      try {
-        activeSourceRef.current.stop()
-      } catch {
-        // Already ended — nothing to stop.
-      }
-    }
-    activeSourceRef.current = null
-    gatedRef.current = false
+    stopActiveSource()
   }
 
   return (

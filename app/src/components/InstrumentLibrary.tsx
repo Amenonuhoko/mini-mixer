@@ -7,24 +7,9 @@ import {
   type InstrumentPreset,
 } from '../engine/synth'
 import { useAppState } from '../state/AppStateContext'
-import { createId, timestampNow } from '../state/defaults'
-import { computePeaks } from '../utils/waveform'
+import { createId } from '../state/defaults'
+import { buildKeySamples } from '../utils/buildInstrumentSamples'
 import type { Instrument, Sample } from '../state/types'
-
-/** Matches the resolution RecordFAB/projectFile use for their own waveform thumbnails. */
-const WAVEFORM_BUCKETS = 80
-
-/** Labels per key: pitched presets number the same name ("Piano 1", "Piano 2", ...); the drum kit instead passes each voice's own name ("Kick", "Snare", ...), since its keys aren't pitch variations of one sound. */
-function buildKeySamples(buffers: AudioBuffer[], labels: string[]): Sample[] {
-  return buffers.map((buffer, i) => ({
-    id: createId('sample'),
-    label: labels[i]!,
-    buffer,
-    recordedAt: timestampNow(),
-    kind: 'note',
-    peaks: computePeaks(buffer, WAVEFORM_BUCKETS),
-  }))
-}
 
 /**
  * Instruments live in the Library, above the raw sample list — a place to

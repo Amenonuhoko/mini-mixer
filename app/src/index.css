@@ -826,10 +826,6 @@ h2 {
   color: var(--muted);
 }
 
-.instrument-mode-btn:disabled {
-  opacity: 0.4;
-}
-
 .instrument-mode-btn.on {
   border-color: var(--accent);
   color: var(--accent);
