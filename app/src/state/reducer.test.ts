@@ -537,4 +537,35 @@ describe('reducer', () => {
     expect(restored.transport.autoInstrumentPadSnapshot).toBeNull()
   })
 
+
+  it('sets the master listening level within 0-100', () => {
+    const state = createInitialState(1)
+
+    expect(reducer(state, { type: 'SET_MASTER_VOLUME', level: 42 }).transport.masterVolume).toBe(42)
+    expect(reducer(state, { type: 'SET_MASTER_VOLUME', level: -1 }).transport.masterVolume).toBe(0)
+    expect(reducer(state, { type: 'SET_MASTER_VOLUME', level: 101 }).transport.masterVolume).toBe(100)
+  })
+
+  it('defaults normal pad presses to Gate and can switch them to one-shot', () => {
+    const state = createInitialState(1)
+    expect(state.transport.padPlaybackMode).toBe('gate')
+
+    const oneShot = reducer(state, { type: 'SET_PAD_PLAYBACK_MODE', mode: 'oneshot' })
+    expect(oneShot.transport.padPlaybackMode).toBe('oneshot')
+  })
+
+  it('hydrates older saved sessions with safe volume and Gate defaults', () => {
+    const state = createInitialState(1)
+    const oldTransport = { ...state.transport }
+    delete (oldTransport as Partial<typeof oldTransport>).masterVolume
+    delete (oldTransport as Partial<typeof oldTransport>).padPlaybackMode
+    const loaded = reducer(state, {
+      type: 'LOAD_PROJECT',
+      state: { ...state, transport: oldTransport as typeof state.transport },
+    })
+
+    expect(loaded.transport.masterVolume).toBe(100)
+    expect(loaded.transport.padPlaybackMode).toBe('gate')
+  })
+
 })
