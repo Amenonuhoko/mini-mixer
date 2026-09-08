@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { DRUM_KIT_VOICES } from '../engine/drumSynth'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { usePadPlaying } from '../hooks/usePadPlaying'
@@ -35,6 +35,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   const instrumentModeEnabled = state.transport.padInstrumentModeEnabled
   const mixerModeEnabled = state.transport.padMixerModeEnabled
   const playbackMode = state.transport.padPlaybackMode
+  const [sequencerRecordEnabled, setSequencerRecordEnabled] = useState(false)
 
   // Which key position (1-based, low to high) each key sample holds within its
   // instrument, plus what to show for it, if any — built once per render
@@ -82,6 +83,21 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
             +
           </button>
         </div>
+        <button
+          type="button"
+          className={sequencerRecordEnabled ? 'sequencer-record-toggle armed' : 'sequencer-record-toggle'}
+          onClick={() => setSequencerRecordEnabled((enabled) => !enabled)}
+          aria-pressed={sequencerRecordEnabled}
+          aria-label="Record pad hits into the playing sequencer"
+          title={
+            sequencerRecordEnabled
+              ? 'Sequencer record armed — pad hits write to the current playing step'
+              : 'Arm sequencer record — then play pads while the sequence runs'
+          }
+        >
+          <span aria-hidden="true">●</span>
+          Seq rec
+        </button>
       </div>
       <div className="pad-grid-mode-controls">
         <InstrumentModeButton />
@@ -117,6 +133,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
               selected={pad.id === selectedPadId}
               loopModeEnabled={loopModeEnabled}
               playbackMode={playbackMode}
+              sequencerRecordEnabled={sequencerRecordEnabled}
               instrumentKeyInfo={pad.sampleId ? sampleKeyInfo.get(pad.sampleId) : undefined}
               onSelect={onSelectPad}
             />
@@ -149,6 +166,8 @@ interface PadButtonProps {
   selected: boolean
   loopModeEnabled: boolean
   playbackMode: 'gate' | 'oneshot'
+  /** When armed, pad hits add their sound to the current sequencer step during playback. */
+  sequencerRecordEnabled: boolean
   /** Set when this pad's sample is an instrument key — shown as a small badge (see InstrumentKeyInfo). */
   instrumentKeyInfo: InstrumentKeyInfo | undefined
   onSelect: (padId: string) => void
@@ -172,16 +191,28 @@ function PadButton({
   selected,
   loopModeEnabled,
   playbackMode,
+  sequencerRecordEnabled,
   instrumentKeyInfo,
   onSelect,
 }: PadButtonProps) {
-  const { state } = useAppState()
+  const { state, dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
   const playing = usePadPlaying(engine, pad.id)
   const filled = pad.sampleId !== null
   const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
 
   const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
+
+  const recordCurrentStep = () => {
+    if (!sequencerRecordEnabled || !state.transport.isPlaying || !pad.sampleId) return
+    dispatch({
+      type: 'SET_STEP_SAMPLE',
+      patternId: state.activePatternId,
+      padId: pad.id,
+      stepIndex: state.transport.currentStep,
+      sampleId: pad.sampleId,
+    })
+  }
 
   const stopActiveSource = () => {
     if (!activeSourceRef.current) return
@@ -209,6 +240,7 @@ function PadButton({
 
     const sample = state.samples[pad.sampleId]
     if (!sample) return
+    recordCurrentStep()
     const source = engine.triggerPad(pad, sample.buffer)
     if (playbackMode === 'gate') activeSourceRef.current = source
   }
@@ -250,7 +282,10 @@ function PadButton({
       if (!pad.muted || looping) engine.toggleLoop(pad, sample.buffer)
       return
     }
-    if (!pad.muted) engine.triggerPad(pad, sample.buffer)
+    if (!pad.muted) {
+      recordCurrentStep()
+      engine.triggerPad(pad, sample.buffer)
+    }
   }
 
   return (
