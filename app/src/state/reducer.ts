@@ -10,7 +10,6 @@ import {
   MIN_TRIM_GAP,
   MIX_LEVEL_MAX,
   MIX_LEVEL_MIN,
-  STEP_COUNT,
 } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
 import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, PadPlaybackMode, Pattern, Sample } from './types'
