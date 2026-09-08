@@ -136,8 +136,8 @@ export interface Transport {
    * component-local) specifically so it survives navigating away from the
    * Pads page and back — the button component unmounts on every page switch,
    * which would otherwise lose track of which instrument to clean up. Turning
-   * Instrument Mode off through that same button removes this instrument (see
-   * reducer.ts's SET_AUTO_INSTRUMENT_ID/REMOVE_INSTRUMENT). Deliberately
+   * Instrument Mode off through any mode control removes this instrument (the
+   * App shell observes the mode and dispatches REMOVE_INSTRUMENT). Deliberately
    * transient, like isPlaying/currentStep: reset to null on every project
    * load rather than persisted, since once a project has been explicitly
    * saved, whatever instruments it contains are project data, not something
