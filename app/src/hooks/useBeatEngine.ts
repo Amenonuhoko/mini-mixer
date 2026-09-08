@@ -40,9 +40,11 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           const visiblePads = current.pads.slice(0, current.visiblePadCount)
           for (const pad of visiblePads) {
             if (pad.muted) continue
-            const isOn = pattern.steps[pad.id]?.[stepIndex] ?? false
-            if (!isOn || !pad.sampleId) continue
-            const sample = current.samples[pad.sampleId]
+            // A programmed cell owns its source reference. The pad may have
+            // been reassigned since this step was entered.
+            const sampleId = pattern.steps[pad.id]?.[stepIndex] ?? null
+            if (!sampleId) continue
+            const sample = current.samples[sampleId]
             if (!sample) continue
             engine.triggerStep(pad, sample.buffer, time)
           }
