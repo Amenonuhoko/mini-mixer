@@ -36,7 +36,7 @@ export type Action =
   | { type: 'RESET_ALL_PADS_EFFECTS' }
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
-  | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number }
+  | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
   | { type: 'CLEAR_PATTERN'; patternId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
   | { type: 'SET_BPM'; bpm: number }
@@ -139,13 +139,26 @@ export function reducer(state: AppState, action: Action): AppState {
       const instrument = state.instruments[action.instrumentId]
       if (!instrument) return state
       const keyIds = new Set(instrument.keySampleIds)
+      // A sequencer cell is a historical reference. Keep an otherwise-transient
+      // key sample available (but still hidden from the Library) while a pattern
+      // needs it, even after its quick instrument layout has been dismissed.
+      const referencedKeyIds = new Set(
+        instrument.keySampleIds.filter((sampleId) =>
+          state.patterns.some((pattern) =>
+            Object.values(pattern.steps).some((steps) => steps.includes(sampleId)),
+          ),
+        ),
+      )
+      const removableKeyIds = new Set(
+        instrument.keySampleIds.filter((sampleId) => !referencedKeyIds.has(sampleId)),
+      )
       const remainingSamples = { ...state.samples }
-      for (const id of instrument.keySampleIds) delete remainingSamples[id]
+      for (const id of removableKeyIds) delete remainingSamples[id]
       const { [action.instrumentId]: _removed, ...remainingInstruments } = state.instruments
       return {
         ...state,
         samples: remainingSamples,
-        sampleOrder: state.sampleOrder.filter((id) => !keyIds.has(id)),
+        sampleOrder: state.sampleOrder.filter((id) => !removableKeyIds.has(id)),
         instruments: remainingInstruments,
         instrumentOrder: state.instrumentOrder.filter((id) => id !== action.instrumentId),
         pads: state.pads.map((pad) => {
@@ -196,7 +209,7 @@ export function reducer(state: AppState, action: Action): AppState {
                 steps: {
                   ...pattern.steps,
                   ...Object.fromEntries(
-                    newPads.map((pad) => [pad.id, new Array<boolean>(STEP_COUNT).fill(false)]),
+                    newPads.map((pad) => [pad.id, new Array<string | null>(STEP_COUNT).fill(null)]),
                   ),
                 },
               })),
@@ -286,9 +299,16 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'TOGGLE_STEP':
       return updatePattern(state, action.patternId, (pattern) => {
-        const existing = pattern.steps[action.padId] ?? new Array<boolean>(STEP_COUNT).fill(false)
+        const existing = pattern.steps[action.padId] ?? new Array<string | null>(STEP_COUNT).fill(null)
         const steps = existing.slice()
-        steps[action.stepIndex] = !steps[action.stepIndex]
+        // The sample id is captured when the cell is turned on. Swapping the
+        // pad later only affects new steps; it never rewrites this sequence.
+        const currentSampleId = steps[action.stepIndex]
+        if (currentSampleId !== null) {
+          steps[action.stepIndex] = null
+        } else if (action.sampleId !== null) {
+          steps[action.stepIndex] = action.sampleId
+        }
         return { ...pattern, steps: { ...pattern.steps, [action.padId]: steps } }
       })
 
@@ -296,7 +316,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return updatePattern(state, action.patternId, (pattern) => ({
         ...pattern,
         steps: Object.fromEntries(
-          Object.keys(pattern.steps).map((padId) => [padId, new Array<boolean>(STEP_COUNT).fill(false)]),
+          Object.keys(pattern.steps).map((padId) => [padId, new Array<string | null>(STEP_COUNT).fill(null)]),
         ),
       }))
 
@@ -321,7 +341,7 @@ export function reducer(state: AppState, action: Action): AppState {
           steps: {
             ...pattern.steps,
             ...Object.fromEntries(
-              newPadIds.map((id) => [id, new Array<boolean>(STEP_COUNT).fill(false)]),
+              newPadIds.map((id) => [id, new Array<string | null>(STEP_COUNT).fill(null)]),
             ),
           },
         })),
