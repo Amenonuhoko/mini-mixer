@@ -167,6 +167,7 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
     return {
       ...pattern,
       stepCount,
+      traceSteps: pattern.traceSteps ?? null,
       steps: Object.fromEntries(
         Object.entries(pattern.steps).map(([padId, rawSteps]) => {
           const legacySteps = rawSteps as unknown as Array<string | boolean | null | undefined>
