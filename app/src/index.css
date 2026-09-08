@@ -2024,3 +2024,34 @@ input[type='range']::-moz-range-thumb {
     gap: 20px;
   }
 }
+
+/* Compact anchored whole-grid effect controls. */
+.fx-popover-anchor { position: relative; }
+.fx-floating-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(300px, calc(100vw - 48px));
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  box-shadow: 0 12px 28px rgba(0,0,0,.22);
+}
+.fx-floating-heading { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:.78rem; font-weight:700; }
+.fx-quick-presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.fx-preset-button { display:flex; align-items:center; gap:7px; min-height:38px; padding:5px 7px; border:1px solid var(--border); border-radius:7px; background:transparent; color:var(--text); font-size:.7rem; font-weight:700; }
+.effect-preview { display:flex; align-items:flex-end; gap:2px; width:26px; height:18px; }
+.effect-preview i { display:block; width:5px; border-radius:2px 2px 0 0; background:var(--accent); }
+.fx-floating-actions { display:flex; gap:6px; margin-top:8px; }
+.fx-floating-actions .btn { flex:1; min-height:32px; padding:4px 7px; font-size:.7rem; }
+
+.pad-playback-switch { display:flex; padding:3px; border:1px solid var(--border); border-radius:999px; background:var(--bg); color:var(--muted); font-size:.72rem; font-weight:700; }
+.pad-playback-switch span { padding:5px 9px; border-radius:999px; }
+.pad-playback-switch.gate span:first-child, .pad-playback-switch.oneshot span:last-child { background:var(--accent); color:#fff; }
+
+.sequencer-floating-actions { position:sticky; top:calc(var(--topnav-height) + var(--safe-top) + 8px); z-index:6; display:flex; justify-content:flex-end; gap:4px; margin:-2px 0 8px; }
+.sequencer-floating-actions .sequencer-bounce, .sequencer-floating-actions .sequencer-trace, .sequencer-floating-actions .sequencer-clear { min-height:28px; padding:3px 7px; font-size:.68rem; }
+.sequencer-row-label { width:34px; height:34px; border-radius:7px; flex-direction:column; gap:0; }
+.sequencer-row-change { font-size:.58rem; line-height:1; opacity:.8; }
