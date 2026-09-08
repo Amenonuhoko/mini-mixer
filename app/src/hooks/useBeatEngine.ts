@@ -49,7 +49,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           }
         }
         dispatch({ type: 'SET_CURRENT_STEP', stepIndex })
-        if (current.transport.loopMode === 'once' && stepIndex === pattern?.stepCount - 1) {
+        if (current.transport.loopMode === 'once' && pattern && stepIndex === pattern.stepCount - 1) {
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
       },
