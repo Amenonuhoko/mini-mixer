@@ -46,12 +46,12 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
 
   const hits: ScheduledHit[] = []
   for (const pad of pads) {
-    if (pad.muted || !pad.sampleId) continue
-    const sample = state.samples[pad.sampleId]
-    if (!sample) continue
+    if (pad.muted) continue
     const steps = pattern.steps[pad.id] ?? []
-    steps.forEach((on, stepIndex) => {
-      if (on) hits.push({ pad, sample, offsetSeconds: stepIndex * secondsPerStep })
+    steps.forEach((sampleId, stepIndex) => {
+      if (!sampleId) return
+      const sample = state.samples[sampleId]
+      if (sample) hits.push({ pad, sample, offsetSeconds: stepIndex * secondsPerStep })
     })
   }
   if (hits.length === 0) {
