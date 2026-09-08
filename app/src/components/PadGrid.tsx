@@ -79,7 +79,13 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
       >
         {visiblePads.map((pad, index) =>
           mixerModeEnabled ? (
-            <MixerPadFader key={pad.id} pad={pad} index={index} engine={engine} />
+            <MixerPadFader
+              key={pad.id}
+              pad={pad}
+              index={index}
+              engine={engine}
+              instrumentKeyInfo={pad.sampleId ? sampleKeyInfo.get(pad.sampleId) : undefined}
+            />
           ) : (
             <PadButton
               key={pad.id}
@@ -241,6 +247,7 @@ interface MixerPadFaderProps {
   pad: Pad
   index: number
   engine: AudioEngine
+  instrumentKeyInfo: InstrumentKeyInfo | undefined
 }
 
 /**
@@ -251,7 +258,7 @@ interface MixerPadFaderProps {
  * looping pad's actual gain too, the same "dial changes are audible
  * immediately" behavior every other pad dial already has.
  */
-function MixerPadFader({ pad, index, engine }: MixerPadFaderProps) {
+function MixerPadFader({ pad, index, engine, instrumentKeyInfo }: MixerPadFaderProps) {
   const { dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
   const draggingRef = useRef(false)
@@ -298,6 +305,12 @@ function MixerPadFader({ pad, index, engine }: MixerPadFaderProps) {
         aria-hidden="true"
       />
       <span className="mixer-fader-label">{index + 1}</span>
+      {instrumentKeyInfo && (
+        <span className="pad-instrument-badge" aria-label={`Instrument key ${instrumentKeyInfo.keyNumber}`}>
+          <span className="pad-instrument-icon">{instrumentKeyInfo.icon}</span>
+          {instrumentKeyInfo.keyNumber}
+        </span>
+      )}
       <span className="mixer-fader-level">{pad.mixLevel}%</span>
     </button>
   )
