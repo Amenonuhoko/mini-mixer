@@ -1172,3 +1172,23 @@ Mixing changes levels, not the selected sound source. Keeping the current keyboa
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Real recorded electric-guitar source with resilient fallback
+
+### Context
+The original Guitar preset was a procedural Karplus-Strong-style string. A first attempt to improve it with a public Wavebase recording was not viable in-browser: GitHub's raw URL served a Git LFS pointer rather than WAV bytes, so the app always fell back to synthesis.
+
+### Decision(s)
+- Guitar now uses three verified CC0 recorded electric-guitar zones from the Black And Green Guitars / MAESTRO String Studio pack, hosted as actual browser-decodable WAVs.
+- The E3–G4 pad range is built from the nearest of those recordings with offline semitone shifts. This preserves the changing string/pickup character across the neck without downloading sixteen independent files.
+- Decoded source zones and their rendered pad keys are cached per session. A failed network load clears that cache entry for a later retry, while the existing procedural guitar remains the non-blocking fallback.
+- All rendered keys pass through the shared RMS/peak safety normalization.
+
+### Reasoning
+A small, vetted multisample set produces a more credible guitar than a single physically modelled voice while remaining appropriate for a lightweight browser app. Verifying the delivery bytes—not merely a source URL or license—is essential because Git LFS pointers cannot be decoded by Web Audio.
+
+### Open questions / carried forward
+The other instruments remain intentionally procedural; future real-sample additions should follow the same licensing, byte-verification, cache, fallback, and loudness-normalization checklist.
