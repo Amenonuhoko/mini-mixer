@@ -33,7 +33,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         if (current.transport.metronomeEnabled && stepIndex % 4 === 0) {
           engine.playMetronomeClick(time, stepIndex === 0)
         }
-        if (!current.transport.isPlaying) return
+        if (!current.transport.isPlaying || !engine.isSequencerPlaybackEnabled()) return
         const pattern = current.patterns.find((p) => p.id === current.activePatternId)
         if (pattern) {
           const visiblePads = current.pads.slice(0, current.visiblePadCount)
@@ -92,11 +92,13 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     const isPlaying = state.transport.isPlaying
     const metronomeEnabled = state.transport.metronomeEnabled
     if (isPlaying && !wasPlayingRef.current) {
+      engineRef.current?.setSequencerPlaybackEnabled(true)
       scheduler.stop()
       scheduler.start()
     } else if (isPlaying || metronomeEnabled) {
       scheduler.start() // no-op if the clock is already running
     } else {
+      engineRef.current?.setSequencerPlaybackEnabled(false)
       scheduler.stop()
     }
     wasPlayingRef.current = isPlaying
