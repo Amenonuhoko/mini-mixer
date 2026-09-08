@@ -1,6 +1,6 @@
 export const DEFAULT_PAD_COUNT = 9
 export const MIN_PAD_COUNT = 1
-export const MAX_PAD_COUNT = 16
+export const MAX_PAD_COUNT = 32
 /** One key per pad slot up to the max pad count, so applying an instrument to the grid never runs short regardless of the current pad count. */
 export const INSTRUMENT_KEY_COUNT = MAX_PAD_COUNT
 export const STEP_COUNT = 16
