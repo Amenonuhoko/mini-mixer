@@ -205,17 +205,6 @@ export function InstrumentModeButton() {
             </>
           )}
 
-          {pendingChoice && (
-            <div className="confirm-overwrite">
-              <span>Replace every pad's current sound with this instrument?</span>
-              <button type="button" className="btn btn-danger" onClick={confirmPending}>
-                Apply
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={() => setPendingChoice(null)}>
-                Cancel
-              </button>
-            </div>
-          )}
 
           <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
             Cancel
