@@ -163,7 +163,7 @@ function normalize(buffer: AudioBuffer, ceiling = 0.86): AudioBuffer {
   for (const value of data) peak = Math.max(peak, Math.abs(value))
   if (peak > ceiling) {
     const scale = ceiling / peak
-    for (let i = 0; i < data.length; i++) data[i] *= scale
+    for (let i = 0; i < data.length; i++) data[i] = (data[i] ?? 0) * scale
   }
   return buffer
 }
