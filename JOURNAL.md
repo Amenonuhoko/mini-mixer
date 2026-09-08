@@ -1249,3 +1249,22 @@ A programmed pattern is musical history, not a live view of the pad grid. Captur
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Direct pad growth and bounce placement
+
+### Context
+Bouncing a sequence previously always entered the review flow, which then required choosing a destination. Pad count was adjustable only away from the performance surface.
+
+### Decision(s)
+- Added **Bounce to New Pad** beside the existing Bounce to Pad action. It renders the active pattern, saves the rendered sequence, creates or reveals the next pad slot, and assigns the bounce there in one action.
+- Added **+ Pad** and **− Pad** controls in the Pads header. Add exposes an empty next pad; remove hides the final visible pad. Removal intentionally preserves its assignment and sequence data, so adding it back restores it unchanged.
+- All three controls respect the one-to-sixteen pad limit. The Pad-header control group wraps cleanly on narrow screens.
+
+### Reasoning
+A bounce is commonly the next layer of a beat, so it deserves a direct destination that cannot overwrite an existing sound. Keeping grid-size controls next to the grid makes arrangement changes immediate while retaining the app's established non-destructive pad model.
+
+### Open questions / carried forward
+None.
