@@ -1118,3 +1118,20 @@ An instrument’s number of rendered keys is the authoritative shape of its play
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Mixer Mode keeps the current instrument sound
+
+### Context
+The first temporary-instrument cleanup rule treated Mixer Mode entering as “the instrument is no longer used.” In practice Mixer Mode is a fader surface for the very sounds currently on the pads, so turning it on or off must preserve those sounds.
+
+### Decision(s)
+Removed automatic temporary-instrument cleanup from generic grid-mode transitions. Quick instrument cleanup now occurs only when the user explicitly turns Instrument Mode off through its control, or when a new instrument replaces it. Loop and Mixer Mode can be entered and exited freely without changing pad sample assignments.
+
+### Reasoning
+Mutual exclusivity here is about a pad’s gesture vocabulary—play/gate, loop toggle, or fader—not the ownership or validity of the pad’s current sound. Treating a UI interaction mode as asset lifetime was the wrong boundary.
+
+### Open questions / carried forward
+None.
