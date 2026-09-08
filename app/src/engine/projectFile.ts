@@ -247,7 +247,7 @@ export function serializeProject(state: AppState, savedAt: number): SerializedPr
         label: sample.label,
         recordedAt: sample.recordedAt,
         kind: sample.kind,
-        sequenceTrace: sample.sequenceTrace,
+        ...(sample.sequenceTrace ? { sequenceTrace: sample.sequenceTrace } : {}),
         audioBase64: arrayBufferToBase64(encodeWav(sample.buffer)),
       })),
   }
@@ -277,7 +277,7 @@ export async function deserializeProject(
   for (const s of project.samples) {
     const buffer = await engine.decodeSample(base64ToArrayBuffer(s.audioBase64))
     // Older saved files predate the kind field — default to 'recording'.
-    samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), sequenceTrace: s.sequenceTrace }
+    samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), ...(s.sequenceTrace ? { sequenceTrace: s.sequenceTrace } : {}) }
   }
   return {
     samples,
