@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
 import { MAX_PAD_COUNT, STEP_COUNT } from '../state/constants'
+import { createId, timestampNow } from '../state/defaults'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
@@ -48,18 +49,33 @@ export function Sequencer({ onBounced }: SequencerProps) {
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
     : false
 
-  const handleBounce = async () => {
-    if (!pattern || bouncing) return
+  const handleBounce = async (toNewPad = false) => {
+    if (!pattern || bouncing || (toNewPad && state.visiblePadCount >= MAX_PAD_COUNT)) return
     setBouncing(true)
     try {
       const buffer = await renderPatternToBuffer(state, pattern.id)
       const peaks = computePeaks(buffer, WAVEFORM_BUCKETS)
-      onBounced({
+      const recording = {
         label: `Bounce ${Object.keys(state.samples).length + 1}`,
         buffer,
         peaks,
-        kind: 'sequence',
-      })
+        kind: 'sequence' as const,
+      }
+      if (toNewPad) {
+        dispatch({
+          type: 'ADD_SAMPLE_TO_NEW_PAD',
+          sample: {
+            id: createId('sample'),
+            label: recording.label,
+            buffer: recording.buffer,
+            peaks: recording.peaks,
+            kind: recording.kind,
+            recordedAt: timestampNow(),
+          },
+        })
+      } else {
+        onBounced(recording)
+      }
     } catch {
       // Pattern had no active steps — nothing to bounce. The button is
       // already disabled for this case; a race (steps cleared mid-render) is
@@ -123,6 +139,19 @@ export function Sequencer({ onBounced }: SequencerProps) {
           title={patternHasSteps ? 'Render this pattern to a new sample' : 'Program a step first'}
         >
           {bouncing ? 'Bouncing…' : 'Bounce to Pad'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary sequencer-bounce"
+          onClick={() => void handleBounce(true)}
+          disabled={!patternHasSteps || bouncing || state.visiblePadCount >= MAX_PAD_COUNT}
+          title={
+            state.visiblePadCount >= MAX_PAD_COUNT
+              ? 'Maximum number of pads reached'
+              : 'Render this pattern and place it on a new pad'
+          }
+        >
+          Bounce to New Pad
         </button>
         <button
           type="button"
