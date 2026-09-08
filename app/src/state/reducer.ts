@@ -10,7 +10,7 @@ import {
   STEP_COUNT,
 } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
-import type { AppState, EffectId, Instrument, LoopMode, Pattern, Sample } from './types'
+import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, Pattern, Sample } from './types'
 
 export type Action =
   | { type: 'ADD_SAMPLE'; sample: Sample }
@@ -47,7 +47,7 @@ export type Action =
   | { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_MIXER_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PLAYTHROUGH_RECORDING_ENABLED'; enabled: boolean }
-  | { type: 'SET_AUTO_INSTRUMENT_ID'; instrumentId: string | null }
+  | { type: 'SET_AUTO_INSTRUMENT_ID'; instrumentId: string | null; padSnapshot?: Record<string, InstrumentPadSnapshot> | null }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
   | { type: 'LOAD_PROJECT'; state: AppState }
@@ -146,12 +146,19 @@ export function reducer(state: AppState, action: Action): AppState {
         sampleOrder: state.sampleOrder.filter((id) => !keyIds.has(id)),
         instruments: remainingInstruments,
         instrumentOrder: state.instrumentOrder.filter((id) => id !== action.instrumentId),
-        pads: state.pads.map((pad) =>
-          pad.sampleId && keyIds.has(pad.sampleId) ? { ...pad, sampleId: null } : pad,
-        ),
+        pads: state.pads.map((pad) => {
+          const snapshot =
+            state.transport.autoInstrumentId === action.instrumentId
+              ? state.transport.autoInstrumentPadSnapshot?.[pad.id]
+              : undefined
+          // A temporary instrument is an overlay on the user's layout, so
+          // restore the original sound/trim before deleting generated keys.
+          if (snapshot) return { ...pad, ...snapshot }
+          return pad.sampleId && keyIds.has(pad.sampleId) ? { ...pad, sampleId: null } : pad
+        }),
         transport:
           state.transport.autoInstrumentId === action.instrumentId
-            ? { ...state.transport, autoInstrumentId: null }
+            ? { ...state.transport, autoInstrumentId: null, autoInstrumentPadSnapshot: null }
             : state.transport,
       }
     }
@@ -355,7 +362,11 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'SET_AUTO_INSTRUMENT_ID':
       return {
         ...state,
-        transport: { ...state.transport, autoInstrumentId: action.instrumentId },
+        transport: {
+          ...state.transport,
+          autoInstrumentId: action.instrumentId,
+          autoInstrumentPadSnapshot: action.instrumentId ? (action.padSnapshot ?? null) : null,
+        },
       }
 
     case 'SET_CURRENT_STEP':
