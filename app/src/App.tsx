@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
 import { MetronomeButton } from './components/MetronomeButton'
 import { Nav } from './components/Nav'
@@ -67,15 +67,6 @@ function Shell() {
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
   useAutosave(state, dispatch, engine)
 
-  // A quick instrument is only backing data for the active Instrument Mode
-  // performance. Mode changes can originate from the Loop or Mixer controls,
-  // so cleanup belongs at the shell level rather than only in the instrument
-  // button's click handler.
-  useEffect(() => {
-    if (!state.transport.padInstrumentModeEnabled && state.transport.autoInstrumentId) {
-      dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: state.transport.autoInstrumentId })
-    }
-  }, [dispatch, state.transport.autoInstrumentId, state.transport.padInstrumentModeEnabled])
 
   const isWide = useIsWideScreen()
   // Play/pause, BPM, and loop-mode are all specifically about sequencer pattern
