@@ -1082,3 +1082,22 @@ Instrument keys need to be real Samples while assigned to pads because the exist
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Keep temporary instruments out of pad browsing; preserve Mixer pad content
+
+### Context
+The main Library hid generated instrument-key samples, but the Pads-page “Library” picker still showed the raw sample order. Separately, cleaning up a temporary quick instrument after switching to Mixer Mode cleared the generated keys without restoring the sounds they had replaced.
+
+### Decision(s)
+- The Pad Library picker now filters out `kind: 'note'` samples exactly like the main Library page. It exposes reusable recordings and bounced sequences, not internal generated keys.
+- A temporary Instrument Mode preset snapshots the visible pads’ original sample IDs and trim windows before it overlays its keys. On cleanup, those assignments are restored before the generated instrument and its key samples are removed.
+- Added reducer coverage for the Mixer-mode sequence: original pad sound and trim return, the temporary key file is deleted, and Mixer Mode remains enabled.
+
+### Reasoning
+The same word—Library—must mean the same user-facing collection everywhere. Generated keys are implementation detail for an active instrument layout, while Mixer Mode is strictly a control surface and must not destroy that layout.
+
+### Open questions / carried forward
+None.
