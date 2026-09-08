@@ -46,12 +46,13 @@ export function Library() {
     if (!renamingSampleId) return
     const commitWhenClickingAway = (event: PointerEvent) => {
       if (!renameInputRef.current?.contains(event.target as Node)) {
-        commitRename(renamingSampleId)
+        dispatch({ type: 'RENAME_SAMPLE', sampleId: renamingSampleId, label: renameDraft })
+        setRenamingSampleId(null)
       }
     }
     document.addEventListener('pointerdown', commitWhenClickingAway)
     return () => document.removeEventListener('pointerdown', commitWhenClickingAway)
-  }, [renamingSampleId, renameDraft])
+  }, [dispatch, renamingSampleId, renameDraft])
 
   return (
     <div className="page library-page">
