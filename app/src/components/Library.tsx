@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
+import { getLibrarySamples } from '../state/librarySamples'
 import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
 import { PadAssignPrompt } from './PadAssignPrompt'
 import { StaticWaveform } from './Waveform'
@@ -28,10 +29,7 @@ export function Library() {
   const [renameDraft, setRenameDraft] = useState('')
   const [deletingSampleId, setDeletingSampleId] = useState<string | null>(null)
 
-  const samples = state.sampleOrder
-    .map((id) => state.samples[id])
-    .filter((sample) => sample !== undefined)
-    .filter((sample) => sample.kind !== 'note')
+  const samples = getLibrarySamples(state)
 
   const startRename = (sampleId: string, currentLabel: string) => {
     setRenamingSampleId(sampleId)
