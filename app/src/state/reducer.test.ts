@@ -443,6 +443,29 @@ describe('reducer', () => {
     expect(removed.pads[0]!.sampleId).toBeNull()
   })
 
+  it('keeps a hidden instrument key sample when a programmed step still references it', () => {
+    const state = createInitialState(1)
+    const padId = state.pads[0]!.id
+    const key = makeSample('piano_1')
+    const instrument = makeInstrument('quick_piano', [key.id])
+
+    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples: [key] })
+    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
+    next = reducer(next, {
+      type: 'TOGGLE_STEP',
+      patternId: next.activePatternId,
+      padId,
+      stepIndex: 0,
+      sampleId: key.id,
+    })
+    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
+
+    expect(removed.instruments[instrument.id]).toBeUndefined()
+    expect(removed.pads[0]!.sampleId).toBeNull()
+    expect(removed.samples[key.id]).toBe(key)
+    expect(removed.sampleOrder).toContain(key.id)
+  })
+
   it('tracks and clears the auto-built instrument id (InstrumentModeButton’s quick-build cleanup)', () => {
     const state = createInitialState(1)
     expect(state.transport.autoInstrumentId).toBeNull()
