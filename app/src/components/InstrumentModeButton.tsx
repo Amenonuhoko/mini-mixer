@@ -122,18 +122,13 @@ export function InstrumentModeButton() {
   }
 
   const handlePickExisting = (instrumentId: string) => {
-    // Reopening the picker from an active quick instrument is an intentional
-    // replacement gesture, so keep it one tap: no interim clearing or second
-    // confirmation before the new layout is applied.
-    if (autoInstrumentId) applyExisting(instrumentId)
-    else if (anyPadFilled) setPendingChoice({ kind: 'existing', instrumentId })
-    else applyExisting(instrumentId)
+    // Instrument selection is a direct replacement action: keep the current
+    // layout until the new choice is ready, then apply it without a second prompt.
+    applyExisting(instrumentId)
   }
 
   const handlePickPreset = (preset: PresetChoice) => {
-    if (autoInstrumentId) void buildAndApplyPreset(preset)
-    else if (anyPadFilled) setPendingChoice({ kind: 'preset', preset })
-    else void buildAndApplyPreset(preset)
+    void buildAndApplyPreset(preset)
   }
 
   const confirmPending = () => {
