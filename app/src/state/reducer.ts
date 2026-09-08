@@ -13,7 +13,7 @@ import {
   MIX_LEVEL_MIN,
 } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
-import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, PadPlaybackMode, Pattern, Sample } from './types'
+import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, PadPlaybackMode, Pattern, Sample, SequenceTrace } from './types'
 
 export type Action =
   | { type: 'ADD_SAMPLE'; sample: Sample }
@@ -46,6 +46,7 @@ export type Action =
   | { type: 'REMOVE_PATTERN_STEPS'; patternId: string }
   | { type: 'CAPTURE_PATTERN_TRACE'; patternId: string }
   | { type: 'CLEAR_PATTERN_TRACE'; patternId: string }
+  | { type: 'LOAD_SEQUENCE_TRACE'; patternId: string; trace: SequenceTrace; markerSampleId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
@@ -420,6 +421,53 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'CLEAR_PATTERN_TRACE':
       return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, traceSteps: null }))
+
+    case 'LOAD_SEQUENCE_TRACE': {
+      const targetPadCount = Math.min(MAX_PAD_COUNT, Math.max(state.visiblePadCount, action.trace.rows.length))
+      const newPads = Array.from(
+        { length: Math.max(0, targetPadCount - state.pads.length) },
+        (_, index) => createPad(state.pads.length + index),
+      )
+      const pads = [...state.pads, ...newPads]
+      return {
+        ...state,
+        pads,
+        visiblePadCount: targetPadCount,
+        patterns: state.patterns.map((pattern) => {
+          if (pattern.id !== action.patternId) {
+            if (newPads.length === 0) return pattern
+            return {
+              ...pattern,
+              steps: {
+                ...pattern.steps,
+                ...Object.fromEntries(
+                  newPads.map((pad) => [pad.id, new Array<string | null>(pattern.stepCount).fill(null)]),
+                ),
+              },
+            }
+          }
+          const stepCount = Math.min(MAX_STEP_COUNT, Math.max(pattern.stepCount, action.trace.stepCount))
+          return {
+            ...pattern,
+            stepCount,
+            steps: Object.fromEntries(
+              pads.map((pad) => [
+                pad.id,
+                Array.from({ length: stepCount }, (_, index) => pattern.steps[pad.id]?.[index] ?? null),
+              ]),
+            ),
+            traceSteps: Object.fromEntries(
+              pads.map((pad, rowIndex) => [
+                pad.id,
+                Array.from({ length: stepCount }, (_, stepIndex) =>
+                  action.trace.rows[rowIndex]?.[stepIndex] ? action.markerSampleId : null,
+                ),
+              ]),
+            ),
+          }
+        }),
+      }
+    }
 
     case 'ADD_PATTERN_STEPS':
       return updatePattern(state, action.patternId, (pattern) => {
