@@ -1,4 +1,4 @@
-import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, MIN_STEP_COUNT, STEP_COUNT } from '../state/constants'
+import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { computePeaks } from '../utils/waveform'
 import type {
   AppState,
