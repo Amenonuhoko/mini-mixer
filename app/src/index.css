@@ -1028,6 +1028,27 @@ h2 {
   color: var(--muted);
 }
 
+/* An inline empty tile keeps pad growth discoverable at the current grid edge,
+   including immediately after pad 16. */
+.pad-add-slot {
+  flex-direction: column;
+  gap: 2px;
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.pad-add-slot:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pad-add-slot small {
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
 .pad.muted {
   opacity: 0.45;
   filter: grayscale(0.6);
