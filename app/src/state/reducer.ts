@@ -7,6 +7,7 @@ import {
   MAX_PAD_COUNT,
   MAX_STEP_COUNT,
   STEP_ADD_COUNT,
+  STEP_COUNT,
   MIN_TRIM_GAP,
   MIX_LEVEL_MAX,
   MIX_LEVEL_MIN,
@@ -42,6 +43,7 @@ export type Action =
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
   | { type: 'CLEAR_PATTERN'; patternId: string }
   | { type: 'ADD_PATTERN_STEPS'; patternId: string }
+  | { type: 'REMOVE_PATTERN_STEPS'; patternId: string }
   | { type: 'CAPTURE_PATTERN_TRACE'; patternId: string }
   | { type: 'CLEAR_PATTERN_TRACE'; patternId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
@@ -389,6 +391,24 @@ export function reducer(state: AppState, action: Action): AppState {
       }))
       return removeUnusedNoteSamples(cleared)
     }
+
+    case 'REMOVE_PATTERN_STEPS':
+      return updatePattern(state, action.patternId, (pattern) => {
+        if (pattern.stepCount <= STEP_COUNT) return pattern
+        const stepCount = Math.max(STEP_COUNT, pattern.stepCount - STEP_ADD_COUNT)
+        return {
+          ...pattern,
+          stepCount,
+          steps: Object.fromEntries(
+            Object.entries(pattern.steps).map(([padId, steps]) => [padId, steps.slice(0, stepCount)]),
+          ),
+          traceSteps: pattern.traceSteps
+            ? Object.fromEntries(
+                Object.entries(pattern.traceSteps).map(([padId, steps]) => [padId, steps.slice(0, stepCount)]),
+              )
+            : null,
+        }
+      })
 
     case 'CAPTURE_PATTERN_TRACE':
       return updatePattern(state, action.patternId, (pattern) => ({
