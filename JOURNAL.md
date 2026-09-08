@@ -1153,3 +1153,22 @@ The Instrument button is a fast selection surface, not a destructive toggle: an 
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Mixer overlays rather than deselects an instrument
+
+### Context
+Even after generated key data was retained, entering Mixer Mode deselected Instrument Mode. The fader view also stripped every instrument key marker from the pads. Together that looked indistinguishable from deleting the active instrument and made returning to performance mode feel destructive.
+
+### Decision(s)
+- Mixer Mode now overlays an active Instrument Mode selection instead of turning it off. Leaving Mixer returns directly to the same instrument-enabled pad layout, with the same sample assignments.
+- Mixer faders retain each pad's instrument-key marker, so their identity remains visible while setting levels.
+- Reopening the picker from an active quick instrument and choosing a replacement now applies it directly; it does not require an intermediate clear or overwrite confirmation.
+
+### Reasoning
+Mixing changes levels, not the selected sound source. Keeping the current keyboard layout explicit in both state and the fader UI makes the transition reversible and legible, while direct replacement matches the Instrument button’s intended fast workflow.
+
+### Open questions / carried forward
+None.
