@@ -76,6 +76,18 @@ describe('reducer', () => {
     expect(endPushedPastOne.pads[0]!.trimStart).toBeCloseTo(1 - MIN_TRIM_GAP)
   })
 
+  it('adds a sample straight to the next visible pad, creating its pattern row when needed', () => {
+    const state = createInitialState(1)
+    const sample = makeSample('bounce')
+
+    const next = reducer(state, { type: 'ADD_SAMPLE_TO_NEW_PAD', sample })
+
+    expect(next.visiblePadCount).toBe(2)
+    expect(next.pads[1]!.sampleId).toBe(sample.id)
+    expect(next.samples[sample.id]).toBe(sample)
+    expect(next.patterns[0]!.steps[next.pads[1]!.id]).toHaveLength(16)
+  })
+
   it('reassigning a pad does not delete the previous sample from the library', () => {
     const state = createInitialState(1)
     const padId = state.pads[0]!.id
