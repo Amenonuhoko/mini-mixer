@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
 import { MetronomeButton } from './components/MetronomeButton'
+import { MasterVolumeButton } from './components/MasterVolumeButton'
 import { Nav } from './components/Nav'
 import { PadEditOverlay } from './components/PadEditOverlay'
 import { PadsPage } from './components/PadsPage'
@@ -113,6 +114,7 @@ function Shell() {
       </main>
       {showPlayBar && <PlayBar />}
       <div className="fab-cluster">
+        <MasterVolumeButton />
         <MetronomeButton />
         <RecordFAB
           sampleCount={Object.keys(state.samples).length}
