@@ -5,7 +5,6 @@ import { useAppState } from '../state/AppStateContext'
 import { createId } from '../state/defaults'
 import { buildKeySamples } from '../utils/buildInstrumentSamples'
 import { instrumentIcon, instrumentIconForName } from '../utils/instrumentIcon'
-import type { Instrument } from '../state/types'
 import { Overlay } from './Overlay'
 
 /** A quick-build choice offered by this button's picker: a pitched synth preset, or the fixed Drum Kit (which has no InstrumentPreset shape of its own — see engine/drumSynth.ts). */
@@ -42,10 +41,6 @@ export function InstrumentModeButton() {
   const [pickingInstrument, setPickingInstrument] = useState(false)
   const [building, setBuilding] = useState<string | null>(null)
 
-  const libraryInstruments = state.instrumentOrder
-    .map((id) => state.instruments[id])
-    .filter((instrument): instrument is Instrument => instrument !== undefined)
-
   const quickPresetGroups = [
     { label: 'Keys & tuned percussion', names: ['Piano', 'Organ', 'Bell'] },
     { label: 'Strings', names: ['Guitar', 'Pluck', 'Bass'] },
@@ -62,16 +57,6 @@ export function InstrumentModeButton() {
 
   const removeAutoInstrument = () => {
     if (autoInstrumentId) dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: autoInstrumentId })
-  }
-
-  const applyExisting = (instrumentId: string) => {
-    removeAutoInstrument()
-    dispatch({ type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId })
-    dispatch({ type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: true })
-    // Applying something you deliberately built (or a still-active quick
-    // build you're choosing to keep by reselecting it) is never auto-removed.
-    dispatch({ type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: null })
-    closeAll()
   }
 
   const buildAndApplyPreset = async (preset: PresetChoice) => {
