@@ -121,6 +121,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
               padIndex={padIndex}
               patternId={pattern.id}
               steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
+              traceSteps={pattern.traceSteps?.[pad.id] ?? []}
               sampleLabels={Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))}
               transport={state.transport}
               engine={engine}
@@ -165,6 +166,25 @@ export function Sequencer({ onBounced }: SequencerProps) {
         </button>
         <button
           type="button"
+          className="btn btn-secondary sequencer-trace"
+          onClick={() => dispatch({ type: 'CAPTURE_PATTERN_TRACE', patternId: pattern.id })}
+          disabled={!patternHasSteps}
+          title={patternHasSteps ? 'Keep these placements as a visual-only guide' : 'Program a step first'}
+        >
+          Trace current
+        </button>
+        {pattern.traceSteps && (
+          <button
+            type="button"
+            className="btn btn-secondary sequencer-trace"
+            onClick={() => dispatch({ type: 'CLEAR_PATTERN_TRACE', patternId: pattern.id })}
+            title="Hide and remove the visual trace"
+          >
+            Clear trace
+          </button>
+        )}
+        <button
+          type="button"
           className="btn btn-ghost-danger sequencer-clear"
           onClick={() => setConfirmClear(true)}
           disabled={!patternHasSteps}
@@ -203,6 +223,7 @@ interface SequencerRowProps {
   padIndex: number
   patternId: string
   steps: Array<string | null>
+  traceSteps: Array<string | null>
   sampleLabels: Record<string, string>
   transport: Transport
   engine: AudioEngine
@@ -214,6 +235,7 @@ function SequencerRow({
   pad,
   padIndex,
   steps,
+  traceSteps,
   sampleLabels,
   transport,
   engine,
@@ -239,7 +261,10 @@ function SequencerRow({
           {group.map((sampleId, i) => {
             const stepIndex = groupIndex * GROUP_SIZE + i
             const on = sampleId !== null
+            const traceSampleId = traceSteps[stepIndex] ?? null
+            const traced = !on && traceSampleId !== null
             const sampleLabel = sampleId ? sampleLabels[sampleId] ?? 'deleted sample' : null
+            const traceLabel = traceSampleId ? sampleLabels[traceSampleId] ?? 'deleted sample' : null
             return (
               <button
                 key={stepIndex}
@@ -247,14 +272,15 @@ function SequencerRow({
                 className={[
                   'step',
                   on ? 'on' : '',
+                  traced ? 'trace' : '',
                   stepIndex === transport.currentStep && transport.isPlaying ? 'current' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                style={on ? { background: pad.color } : undefined}
+                style={on ? { background: pad.color } : traced ? { borderColor: pad.color } : undefined}
                 onClick={() => onToggleStep(stepIndex)}
-                aria-label={sampleLabel ? `step ${stepIndex + 1} for pad ${padIndex + 1}: ${sampleLabel}` : `step ${stepIndex + 1} for pad ${padIndex + 1}`}
-                title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : `Step ${stepIndex + 1}`}
+                aria-label={sampleLabel ? `step ${stepIndex + 1} for pad ${padIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for pad ${padIndex + 1}: ${traceLabel}` : `step ${stepIndex + 1} for pad ${padIndex + 1}`}
+                title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace: ${traceLabel}` : `Step ${stepIndex + 1}`}
               />
             )
           })}
