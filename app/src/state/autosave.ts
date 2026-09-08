@@ -79,7 +79,7 @@ export async function saveAutosave(state: AppState): Promise<void> {
         label: sample.label,
         recordedAt: sample.recordedAt,
         kind: sample.kind,
-        sequenceTrace: sample.sequenceTrace,
+        ...(sample.sequenceTrace ? { sequenceTrace: sample.sequenceTrace } : {}),
         audio: encodeWav(sample.buffer),
       })),
   }
@@ -94,7 +94,7 @@ export async function loadAutosave(engine: AudioEngine): Promise<AppState | null
   for (const s of record.samples) {
     const buffer = await engine.decodeSample(s.audio)
     // Autosave records written before the kind field existed default to 'recording'.
-    samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), sequenceTrace: s.sequenceTrace }
+    samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), ...(s.sequenceTrace ? { sequenceTrace: s.sequenceTrace } : {}) }
   }
   return {
     samples,
