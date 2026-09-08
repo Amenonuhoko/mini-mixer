@@ -414,7 +414,17 @@ export function reducer(state: AppState, action: Action): AppState {
       return createInitialState(state.visiblePadCount)
 
     case 'LOAD_PROJECT':
-      return action.state
+      // Autosaves from before global-volume / trigger-mode controls lack these
+      // fields. Hydrate them to safe defaults instead of treating undefined as
+      // a one-shot mode or an invalid gain.
+      return {
+        ...action.state,
+        transport: {
+          ...action.state.transport,
+          masterVolume: action.state.transport.masterVolume ?? 100,
+          padPlaybackMode: action.state.transport.padPlaybackMode ?? 'gate',
+        },
+      }
 
     default: {
       const exhaustiveCheck: never = action
