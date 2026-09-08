@@ -51,17 +51,6 @@ export function PadsPage() {
     dispatch({ type: 'SET_PAD_MUTED', padId: selectedPad.id, muted: !selectedPad.muted })
   }
 
-  const handleToggleEffectsBypassed = () => {
-    if (!selectedPad) return
-    const bypassed = !selectedPad.effectsBypassed
-    dispatch({ type: 'SET_PAD_EFFECTS_BYPASSED', padId: selectedPad.id, bypassed })
-    if (looping)
-      engine.updateLoopingPadEffectsBypass(selectedPad.id, {
-        ...selectedPad,
-        effectsBypassed: bypassed,
-      })
-  }
-
   return (
     <div className="page pads-page">
       <PadGrid selectedPadId={selectedPadId} onSelectPad={setSelectedPadId} />
@@ -87,24 +76,11 @@ export function PadsPage() {
             </button>
             <button
               type="button"
-              className={
-                selectedPad.effectsBypassed
-                  ? 'action-btn action-effects on'
-                  : 'action-btn action-effects'
-              }
-              onClick={handleToggleEffectsBypassed}
-              aria-pressed={selectedPad.effectsBypassed}
-            >
-              {selectedPad.effectsBypassed ? <EffectsOffGlyph /> : <EffectsOnGlyph />}
-              Effects
-            </button>
-            <button
-              type="button"
-              className="action-btn action-edit"
+              className="action-btn action-effects"
               onClick={() => goToEditPad(selectedPad.id)}
             >
-              <EditGlyph />
-              Edit
+              <EffectsOnGlyph />
+              Effects
             </button>
             <button
               type="button"
@@ -121,21 +97,6 @@ export function PadsPage() {
         <PadLibraryPicker padId={selectedPad.id} onClose={() => setPickingLibrary(false)} />
       )}
     </div>
-  )
-}
-
-function EditGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path
-        d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }
 
@@ -200,19 +161,3 @@ function EffectsOnGlyph() {
   )
 }
 
-function EffectsOffGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path
-        d="M5 19V13M5 9V5M12 19V11M12 7V5M19 19V15M19 11V5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <circle cx="5" cy="11" r="2" fill="currentColor" />
-      <circle cx="12" cy="9" r="2" fill="currentColor" />
-      <circle cx="19" cy="13" r="2" fill="currentColor" />
-      <path d="M3 3l18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
-}
