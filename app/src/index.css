@@ -1533,18 +1533,33 @@ input[type='range']::-moz-range-thumb {
   margin: -4px 0 10px;
 }
 
+/* Lives inside the horizontal timeline and sticks to its visible edge, so
+   arranging a longer pattern never strands the actions off-screen. */
 .sequencer-footer-actions {
+  position: sticky;
+  left: 16px;
+  z-index: 2;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  width: max-content;
+  gap: 5px;
+  margin: 10px 0 2px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, #000 12%, transparent);
 }
 
 .sequencer-add-row,
 .sequencer-bounce,
+.sequencer-trace,
 .sequencer-clear {
-  flex: 1;
-  min-width: 120px;
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 28px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 .sequencer-scroll {
@@ -1630,9 +1645,24 @@ input[type='range']::-moz-range-thumb {
   border-radius: 0 8px 8px 0;
 }
 
+.step-length-controls {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  box-shadow: -8px 0 10px var(--panel-bg);
+}
+
 .step-add-right {
-  min-width: 44px;
+  min-width: 36px;
+  min-height: 28px;
   border: 1px dashed var(--border);
+  border-radius: 5px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
