@@ -230,6 +230,11 @@ h2 {
   touch-action: none;
 }
 
+.master-volume-control {
+  position: relative;
+}
+
+.master-volume-fab,
 .metronome-fab {
   width: 48px;
   height: 48px;
@@ -241,6 +246,35 @@ h2 {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.master-volume-fab.muted {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.master-volume-panel {
+  position: absolute;
+  right: 0;
+  bottom: 58px;
+  width: 210px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+
+.master-volume-panel label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.master-volume-panel input {
+  --dial-color: var(--accent);
 }
 
 .metronome-fab.on {
