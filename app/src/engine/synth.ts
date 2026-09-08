@@ -394,30 +394,24 @@ function semitoneOffsets(): number[] {
 }
 
 /**
- * Individually recorded chromatic notes from ClueSurf's Wavebase, which
- * dedicates its audio files to the public domain. They are intentionally kept
- * remote rather than bundled: this adds real electric-guitar articulation
- * without turning a small web instrument into a multi-megabyte initial load.
+ * CC0 electric-guitar zones sourced from Karoryfer's Black And Green Guitars
+ * pack (repackaged as individually trimmed WAVs by MAESTRO String Studio).
+ * Three root notes cover the Mini Mixer's E3–G4 range: adjacent pads are
+ * derived from the nearest recording, avoiding the artificial 'one sample
+ * stretched across an entire neck' sound while keeping the first use compact.
+ *
+ * Source: https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples
+ * License: CC0-1.0.
  */
-const WAVEBASE_GUITAR_BASE_URL = 'https://raw.githubusercontent.com/cluesurf/wavebase/make/base/guitar/stratocaster/'
-const WAVEBASE_GUITAR_NOTE_FILES = [
-  'string-4-E-as-E3.wav',
-  'string-4-F-as-F3.wav',
-  'string-4-Fx-as-Fx3.wav',
-  'string-3-G-as-G3.wav',
-  'string-3-Gx-as-Gx3.wav',
-  'string-3-A-as-A3.wav',
-  'string-3-Ax-as-Ax3.wav',
-  'string-2-B-as-B3.wav',
-  'string-2-C-as-C4.wav',
-  'string-2-Cx-as-Cx4.wav',
-  'string-2-D-as-D4.wav',
-  'string-2-Dx-as-Dx4.wav',
-  'string-1-E-as-E4.wav',
-  'string-1-F-as-F4.wav',
-  'string-1-Fx-as-Fx4.wav',
-  'string-1-G-as-G4.wav',
+const CC0_ELECTRIC_GUITAR_BASE_URL =
+  'https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/'
+const RECORDED_GUITAR_ZONES = [
+  { midi: 52, file: '52_v100_rr1.wav' }, // E3
+  { midi: 59, file: '59_v100_rr1.wav' }, // B3
+  { midi: 67, file: '67_v100_rr1.wav' }, // G4
 ] as const
+const GUITAR_ROOT_MIDI = 52
+let recordedGuitarKeysPromise: Promise<AudioBuffer[]> | null = null
 
 async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
   const response = await fetch(url)
@@ -427,8 +421,35 @@ async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
   return normalize(await decoder.decodeAudioData(audioData))
 }
 
-async function buildRecordedGuitarKeys(): Promise<AudioBuffer[]> {
-  return Promise.all(WAVEBASE_GUITAR_NOTE_FILES.map((file) => decodeRemoteAudio(`${WAVEBASE_GUITAR_BASE_URL}${file}`)))
+function closestGuitarZone(targetMidi: number) {
+  return RECORDED_GUITAR_ZONES.reduce((closest, zone) =>
+    Math.abs(zone.midi - targetMidi) < Math.abs(closest.midi - targetMidi) ? zone : closest,
+  )
+}
+
+function buildRecordedGuitarKeys(): Promise<AudioBuffer[]> {
+  recordedGuitarKeysPromise ??= (async () => {
+    // Fetch each source recording once, then derive the adjacent frets locally.
+    const sourceBuffers = await Promise.all(
+      RECORDED_GUITAR_ZONES.map(async (zone) => [
+        zone.midi,
+        await decodeRemoteAudio(`${CC0_ELECTRIC_GUITAR_BASE_URL}${zone.file}`),
+      ] as const),
+    )
+    const byMidi = new Map(sourceBuffers)
+
+    return Promise.all(
+      semitoneOffsets().map(async (semitones) => {
+        const targetMidi = GUITAR_ROOT_MIDI + semitones
+        const zone = closestGuitarZone(targetMidi)
+        const source = byMidi.get(zone.midi)
+        if (!source) throw new Error('Missing decoded guitar source zone')
+        return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
+      }),
+    )
+  })()
+
+  return recordedGuitarKeysPromise
 }
 
 export async function buildInstrumentKeysFromPreset(preset: InstrumentPreset): Promise<AudioBuffer[]> {
