@@ -33,7 +33,11 @@ function EngineBridge({ children }: { children: ReactNode }) {
  * an occasional-visit browsing screen. The nav tabs still work as before;
  * on a wide screen, switching to either "Pads" or "Sequencer" shows both.
  */
-function CurrentPage() {
+interface CurrentPageProps {
+  onBounced: (recording: PendingRecording) => void
+}
+
+function CurrentPage({ onBounced }: CurrentPageProps) {
   const { page } = useNavigation()
   const isWide = useIsWideScreen()
 
@@ -41,7 +45,7 @@ function CurrentPage() {
     return (
       <div className="wide-split">
         <PadsPage />
-        <Sequencer />
+        <Sequencer onBounced={onBounced} />
       </div>
     )
   }
@@ -50,7 +54,7 @@ function CurrentPage() {
     case 'pads':
       return <PadsPage />
     case 'sequencer':
-      return <Sequencer />
+      return <Sequencer onBounced={onBounced} />
     case 'library':
       return <Library />
   }
@@ -82,7 +86,7 @@ function Shell() {
     <div style={{ '--playbar-height': showPlayBar ? '76px' : '0px' } as React.CSSProperties}>
       <Nav onOpenSettings={() => setSettingsOpen(true)} />
       <main className="app-shell">
-        <CurrentPage />
+        <CurrentPage onBounced={setPendingRecording} />
       </main>
       {showPlayBar && <PlayBar />}
       <div className="fab-cluster">

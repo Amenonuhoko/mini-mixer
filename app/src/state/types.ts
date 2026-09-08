@@ -57,6 +57,15 @@ export interface Pad {
    */
   trimStart: number
   trimEnd: number
+  /**
+   * A separate "mixer fader" gain, 0-100 (0 = silent, 100 = unity/full) —
+   * deliberately distinct from the Volume effect dial (-100..100, a per-pad
+   * character/boost control you dial in once while editing a sound). This is
+   * the quick, always-in-reach "how loud does this pad sit in the mix right
+   * now" level, adjusted live via Mixer Mode (see Transport.padMixerModeEnabled)
+   * rather than by opening the pad editor.
+   */
+  mixLevel: number
 }
 
 export interface Instrument {
@@ -97,6 +106,14 @@ export interface Transport {
    * pad presses as a performance instead of recording from the microphone.
    */
   padInstrumentModeEnabled: boolean
+  /**
+   * The third pad-grid mode, mutually exclusive with the two above (see
+   * reducer.ts). While on, pads stop being tap targets entirely and become
+   * vertical fader sliders instead — dragging up/down on a pad sets its
+   * mixLevel live. Nothing plays from a tap/drag in this mode; it's a mixing
+   * surface, meant to be used while a pattern or loops are already playing.
+   */
+  padMixerModeEnabled: boolean
   /**
    * Independent of the two pad-grid modes above: while on, holding the record
    * FAB captures a live "playthrough" of whatever's actually audible (every

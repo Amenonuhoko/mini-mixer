@@ -4,6 +4,7 @@ import {
   buildTransport,
   encodeWav,
   extractProjectMeta,
+  normalizePads,
   type ProjectMeta,
 } from '../engine/projectFile'
 import type { AppState, Sample, SampleKind } from './types'
@@ -99,7 +100,7 @@ export async function loadAutosave(engine: AudioEngine): Promise<AppState | null
     // them in rather than requiring a migration for old browser-stored records.
     instruments: record.instruments ?? {},
     instrumentOrder: record.instrumentOrder ?? [],
-    pads: record.pads,
+    pads: normalizePads(record.pads),
     visiblePadCount: record.visiblePadCount,
     patterns: record.patterns,
     activePatternId: record.activePatternId,

@@ -6,6 +6,7 @@ import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Instrument, Pad } from '../state/types'
+import { LoopModeSwitch } from './LoopModeSwitch'
 import { StaticWaveform } from './Waveform'
 
 /**
@@ -26,6 +27,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const loopModeEnabled = state.transport.padLoopModeEnabled
   const instrumentModeEnabled = state.transport.padInstrumentModeEnabled
+  const mixerModeEnabled = state.transport.padMixerModeEnabled
 
   // Which key position (1-based, low to high) each key sample holds within its
   // instrument, if any — built once per render rather than searching every
@@ -41,28 +43,36 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
 
   return (
     <section className="panel pad-grid" aria-label="pads">
-      <h2>Pads ({state.visiblePadCount})</h2>
+      <div className="pad-grid-header">
+        <h2>Pads ({state.visiblePadCount})</h2>
+        <LoopModeSwitch />
+      </div>
       <div
         className={[
           'pad-grid-cells',
           loopModeEnabled ? 'loop-mode' : '',
           instrumentModeEnabled ? 'instrument-mode' : '',
+          mixerModeEnabled ? 'mixer-mode' : '',
         ]
           .filter(Boolean)
           .join(' ')}
       >
-        {visiblePads.map((pad, index) => (
-          <PadButton
-            key={pad.id}
-            pad={pad}
-            index={index}
-            engine={engine}
-            selected={pad.id === selectedPadId}
-            loopModeEnabled={loopModeEnabled}
-            instrumentKeyNumber={pad.sampleId ? sampleKeyNumbers.get(pad.sampleId) : undefined}
-            onSelect={onSelectPad}
-          />
-        ))}
+        {visiblePads.map((pad, index) =>
+          mixerModeEnabled ? (
+            <MixerPadFader key={pad.id} pad={pad} index={index} engine={engine} />
+          ) : (
+            <PadButton
+              key={pad.id}
+              pad={pad}
+              index={index}
+              engine={engine}
+              selected={pad.id === selectedPadId}
+              loopModeEnabled={loopModeEnabled}
+              instrumentKeyNumber={pad.sampleId ? sampleKeyNumbers.get(pad.sampleId) : undefined}
+              onSelect={onSelectPad}
+            />
+          ),
+        )}
       </div>
     </section>
   )
@@ -226,6 +236,72 @@ function PadButton({
           <span />
         </span>
       )}
+    </button>
+  )
+}
+
+interface MixerPadFaderProps {
+  pad: Pad
+  index: number
+  engine: AudioEngine
+}
+
+/**
+ * Mixer Mode's alternate rendering for a pad tile: a vertical fader instead
+ * of a tap target — nothing plays from touching it. Dragging (or just
+ * tapping a spot) sets pad.mixLevel from the vertical position within the
+ * tile: top is 100 (unity), bottom is 0 (silent). Live-updates a currently-
+ * looping pad's actual gain too, the same "dial changes are audible
+ * immediately" behavior every other pad dial already has.
+ */
+function MixerPadFader({ pad, index, engine }: MixerPadFaderProps) {
+  const { dispatch } = useAppState()
+  const looping = usePadLooping(engine, pad.id)
+  const draggingRef = useRef(false)
+
+  const levelFromPointer = (event: React.PointerEvent<HTMLButtonElement>): number => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const fraction = 1 - (event.clientY - rect.top) / rect.height
+    return Math.round(Math.max(0, Math.min(1, fraction)) * 100)
+  }
+
+  const applyLevel = (level: number) => {
+    dispatch({ type: 'SET_PAD_MIX_LEVEL', padId: pad.id, level })
+    if (looping) engine.updateLoopingPadMixLevel(pad.id, level)
+  }
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    draggingRef.current = true
+    applyLevel(levelFromPointer(event))
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!draggingRef.current) return
+    applyLevel(levelFromPointer(event))
+  }
+
+  const endDrag = () => {
+    draggingRef.current = false
+  }
+
+  return (
+    <button
+      type="button"
+      className={looping ? 'pad mixer-fader looping' : 'pad mixer-fader'}
+      style={{ borderColor: pad.color }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      <span
+        className="mixer-fader-fill"
+        style={{ height: `${pad.mixLevel}%`, background: pad.color }}
+        aria-hidden="true"
+      />
+      <span className="mixer-fader-label">{index + 1}</span>
+      <span className="mixer-fader-level">{pad.mixLevel}%</span>
     </button>
   )
 }

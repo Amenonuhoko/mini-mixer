@@ -122,6 +122,16 @@ function shapeGritSample(x: number, { mode, amount }: GritParams): number {
   return Math.round(x * steps) / steps
 }
 
+/**
+ * Pad.mixLevel (0-100, a plain fader) to a GainNode value — unlike the other
+ * mappings here, this one isn't bipolar: 0 is silent, 100 is unity/full, with
+ * nothing past unity (no boost) since this is a mix-balance control, not a
+ * character/loudness effect the way the Volume dial is.
+ */
+export function mixLevelToGain(level: number): number {
+  return level / 100
+}
+
 export interface EchoParams {
   delaySeconds: number
   /** How much of the echoed signal feeds back into itself, 0..~0.45. */

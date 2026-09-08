@@ -8,6 +8,7 @@ import {
   dialToGain,
   dialToGritParams,
   dialToPlaybackRate,
+  mixLevelToGain,
 } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 
@@ -37,6 +38,8 @@ interface PlayingNodes {
   delay: DelayNode
   feedback: GainNode
   wet: GainNode
+  /** The Mixer Mode fader gain — separate from `gain` (the Volume effect dial), applied last, after the dry/wet mix, so it scales the pad's whole output including its echo tail. */
+  mixGain: GainNode
 }
 
 /**
@@ -155,6 +158,7 @@ export class AudioEngine {
     effects: EffectSetting[],
     trim: { trimStart: number; trimEnd: number },
     options: { loop: boolean; startTime?: number },
+    mixLevel: number,
   ): PlayingNodes {
     const ctx = this.getContext()
     const source = ctx.createBufferSource()
@@ -188,16 +192,23 @@ export class AudioEngine {
     feedback.gain.value = echoParams.feedback
     wet.gain.value = echoParams.wetMix
 
+    // Mixer Mode's fader — separate from `gain` (the Volume effect dial) —
+    // applied last so it scales the pad's whole output, dry signal and echo
+    // tail alike, rather than just the dry path.
+    const mixGain = ctx.createGain()
+    mixGain.gain.value = mixLevelToGain(mixLevel)
+
     const masterBus = this.getMasterBus()
     source.connect(filter)
     filter.connect(shaper)
     shaper.connect(gain)
-    gain.connect(masterBus)
+    gain.connect(mixGain)
     gain.connect(delay)
     delay.connect(feedback)
     feedback.connect(delay)
     delay.connect(wet)
-    wet.connect(masterBus)
+    wet.connect(mixGain)
+    mixGain.connect(masterBus)
 
     this.markStarted(padId)
     this.activeSources.add(source)
@@ -215,7 +226,7 @@ export class AudioEngine {
     } else {
       source.start(startTime, window.offset, window.duration)
     }
-    return { source, filter, shaper, gain, delay, feedback, wet }
+    return { source, filter, shaper, gain, delay, feedback, wet, mixGain }
   }
 
   /**
@@ -233,6 +244,7 @@ export class AudioEngine {
       effectiveEffects(pad),
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
       { loop: false },
+      pad.mixLevel,
     )
     return source
   }
@@ -275,6 +287,7 @@ export class AudioEngine {
       effectiveEffects(pad),
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
       { loop: true, startTime },
+      pad.mixLevel,
     )
     this.loopingNodes.set(pad.id, nodes)
     this.notify()
@@ -364,7 +377,22 @@ export class AudioEngine {
       effectiveEffects(pad),
       { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
       { loop: false, startTime: time },
+      pad.mixLevel,
     )
+  }
+
+  /**
+   * Live-updates the Mixer Mode fader on a pad that's currently looping —
+   * dragging a fader slider is audible immediately on the sustained loop,
+   * same reasoning as updateLoopingPadEffect. One-shot/sequencer-step
+   * instances already in flight read whatever pad.mixLevel was at trigger
+   * time and aren't retroactively editable, same as every other dial.
+   */
+  updateLoopingPadMixLevel(padId: string, level: number): void {
+    const nodes = this.loopingNodes.get(padId)
+    if (!nodes) return
+    const ctx = this.getContext()
+    nodes.mixGain.gain.setTargetAtTime(mixLevelToGain(level), ctx.currentTime, PARAM_RAMP_SECONDS)
   }
 
   /**

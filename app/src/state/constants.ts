@@ -48,6 +48,11 @@ export const EFFECT_PRESETS: EffectPreset[] = [
 /** Trim handles can't collapse closer than this (fraction of the sample's duration). */
 export const MIN_TRIM_GAP = 0.02
 
+/** Pad.mixLevel range — 0 (silent) to 100 (unity/full), a plain fader, not bipolar like the effect dials. */
+export const MIX_LEVEL_MIN = 0
+export const MIX_LEVEL_MAX = 100
+export const DEFAULT_MIX_LEVEL = 100
+
 /** Cycled through as pads are created, so each pad gets a stable, distinct identity. */
 export const PAD_COLOR_PALETTE = [
   '#ef4444',

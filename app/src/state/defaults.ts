@@ -1,5 +1,6 @@
 import {
   DEFAULT_BPM,
+  DEFAULT_MIX_LEVEL,
   DEFAULT_PAD_COUNT,
   EFFECT_IDS,
   NEUTRAL_EFFECT_VALUE,
@@ -33,6 +34,7 @@ export function createPad(index: number): Pad {
     icon: String(index + 1),
     effects: createNeutralEffects(),
     effectsBypassed: false,
+    mixLevel: DEFAULT_MIX_LEVEL,
   }
 }
 
@@ -73,6 +75,7 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
       metronomeEnabled: false,
       padLoopModeEnabled: false,
       padInstrumentModeEnabled: false,
+      padMixerModeEnabled: false,
       playthroughRecordingEnabled: false,
     },
   }

@@ -5,6 +5,8 @@ import {
   EFFECT_MIN,
   MIN_PAD_COUNT,
   MIN_TRIM_GAP,
+  MIX_LEVEL_MAX,
+  MIX_LEVEL_MIN,
   STEP_COUNT,
 } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
@@ -24,6 +26,7 @@ export type Action =
   | { type: 'SET_PAD_EFFECT'; padId: string; effectId: EffectId; value: number }
   | { type: 'RESET_PAD_EFFECTS'; padId: string }
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
+  | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
   | { type: 'SET_BPM'; bpm: number }
@@ -32,6 +35,7 @@ export type Action =
   | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_LOOP_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED'; enabled: boolean }
+  | { type: 'SET_PAD_MIXER_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PLAYTHROUGH_RECORDING_ENABLED'; enabled: boolean }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
@@ -191,6 +195,12 @@ export function reducer(state: AppState, action: Action): AppState {
       return updatePad(state, action.padId, (pad) => ({ ...pad, trimStart: start, trimEnd: end }))
     }
 
+    case 'SET_PAD_MIX_LEVEL':
+      return updatePad(state, action.padId, (pad) => ({
+        ...pad,
+        mixLevel: clamp(action.level, MIX_LEVEL_MIN, MIX_LEVEL_MAX),
+      }))
+
     case 'TOGGLE_STEP':
       return updatePattern(state, action.patternId, (pattern) => {
         const existing = pattern.steps[action.padId] ?? new Array<boolean>(STEP_COUNT).fill(false)
@@ -243,14 +253,16 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, transport: { ...state.transport, metronomeEnabled: action.enabled } }
 
     case 'SET_PAD_LOOP_MODE_ENABLED':
-      // Mutually exclusive with instrument mode — both change what tapping a pad
-      // means for the grid as a whole, so having both on at once would be ambiguous.
+      // Mutually exclusive with instrument mode and mixer mode — all three change
+      // what interacting with a pad means for the grid as a whole, so having more
+      // than one on at once would be ambiguous.
       return {
         ...state,
         transport: {
           ...state.transport,
           padLoopModeEnabled: action.enabled,
           padInstrumentModeEnabled: action.enabled ? false : state.transport.padInstrumentModeEnabled,
+          padMixerModeEnabled: action.enabled ? false : state.transport.padMixerModeEnabled,
         },
       }
 
@@ -261,6 +273,18 @@ export function reducer(state: AppState, action: Action): AppState {
           ...state.transport,
           padInstrumentModeEnabled: action.enabled,
           padLoopModeEnabled: action.enabled ? false : state.transport.padLoopModeEnabled,
+          padMixerModeEnabled: action.enabled ? false : state.transport.padMixerModeEnabled,
+        },
+      }
+
+    case 'SET_PAD_MIXER_MODE_ENABLED':
+      return {
+        ...state,
+        transport: {
+          ...state.transport,
+          padMixerModeEnabled: action.enabled,
+          padLoopModeEnabled: action.enabled ? false : state.transport.padLoopModeEnabled,
+          padInstrumentModeEnabled: action.enabled ? false : state.transport.padInstrumentModeEnabled,
         },
       }
 

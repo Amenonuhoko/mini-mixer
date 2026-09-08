@@ -1,3 +1,4 @@
+import { DEFAULT_MIX_LEVEL } from '../state/constants'
 import { computePeaks } from '../utils/waveform'
 import type {
   AppState,
@@ -110,6 +111,7 @@ export interface ProjectMeta {
     metronomeEnabled: boolean
     padLoopModeEnabled: boolean
     padInstrumentModeEnabled: boolean
+    padMixerModeEnabled: boolean
     playthroughRecordingEnabled: boolean
   }
 }
@@ -129,9 +131,20 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
       metronomeEnabled: state.transport.metronomeEnabled,
       padLoopModeEnabled: state.transport.padLoopModeEnabled,
       padInstrumentModeEnabled: state.transport.padInstrumentModeEnabled,
+      padMixerModeEnabled: state.transport.padMixerModeEnabled,
       playthroughRecordingEnabled: state.transport.playthroughRecordingEnabled,
     },
   }
+}
+
+/**
+ * Older saved projects/autosave records predate `Pad.mixLevel` — their pad
+ * objects come back from JSON with that field simply missing, which (unlike
+ * a missing boolean, which reads as falsy anyway) would leave arithmetic on
+ * it producing NaN. Shared between both load paths so they can't drift.
+ */
+export function normalizePads(pads: Pad[]): Pad[] {
+  return pads.map((pad) => ({ ...pad, mixLevel: pad.mixLevel ?? DEFAULT_MIX_LEVEL }))
 }
 
 /** isPlaying/currentStep are transient playback state, not project data — always reset. */
@@ -140,6 +153,7 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
     ...meta,
     // Older saved projects/autosave records predate these — default them in.
     padInstrumentModeEnabled: meta.padInstrumentModeEnabled ?? false,
+    padMixerModeEnabled: meta.padMixerModeEnabled ?? false,
     playthroughRecordingEnabled: meta.playthroughRecordingEnabled ?? false,
     isPlaying: false,
     currentStep: 0,
@@ -221,7 +235,7 @@ export async function deserializeProject(
     // than requiring every saved project to have carried the field.
     instruments: project.instruments ?? {},
     instrumentOrder: project.instrumentOrder ?? [],
-    pads: project.pads,
+    pads: normalizePads(project.pads),
     visiblePadCount: project.visiblePadCount,
     patterns: project.patterns,
     activePatternId: project.activePatternId,

@@ -203,6 +203,43 @@ describe('reducer', () => {
     expect(backToLoop.transport.padInstrumentModeEnabled).toBe(false)
   })
 
+  it('mixer mode is mutually exclusive with loop and instrument mode too', () => {
+    const state = createInitialState(1)
+
+    const mixerOn = reducer(state, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
+    expect(mixerOn.transport.padMixerModeEnabled).toBe(true)
+
+    const loopOn = reducer(mixerOn, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
+    expect(loopOn.transport.padLoopModeEnabled).toBe(true)
+    expect(loopOn.transport.padMixerModeEnabled).toBe(false)
+
+    const mixerAgain = reducer(loopOn, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
+    expect(mixerAgain.transport.padMixerModeEnabled).toBe(true)
+    expect(mixerAgain.transport.padLoopModeEnabled).toBe(false)
+
+    const instrumentOn = reducer(mixerAgain, {
+      type: 'SET_PAD_INSTRUMENT_MODE_ENABLED',
+      enabled: true,
+    })
+    expect(instrumentOn.transport.padInstrumentModeEnabled).toBe(true)
+    expect(instrumentOn.transport.padMixerModeEnabled).toBe(false)
+  })
+
+  it('sets a pad mix level, clamped to 0-100', () => {
+    const state = createInitialState(1)
+    const padId = state.pads[0]!.id
+    expect(state.pads[0]!.mixLevel).toBe(100)
+
+    const lowered = reducer(state, { type: 'SET_PAD_MIX_LEVEL', padId, level: 42 })
+    expect(lowered.pads[0]!.mixLevel).toBe(42)
+
+    const tooHigh = reducer(state, { type: 'SET_PAD_MIX_LEVEL', padId, level: 500 })
+    expect(tooHigh.pads[0]!.mixLevel).toBe(100)
+
+    const tooLow = reducer(state, { type: 'SET_PAD_MIX_LEVEL', padId, level: -20 })
+    expect(tooLow.pads[0]!.mixLevel).toBe(0)
+  })
+
   it('toggles playthrough recording independently of loop/instrument mode', () => {
     const state = createInitialState(1)
     expect(state.transport.playthroughRecordingEnabled).toBe(false)

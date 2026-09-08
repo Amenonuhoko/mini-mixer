@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
+import { renderPatternToBuffer } from '../engine/bouncePattern'
 import { MAX_PAD_COUNT, STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
+import { computePeaks } from '../utils/waveform'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Pad, Transport } from '../state/types'
 import { PadLibraryPicker } from './PadLibraryPicker'
+import type { PendingRecording } from './RecordingReview'
 
 const GROUP_SIZE = 4
+const WAVEFORM_BUCKETS = 80
 
 function chunk<T>(items: T[], size: number): T[][] {
   const groups: T[][] = []
@@ -23,13 +27,46 @@ function chunk<T>(items: T[], size: number): T[][] {
  * color swatch opens the same PadLibraryPicker the Pads page uses, so you can
  * swap what a row plays without leaving the Sequencer. "Add row" grows
  * visiblePadCount by one, the same mechanism Settings' pad-count stepper uses.
+ * "Bounce to Pad" renders the pattern exactly as programmed (mute/trim/
+ * effects/mix level respected) down to one sample via engine/bouncePattern.ts,
+ * completing the pad -> beat -> sequence -> pad loop.
  */
-export function Sequencer() {
+interface SequencerProps {
+  onBounced: (recording: PendingRecording) => void
+}
+
+export function Sequencer({ onBounced }: SequencerProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const pattern = state.patterns.find((p) => p.id === state.activePatternId)
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
+  const [bouncing, setBouncing] = useState(false)
+
+  const patternHasSteps = pattern
+    ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some(Boolean))
+    : false
+
+  const handleBounce = async () => {
+    if (!pattern || bouncing) return
+    setBouncing(true)
+    try {
+      const buffer = await renderPatternToBuffer(state, pattern.id)
+      const peaks = computePeaks(buffer, WAVEFORM_BUCKETS)
+      onBounced({
+        label: `Bounce ${Object.keys(state.samples).length + 1}`,
+        buffer,
+        peaks,
+        kind: 'sequence',
+      })
+    } catch {
+      // Pattern had no active steps — nothing to bounce. The button is
+      // already disabled for this case; a race (steps cleared mid-render) is
+      // rare enough to just silently no-op rather than surface an error.
+    } finally {
+      setBouncing(false)
+    }
+  }
 
   if (!pattern) return null
 
@@ -67,14 +104,25 @@ export function Sequencer() {
           ))}
         </div>
       </div>
-      <button
-        type="button"
-        className="btn btn-secondary sequencer-add-row"
-        onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-        disabled={state.visiblePadCount >= MAX_PAD_COUNT}
-      >
-        + Add row
-      </button>
+      <div className="sequencer-footer-actions">
+        <button
+          type="button"
+          className="btn btn-secondary sequencer-add-row"
+          onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
+          disabled={state.visiblePadCount >= MAX_PAD_COUNT}
+        >
+          + Add row
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary sequencer-bounce"
+          onClick={() => void handleBounce()}
+          disabled={!patternHasSteps || bouncing}
+          title={patternHasSteps ? 'Render this pattern to a new sample' : 'Program a step first'}
+        >
+          {bouncing ? 'Bouncing…' : 'Bounce to Pad'}
+        </button>
+      </div>
       {swappingPadId && (
         <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />
       )}
