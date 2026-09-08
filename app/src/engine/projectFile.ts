@@ -1,4 +1,4 @@
-import { DEFAULT_MIX_LEVEL } from '../state/constants'
+import { DEFAULT_MIX_LEVEL, STEP_COUNT } from '../state/constants'
 import { computePeaks } from '../utils/waveform'
 import type {
   AppState,
@@ -155,6 +155,31 @@ export function normalizePads(pads: Pad[]): Pad[] {
 }
 
 /**
+ * Projects saved before sample snapshots used booleans in each sequencer cell.
+ * Convert an old true cell to the pad sound it pointed at when loaded; new cells
+ * already contain their immutable sample ids and pass through unchanged.
+ */
+export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
+  const sampleIdByPad = new Map(pads.map((pad) => [pad.id, pad.sampleId]))
+  return patterns.map((pattern) => ({
+    ...pattern,
+    steps: Object.fromEntries(
+      Object.entries(pattern.steps).map(([padId, rawSteps]) => {
+        const legacySteps = rawSteps as unknown as Array<string | boolean | null | undefined>
+        return [
+          padId,
+          Array.from({ length: STEP_COUNT }, (_, stepIndex) => {
+            const step = legacySteps[stepIndex]
+            if (typeof step === 'string') return step
+            return step === true ? sampleIdByPad.get(padId) ?? null : null
+          }),
+        ]
+      }),
+    ),
+  }))
+}
+
+/**
  * isPlaying/currentStep/autoInstrumentId/autoInstrumentPadSnapshot are transient session state, not
  * project data — always reset. autoInstrumentId in particular: once a
  * project has been explicitly saved, any instrument it contains is project
@@ -254,7 +279,7 @@ export async function deserializeProject(
     instrumentOrder: project.instrumentOrder ?? [],
     pads: normalizePads(project.pads),
     visiblePadCount: project.visiblePadCount,
-    patterns: project.patterns,
+    patterns: normalizePatterns(project.patterns, normalizePads(project.pads)),
     activePatternId: project.activePatternId,
     transport: buildTransport(project.transport),
   }
