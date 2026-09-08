@@ -16,7 +16,14 @@ export function PlayBar() {
   const { isPlaying, bpm, loopMode } = state.transport
 
   const togglePlayback = () => {
-    if (isPlaying) engine.stopAllSounds()
+    if (isPlaying) {
+      // Disable the scheduler synchronously before React's state update, then
+      // terminate all currently audible sources. This leaves no lookahead hit
+      // behind to start after Stop has been pressed.
+      engine.setSequencerPlaybackEnabled(false)
+      engine.stopAllSounds()
+      dispatch({ type: 'SET_METRONOME_ENABLED', enabled: false })
+    }
     dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: !isPlaying })
   }
 
