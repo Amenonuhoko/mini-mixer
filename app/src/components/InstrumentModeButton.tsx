@@ -4,7 +4,7 @@ import { buildInstrumentKeysFromPreset, INSTRUMENT_PRESETS, type InstrumentPrese
 import { useAppState } from '../state/AppStateContext'
 import { createId } from '../state/defaults'
 import { buildKeySamples } from '../utils/buildInstrumentSamples'
-import { instrumentIcon, instrumentIconForName } from '../utils/instrumentIcon'
+import { instrumentIconForName } from '../utils/instrumentIcon'
 import { Overlay } from './Overlay'
 
 /** A quick-build choice offered by this button's picker: a pitched synth preset, or the fixed Drum Kit (which has no InstrumentPreset shape of its own — see engine/drumSynth.ts). */
