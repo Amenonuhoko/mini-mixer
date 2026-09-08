@@ -139,7 +139,8 @@ export function InstrumentModeButton() {
             : 'Instrument Mode — choose an instrument to lay across the pads'
         }
       >
-        <PianoKeysIcon />
+        <SoundLayoutIcon />
+        <span className="instrument-mode-label">Instrument</span>
       </button>
 
       {pickingInstrument && (
@@ -225,11 +226,11 @@ export function InstrumentModeButton() {
   )
 }
 
-function PianoKeysIcon() {
+function SoundLayoutIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M8 6v7M13 6v7M17 6v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 10v4h4l5 4V6L8 10H4z" fill="currentColor" />
+      <path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
 }
