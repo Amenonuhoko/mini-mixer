@@ -37,10 +37,10 @@ export function createPad(index: number): Pad {
   }
 }
 
-export function createEmptySteps(padIds: string[]): Record<string, boolean[]> {
-  const steps: Record<string, boolean[]> = {}
+export function createEmptySteps(padIds: string[]): Record<string, Array<string | null>> {
+  const steps: Record<string, Array<string | null>> = {}
   for (const padId of padIds) {
-    steps[padId] = new Array<boolean>(STEP_COUNT).fill(false)
+    steps[padId] = new Array<string | null>(STEP_COUNT).fill(null)
   }
   return steps
 }
