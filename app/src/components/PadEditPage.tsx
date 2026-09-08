@@ -77,6 +77,14 @@ export function PadEditPage() {
     engine.toggleLoop(pad, sample.buffer)
   }
 
+  const handleToggleEffects = () => {
+    const bypassed = !pad?.effectsBypassed
+    dispatch({ type: 'SET_PAD_EFFECTS_BYPASSED', padId: pad!.id, bypassed })
+    if (looping) {
+      engine.updateLoopingPadEffectsBypass(pad!.id, { ...pad!, effectsBypassed: bypassed })
+    }
+  }
+
   if (!pad) return null
 
   return (
@@ -160,6 +168,17 @@ export function PadEditPage() {
       )}
 
       <div className="panel">
+        <div className="effects-panel-header">
+          <span className="dial-label-text">Effects</span>
+          <button
+            type="button"
+            className={pad.effectsBypassed ? 'btn btn-secondary effects-bypass-toggle off' : 'btn btn-secondary effects-bypass-toggle'}
+            onClick={handleToggleEffects}
+            aria-pressed={!pad.effectsBypassed}
+          >
+            {pad.effectsBypassed ? 'Effects off' : 'Effects on'}
+          </button>
+        </div>
         <div className="dial-label-row">
           <span className="dial-label-text">Presets</span>
           <InfoTip label="About presets">
