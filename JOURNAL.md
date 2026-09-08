@@ -1268,3 +1268,22 @@ A bounce is commonly the next layer of a beat, so it deserves a direct destinati
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Expandable sequencer timeline
+
+### Context
+The sequencer was fixed to one 16-step bar. The user asked to add more space to the right of the grid.
+
+### Decision(s)
+Each pattern now carries its own length. It starts at 16 steps and can grow in four-step groups, up to 64 steps. A visible **+4** button sits at the right edge of the sequencer header. Added cells are empty and retain every existing programmed step.
+
+The scheduler, one-pass stop point, offline bounce duration, autosave, and import/export all use this per-pattern length. Older projects with no stored length load as their original 16-step patterns.
+
+### Reasoning
+A horizontal extension must be part of the pattern data and timing loop, rather than merely additional UI boxes, otherwise later cells could neither play nor appear in a bounce.
+
+### Open questions / carried forward
+None.
