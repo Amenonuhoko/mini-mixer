@@ -50,6 +50,17 @@ export function InstrumentModeButton() {
   const libraryInstruments = state.instrumentOrder
     .map((id) => state.instruments[id])
     .filter((instrument): instrument is Instrument => instrument !== undefined)
+
+  const quickPresetGroups = [
+    { label: 'Keys & tuned percussion', names: ['Piano', 'Organ', 'Bell'] },
+    { label: 'Strings', names: ['Guitar', 'Pluck', 'Bass'] },
+    { label: 'Synths', names: ['Lead', 'Pad'] },
+  ].map(({ label, names }) => ({
+    label,
+    presets: names
+      .map((name) => INSTRUMENT_PRESETS.find((preset) => preset.name === name))
+      .filter((preset): preset is InstrumentPreset => preset !== undefined),
+  }))
   const anyPadFilled = state.pads
     .slice(0, state.visiblePadCount)
     .some((pad) => pad.sampleId !== null)
@@ -153,20 +164,28 @@ export function InstrumentModeButton() {
           <p className="muted">Lays its keys across the pads — Pad 1 gets the lowest note.</p>
 
           <span className="settings-label">Quick presets</span>
+          {quickPresetGroups.map(({ label, presets }) => (
+            <section key={label} aria-label={label}>
+              <span className="settings-label">{label}</span>
+              <ul className="instrument-picker-list">
+                {presets.map((preset) => (
+                  <li key={preset.name}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary instrument-picker-btn"
+                      onClick={() => handlePickPreset(preset)}
+                      disabled={building !== null}
+                    >
+                      <span aria-hidden="true">{instrumentIconForName(preset.name)}</span>
+                      {building === preset.name ? 'Building…' : preset.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <span className="settings-label">Drums</span>
           <ul className="instrument-picker-list">
-            {INSTRUMENT_PRESETS.map((preset) => (
-              <li key={preset.name}>
-                <button
-                  type="button"
-                  className="btn btn-secondary instrument-picker-btn"
-                  onClick={() => handlePickPreset(preset)}
-                  disabled={building !== null}
-                >
-                  <span aria-hidden="true">{instrumentIconForName(preset.name)}</span>
-                  {building === preset.name ? 'Building…' : preset.name}
-                </button>
-              </li>
-            ))}
             <li>
               <button
                 type="button"
