@@ -89,6 +89,8 @@ export interface Pattern {
 }
 
 export type LoopMode = 'once' | 'continuous'
+/** Normal pad presses either stop on release (gate) or play the whole file (one-shot). */
+export type PadPlaybackMode = 'gate' | 'oneshot'
 
 /** The fields temporary Instrument Mode replaces on a pad, retained so cleanup can restore the user's layout. */
 export interface InstrumentPadSnapshot {
@@ -103,6 +105,8 @@ export interface Transport {
   loopMode: LoopMode
   currentStep: number
   metronomeEnabled: boolean
+  /** Controls normal pad tap duration; Loop Mode has its own distinct behavior. */
+  padPlaybackMode: PadPlaybackMode
   /** Final listening-level control, 0-100. Applies after every pad's mix/effects path. */
   masterVolume: number
   /**
