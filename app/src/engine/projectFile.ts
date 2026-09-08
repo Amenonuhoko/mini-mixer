@@ -148,7 +148,7 @@ export function normalizePads(pads: Pad[]): Pad[] {
 }
 
 /**
- * isPlaying/currentStep/autoInstrumentId are transient session state, not
+ * isPlaying/currentStep/autoInstrumentId/autoInstrumentPadSnapshot are transient session state, not
  * project data — always reset. autoInstrumentId in particular: once a
  * project has been explicitly saved, any instrument it contains is project
  * data now, not something still owed InstrumentModeButton's silent
@@ -164,6 +164,7 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
     isPlaying: false,
     currentStep: 0,
     autoInstrumentId: null,
+    autoInstrumentPadSnapshot: null,
   }
 }
 
