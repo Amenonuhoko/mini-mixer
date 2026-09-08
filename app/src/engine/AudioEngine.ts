@@ -76,6 +76,8 @@ export class AudioEngine {
    * of phase with loops already playing. See toggleLoop().
    */
   private loopEpoch: number | null = null
+  /** Immediate transport gate: prevents an already queued scheduler callback from firing after Stop. */
+  private sequencerPlaybackEnabled = false
 
   /** Every playback node routes through this instead of ctx.destination directly, so a playthrough recording (see startPlaythroughRecording) can tap the same signal everything else hears. */
   private masterBus: GainNode | null = null
@@ -113,6 +115,15 @@ export class AudioEngine {
       this.activeInstanceCounts.set(padId, next)
     }
     this.notify()
+  }
+
+  /** Enables or immediately blocks sequencer-triggered playback outside React's render timing. */
+  setSequencerPlaybackEnabled(enabled: boolean): void {
+    this.sequencerPlaybackEnabled = enabled
+  }
+
+  isSequencerPlaybackEnabled(): boolean {
+    return this.sequencerPlaybackEnabled
   }
 
   /** Kept in sync with the reducer's transport.bpm — see useBeatEngine. */
