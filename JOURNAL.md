@@ -1342,3 +1342,23 @@ Audio scheduling runs ahead of UI state by design. A synchronous engine gate pre
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Portable sequence traces and direct arrangement controls
+
+### Context
+A bounced sequence was only audio, so it could be replayed but not brought back into the sequencer as a visual reference. The sequence and pad controls also had unnecessary confirmation steps.
+
+### Decision(s)
+- Bounced sequence samples now retain a portable boolean placement snapshot. The Library exposes a **Trace** action for those samples; it opens Sequencer and applies the snapshot as the active pattern's visual-only trace. The trace can later be cleared without changing live placements. Snapshots persist through autosave and downloadable project JSON.
+- Loading a trace expands the visible pad grid and timeline only as needed, within the 32-pad and 64-step limits. It maps by row position rather than source sample ID, so it remains useful in a different project.
+- Removing four steps is immediate. Choosing an instrument applies it directly without an overwrite confirmation.
+- Pad growth is capped at 32 and includes an inline **+ Add pad** tile at the end of the pad grid. The Bounce action now has one destination chooser, whose pad picker includes **+ New** as an additional destination.
+
+### Reasoning
+A sequence should retain its arrangement information independently from its rendered audio so it can serve as reusable composition reference. The new direct controls preserve non-destructive data behavior while removing friction from frequent performance and arrangement actions.
+
+### Open questions / carried forward
+Older sequence samples created before this change contain audio only, so they remain playable but have no trace snapshot to load.
