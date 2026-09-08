@@ -1101,3 +1101,20 @@ The same word—Library—must mean the same user-facing collection everywhere. 
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Instrument key count drives the pad grid
+
+### Context
+Applying a 16-key instrument to the default smaller pad grid only exposed the pads that already happened to be visible, leaving part of the keyboard unreachable.
+
+### Decision(s)
+Applying an instrument now sets the visible pad count to its key-sample count and appends ordinary pad slots/pattern rows when needed. Existing hidden pad assignments are included in the temporary-instrument snapshot before they are overlaid, so later cleanup restores them safely.
+
+### Reasoning
+An instrument’s number of rendered keys is the authoritative shape of its playable layout. The grid should represent the full selected instrument, rather than truncating it to an unrelated prior pad-count setting.
+
+### Open questions / carried forward
+None.
