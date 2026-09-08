@@ -111,16 +111,18 @@ export interface Transport {
    */
   padLoopModeEnabled: boolean
   /**
-   * The pad grid's other mode toggle, mutually exclusive with padLoopModeEnabled
-   * (turning one on turns the other off — see reducer.ts). While on, pads keep
+   * The pad grid's instrument selection, mutually exclusive with
+   * padLoopModeEnabled (turning one on turns the other off — see reducer.ts).
+   * Mixer Mode may temporarily overlay it and restores this selection on exit. While on, pads keep
    * playing normally (one-shot/gate, same as the default mode) but show which
    * instrument key they hold, and holding the record FAB captures the series of
    * pad presses as a performance instead of recording from the microphone.
    */
   padInstrumentModeEnabled: boolean
   /**
-   * The third pad-grid mode, mutually exclusive with the two above (see
-   * reducer.ts). While on, pads stop being tap targets entirely and become
+   * A temporary overlay for changing levels (see reducer.ts). It is exclusive
+   * with Loop Mode but preserves an active instrument selection. While on,
+   * pads stop being tap targets entirely and become
    * vertical fader sliders instead — dragging up/down on a pad sets its
    * mixLevel live. Nothing plays from a tap/drag in this mode; it's a mixing
    * surface, meant to be used while a pattern or loops are already playing.
@@ -142,10 +144,9 @@ export interface Transport {
    * or null if none/not applicable. Lives here (in-memory app state, not
    * component-local) specifically so it survives navigating away from the
    * Pads page and back — the button component unmounts on every page switch,
-   * which would otherwise lose track of which instrument to clean up. Turning
-   * Explicitly turning Instrument Mode off removes this instrument. Switching
-   * to Mixer or Loop Mode does not: those modes still operate on its pad sounds.
-   * Deliberately
+   * which would otherwise lose track of which instrument to clean up. Replacing
+   * it removes the superseded quick instrument. Mixer Mode keeps it selected
+   * underneath the faders. Deliberately
    * transient, like isPlaying/currentStep: reset to null on every project
    * load rather than persisted, since once a project has been explicitly
    * saved, whatever instruments it contains are project data, not something
