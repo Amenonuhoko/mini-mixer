@@ -16,12 +16,21 @@ export interface EffectSetting {
  */
 export type SampleKind = 'recording' | 'note' | 'sequence'
 
+export interface SequenceTrace {
+  /** Source timeline length, retained independently of the current active pattern. */
+  stepCount: number
+  /** One boolean occupancy row per source pad; portable across projects and sample ids. */
+  rows: boolean[][]
+}
+
 export interface Sample {
   id: string
   label: string
   buffer: AudioBuffer
   recordedAt: number
   kind: SampleKind
+  /** Present for bounced sequencer samples, so they can later be loaded as a visual trace. */
+  sequenceTrace?: SequenceTrace
   /** Precomputed peak amplitudes (0-1) for a static waveform thumbnail — see src/utils/waveform.ts. */
   peaks: number[]
 }
