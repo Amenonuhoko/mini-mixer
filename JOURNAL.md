@@ -1058,3 +1058,27 @@ Library is the natural place to browse and manage playable recordings, while Ins
 
 ### Open questions / carried forward
 Whether instruments eventually need a dedicated management surface outside Library can be revisited if the existing Pads-page picker becomes insufficient.
+
+
+---
+
+## 2026-09-08 — Transient Instrument Mode assets and mobile swipe navigation
+
+### Context
+With the Instruments panel removed from Library, the remaining desired interaction is that Instrument Mode's generated key samples stay out of the sample library and do not persist once that performance is over. The mobile Pads and Sequencer screens also need a direct gesture for moving between the two primary performance surfaces.
+
+### Decision(s)
+- Quick instruments created from Instrument Mode presets remain transient. Their 16 generated note samples are already excluded from the visible sample-card library; now they are also removed whenever Instrument Mode is turned off, replaced, or disabled by switching to Loop or Mixer Mode.
+- Previously saved instruments are deliberately preserved as project data and remain selectable from the Instrument Mode picker; only quick builds created for the current performance are cleaned up.
+- On narrow screens, a horizontal swipe left from Pads opens Sequencer; a horizontal swipe right from Sequencer returns to Pads. The gesture requires at least 72px of horizontal travel and must be more horizontal than vertical, preserving ordinary vertical scroll and taps.
+
+### Alternatives considered
+- Keeping quick-built instruments until a manual delete — rejected; that leaves invisible generated samples consuming saved-project space after they are no longer useful.
+- Removing all instruments indiscriminately when mode changes — rejected; saved instruments are an explicit project asset and should not disappear without user intent.
+- Adding swipe navigation between every tab, including Library — deferred; Pads and Sequencer are the adjacent, high-frequency performance workflow, while Library is a distinct browsing surface.
+
+### Reasoning
+Instrument keys need to be real Samples while assigned to pads because the existing engine and pad model operate on sample references. Treating them as temporary implementation data after that performance ends provides the same musical workflow without turning the Library into hidden long-lived asset storage. A constrained horizontal gesture makes one-handed mobile movement between playing and sequencing immediate without competing with the page's vertical scroll.
+
+### Open questions / carried forward
+None.
