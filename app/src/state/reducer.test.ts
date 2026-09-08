@@ -489,4 +489,35 @@ describe('reducer', () => {
     expect(cleared.visiblePadCount).toBe(3)
     expect(cleared.pads.every((pad) => pad.sampleId === null)).toBe(true)
   })
+  it('restores pre-instrument pad content when a temporary instrument is removed for Mixer Mode', () => {
+    const state = createInitialState(1)
+    const padId = state.pads[0]!.id
+    const original = makeSample('original')
+    const key = makeSample('quick_key')
+    const instrument = makeInstrument('quick_instrument', [key.id])
+
+    let next = reducer(state, { type: 'ADD_SAMPLE', sample: original })
+    next = reducer(next, { type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId: original.id })
+    next = reducer(next, { type: 'SET_PAD_TRIM', padId, trimStart: 0.2, trimEnd: 0.8 })
+    const snapshot = {
+      [padId]: { sampleId: original.id, trimStart: 0.2, trimEnd: 0.8 },
+    }
+    next = reducer(next, { type: 'ADD_INSTRUMENT', instrument, keySamples: [key] })
+    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
+    next = reducer(next, {
+      type: 'SET_AUTO_INSTRUMENT_ID',
+      instrumentId: instrument.id,
+      padSnapshot: snapshot,
+    })
+    next = reducer(next, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
+    const restored = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
+
+    expect(restored.transport.padMixerModeEnabled).toBe(true)
+    expect(restored.pads[0]!.sampleId).toBe(original.id)
+    expect(restored.pads[0]!.trimStart).toBe(0.2)
+    expect(restored.pads[0]!.trimEnd).toBe(0.8)
+    expect(restored.samples[key.id]).toBeUndefined()
+    expect(restored.transport.autoInstrumentPadSnapshot).toBeNull()
+  })
+
 })
