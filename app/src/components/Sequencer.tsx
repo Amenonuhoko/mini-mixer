@@ -138,24 +138,28 @@ export function Sequencer({ onBounced }: SequencerProps) {
               onSwapSound={() => setSwappingPadId(pad.id)}
             />
           ))}
+          {state.visiblePadCount < MAX_PAD_COUNT && (
+            <div className="sequencer-add-row-slot">
+              <span className="sequencer-row-label sequencer-row-label-spacer" />
+              <button
+                type="button"
+                className="sequencer-add-row"
+                onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
+              >
+                + Add row
+              </button>
+            </div>
+          )}
         </div>
         <div className="sequencer-footer-actions">
-        <button
-          type="button"
-          className="btn btn-secondary sequencer-add-row"
-          onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-          disabled={state.visiblePadCount >= MAX_PAD_COUNT}
-        >
-          + Add row
-        </button>
         <button
           type="button"
           className="btn btn-secondary sequencer-bounce"
           onClick={() => void handleBounce()}
           disabled={!patternHasSteps || bouncing}
-          title={patternHasSteps ? 'Render this pattern to a new sample' : 'Program a step first'}
+          title={patternHasSteps ? 'Save this sequence, then choose an existing or new pad' : 'Program a step first'}
         >
-          {bouncing ? 'Bouncing…' : 'Bounce to Pad'}
+          {bouncing ? 'Saving…' : 'Save sequence'}
         </button>
         <button
           type="button"
@@ -245,9 +249,10 @@ function SequencerRow({
         className="sequencer-row-label"
         style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
         onClick={onSwapSound}
-        title="Tap to change this row's sound"
+        title="Load or replace this row’s pad sound"
       >
-        {padIndex + 1}
+        <span>{padIndex + 1}</span>
+        <span className="sequencer-row-load">Load</span>
         {looping && <span className="row-loop-badge" aria-hidden="true" />}
       </button>
       {chunk(steps, GROUP_SIZE).map((group, groupIndex) => (
