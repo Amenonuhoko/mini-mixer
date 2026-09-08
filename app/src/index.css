@@ -2108,7 +2108,7 @@ input[type='range']::-moz-range-thumb {
 .pad-playback-switch.gate span:first-child, .pad-playback-switch.oneshot span:last-child { background:var(--accent); color:#fff; }
 
 .sequencer-floating-actions { position:sticky; left:0; z-index:6; display:flex; justify-content:flex-start; gap:4px; width:max-content; margin:0 0 8px; padding:5px; border:1px solid var(--border); border-radius:999px; background:color-mix(in srgb, var(--panel-bg) 94%, transparent); box-shadow:0 4px 14px color-mix(in srgb, #000 12%, transparent); }
-.sequencer-floating-actions .sequencer-bounce, .sequencer-floating-actions .sequencer-trace, .sequencer-floating-actions .sequencer-clear { min-height:28px; padding:3px 7px; font-size:.68rem; }
+.sequencer-floating-actions .sequencer-bounce, .sequencer-floating-actions .sequencer-trace, .sequencer-floating-actions .sequencer-clear, .sequencer-floating-actions .sequencer-gate-toggle { min-height:28px; padding:3px 7px; font-size:.68rem; }
 .sequencer-row-label { width:34px; height:34px; border-radius:7px; flex-direction:column; gap:0; }
 .sequencer-row-change { font-size:.58rem; line-height:1; opacity:.8; }
 
@@ -2117,3 +2117,7 @@ input[type='range']::-moz-range-thumb {
 .sequencer-clear-control .confirm-overwrite { position:absolute; z-index:10; top:calc(100% + 6px); right:0; width:max-content; max-width:min(300px, calc(100vw - 48px)); margin:0; padding:8px; border:1px solid var(--border); border-radius:10px; background:var(--panel-bg); box-shadow:0 10px 24px rgba(0,0,0,.2); font-size:.72rem; }
 .sequencer-clear-control .confirm-overwrite span { max-width:150px; }
 .sequencer-clear-control .confirm-overwrite .btn { min-height:30px; padding:4px 8px; font-size:.7rem; }
+
+/* Sequencer auditions: normal clicks play a newly-filled cell immediately; Gate
+   holds its audition source only for the active mouse/finger press. */
+.sequencer-gate-toggle.armed { background:var(--accent); border-color:var(--accent); color:#fff; }

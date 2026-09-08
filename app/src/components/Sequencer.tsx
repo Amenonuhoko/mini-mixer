@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
 import { MAX_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
@@ -7,7 +7,7 @@ import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
 import { computePeaks } from '../utils/waveform'
 import type { AudioEngine } from '../engine/AudioEngine'
-import type { Pad, SequenceTrace, Transport } from '../state/types'
+import type { Pad, Sample, SequenceTrace, Transport } from '../state/types'
 import { PadLibraryPicker } from './PadLibraryPicker'
 import type { PendingRecording } from './RecordingReview'
 
@@ -43,6 +43,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [sequencerGateMode, setSequencerGateMode] = useState(false)
 
   const patternHasSteps = pattern
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
@@ -118,6 +119,15 @@ export function Sequencer({ onBounced }: SequencerProps) {
           title={patternHasSteps ? 'Save this sequence, then choose an existing or new pad' : 'Program a step first'}
         >
           {bouncing ? 'Saving…' : 'Save sequence'}
+        </button>
+        <button
+          type="button"
+          className={sequencerGateMode ? 'btn btn-secondary sequencer-gate-toggle armed' : 'btn btn-secondary sequencer-gate-toggle'}
+          onClick={() => setSequencerGateMode((enabled) => !enabled)}
+          aria-pressed={sequencerGateMode}
+          title={sequencerGateMode ? 'Hold a sequencer cell to hear a gated note; click to turn Gate off' : 'Turn on Gate to hear notes only while holding a sequencer cell'}
+        >
+          {sequencerGateMode ? 'Gate on' : 'Gate'}
         </button>
         <button
           type="button"
@@ -202,6 +212,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
               sampleLabels={Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))}
               transport={state.transport}
               engine={engine}
+              sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
+              gateMode={sequencerGateMode}
               onToggleStep={(stepIndex) =>
                 dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
               }
@@ -239,6 +251,8 @@ interface SequencerRowProps {
   sampleLabels: Record<string, string>
   transport: Transport
   engine: AudioEngine
+  sample: Sample | undefined
+  gateMode: boolean
   onToggleStep: (stepIndex: number) => void
   onSwapSound: () => void
 }
@@ -251,10 +265,38 @@ function SequencerRow({
   sampleLabels,
   transport,
   engine,
+  sample,
+  gateMode,
   onToggleStep,
   onSwapSound,
 }: SequencerRowProps) {
   const looping = usePadLooping(engine, pad.id)
+  const gateSources = useRef(new Map<number, AudioBufferSourceNode>())
+
+  const stopGateSource = (pointerId: number) => {
+    const source = gateSources.current.get(pointerId)
+    if (!source) return
+    try {
+      source.stop()
+    } catch {
+      // A short sound may have ended between press and release.
+    }
+    gateSources.current.delete(pointerId)
+  }
+
+  const startGate = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!gateMode || !sample || pad.muted) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    gateSources.current.set(event.pointerId, engine.triggerPad(pad, sample.buffer))
+  }
+
+  const fillAndAudition = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number) => {
+    onToggleStep(stepIndex)
+    if (on || !sample || pad.muted) return
+    // In Gate mode the note began on pointer-down and is stopped by release.
+    // Keyboard activation has no pointer lifecycle, so give it a normal audition.
+    if (!gateMode || event.detail === 0) engine.triggerPad(pad, sample.buffer)
+  }
 
   return (
     <div className={looping ? 'sequencer-row row-looping' : 'sequencer-row'}>
@@ -291,7 +333,10 @@ function SequencerRow({
                   .filter(Boolean)
                   .join(' ')}
                 style={on ? { background: pad.color } : traced ? { borderColor: pad.color } : undefined}
-                onClick={() => onToggleStep(stepIndex)}
+                onPointerDown={startGate}
+                onPointerUp={(event) => stopGateSource(event.pointerId)}
+                onPointerCancel={(event) => stopGateSource(event.pointerId)}
+                onClick={(event) => fillAndAudition(event, on, stepIndex)}
                 aria-label={sampleLabel ? `step ${stepIndex + 1} for pad ${padIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for pad ${padIndex + 1}: ${traceLabel}` : `step ${stepIndex + 1} for pad ${padIndex + 1}`}
                 title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace: ${traceLabel}` : `Step ${stepIndex + 1}`}
               />
