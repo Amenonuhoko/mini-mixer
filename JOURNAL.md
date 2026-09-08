@@ -1362,3 +1362,23 @@ A sequence should retain its arrangement information independently from its rend
 
 ### Open questions / carried forward
 Older sequence samples created before this change contain audio only, so they remain playable but have no trace snapshot to load.
+
+
+---
+
+## 2026-09-09 — Direct project controls and clearer sound destinations
+
+### Context
+Project backup controls were buried in Settings, while frequent sequence/pad actions did not always name their destination clearly. The Pads action surface also split effect editing from its bypass control.
+
+### Decision(s)
+- Added distinct **Save** and **Load** controls to the top bar. Browser autosave remains the everyday recovery mechanism and creates no downloaded files; Save is now explicitly the portable JSON backup/transfer action.
+- In Sequencer, each row now visibly says **Load**, the add-row affordance is a free row directly underneath the existing grid, and **Save sequence** opens the single destination picker that includes a new-pad option.
+- The Pads page uses **Load sound** rather than Library for its pad-assignment action.
+- Pad **Edit** is now **Effects**. The previous Effects on/off bypass is a toggle within the opened Effects panel, alongside trims, presets, and individual dials.
+
+### Reasoning
+Autosave should cover normal work without accumulating exports. Visible action labels reduce the need to infer where an action leads, and combining editing with effects puts an effect's global bypass beside the controls it governs.
+
+### Open questions / carried forward
+None.
