@@ -86,6 +86,28 @@ export function Sequencer({ onBounced }: SequencerProps) {
     <section className="panel sequencer" aria-label="sequencer">
       <h2>Sequencer — {pattern.name}</h2>
       <p className="muted sequencer-hint">Swipe sideways for all 16 steps on narrow screens.</p>
+      <div className="step-length-controls step-length-controls-left" aria-label="Pattern length">
+        <button
+          type="button"
+          className="step-add-right"
+          onClick={() => dispatch({ type: 'REMOVE_PATTERN_STEPS', patternId: pattern.id })}
+          disabled={pattern.stepCount <= 16}
+          title={pattern.stepCount <= 16 ? 'A pattern needs at least 16 steps' : 'Remove the last four steps'}
+          aria-label="Remove four steps from the right"
+        >
+          −4
+        </button>
+        <button
+          type="button"
+          className="step-add-right"
+          onClick={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
+          disabled={pattern.stepCount >= MAX_STEP_COUNT}
+          title={pattern.stepCount >= MAX_STEP_COUNT ? 'Maximum pattern length reached' : 'Add four steps to the right'}
+          aria-label="Add four steps to the right"
+        >
+          +4
+        </button>
+      </div>
       <div className="sequencer-scroll">
         <div className="sequencer-grid">
           <div className="sequencer-row sequencer-header-row">
@@ -98,29 +120,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
                 <span className="step-group-number">{group[0]! + 1}</span>
               </div>
             ))}
-            <div className="step-length-controls">
-              <button
-                type="button"
-                className="step-add-right"
-                onClick={() => dispatch({ type: 'REMOVE_PATTERN_STEPS', patternId: pattern.id })}
-                disabled={pattern.stepCount <= 16}
-                title={pattern.stepCount <= 16 ? 'A pattern needs at least 16 steps' : 'Remove the last four steps'}
-                aria-label="Remove four steps from the right"
-              >
-                −4
-              </button>
-              <button
-                type="button"
-                className="step-add-right"
-                onClick={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
-                disabled={pattern.stepCount >= MAX_STEP_COUNT}
-                title={pattern.stepCount >= MAX_STEP_COUNT ? 'Maximum pattern length reached' : 'Add four steps to the right'}
-                aria-label="Add four steps to the right"
-              >
-                +4
-              </button>
             </div>
-          </div>
           {visiblePads.map((pad, padIndex) => (
             <SequencerRow
               key={pad.id}
