@@ -1,4 +1,4 @@
-import { DEFAULT_MIX_LEVEL, STEP_COUNT } from '../state/constants'
+import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, STEP_COUNT } from '../state/constants'
 import { computePeaks } from '../utils/waveform'
 import type {
   AppState,
@@ -161,22 +161,27 @@ export function normalizePads(pads: Pad[]): Pad[] {
  */
 export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
   const sampleIdByPad = new Map(pads.map((pad) => [pad.id, pad.sampleId]))
-  return patterns.map((pattern) => ({
-    ...pattern,
-    steps: Object.fromEntries(
-      Object.entries(pattern.steps).map(([padId, rawSteps]) => {
-        const legacySteps = rawSteps as unknown as Array<string | boolean | null | undefined>
-        return [
-          padId,
-          Array.from({ length: STEP_COUNT }, (_, stepIndex) => {
-            const step = legacySteps[stepIndex]
-            if (typeof step === 'string') return step
-            return step === true ? sampleIdByPad.get(padId) ?? null : null
-          }),
-        ]
-      }),
-    ),
-  }))
+  return patterns.map((pattern) => {
+    const longestRow = Math.max(STEP_COUNT, ...Object.values(pattern.steps).map((steps) => steps.length))
+    const stepCount = Math.min(MAX_STEP_COUNT, Math.max(STEP_COUNT, pattern.stepCount ?? longestRow))
+    return {
+      ...pattern,
+      stepCount,
+      steps: Object.fromEntries(
+        Object.entries(pattern.steps).map(([padId, rawSteps]) => {
+          const legacySteps = rawSteps as unknown as Array<string | boolean | null | undefined>
+          return [
+            padId,
+            Array.from({ length: stepCount }, (_, stepIndex) => {
+              const step = legacySteps[stepIndex]
+              if (typeof step === 'string') return step
+              return step === true ? sampleIdByPad.get(padId) ?? null : null
+            }),
+          ]
+        }),
+      ),
+    }
+  })
 }
 
 /**
