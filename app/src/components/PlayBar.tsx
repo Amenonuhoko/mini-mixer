@@ -1,5 +1,6 @@
 import { BPM_MAX, BPM_MIN } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
+import { useEngine } from '../state/EngineContext'
 
 /**
  * Fixed to the bottom of the viewport so play/pause and tempo stay reachable
@@ -11,14 +12,20 @@ import { useAppState } from '../state/AppStateContext'
  */
 export function PlayBar() {
   const { state, dispatch } = useAppState()
+  const engine = useEngine()
   const { isPlaying, bpm, loopMode } = state.transport
+
+  const togglePlayback = () => {
+    if (isPlaying) engine.stopAllSounds()
+    dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: !isPlaying })
+  }
 
   return (
     <div className="play-bar">
       <button
         type="button"
         className={isPlaying ? 'play-toggle playing' : 'play-toggle'}
-        onClick={() => dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: !isPlaying })}
+        onClick={togglePlayback}
         aria-label={isPlaying ? 'Pause' : 'Play'}
       >
         {isPlaying ? <PauseIcon /> : <PlayIcon />}
