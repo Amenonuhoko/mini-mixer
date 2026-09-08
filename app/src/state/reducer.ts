@@ -82,6 +82,38 @@ function updatePattern(
   }
 }
 
+/** Removes hidden generated keys once no instrument, pad, or sequencer cell needs them. */
+function removeUnusedNoteSamples(state: AppState): AppState {
+  const inUse = new Set<string>()
+  for (const instrument of Object.values(state.instruments)) {
+    for (const sampleId of instrument.keySampleIds) inUse.add(sampleId)
+  }
+  for (const pad of state.pads) {
+    if (pad.sampleId) inUse.add(pad.sampleId)
+  }
+  for (const pattern of state.patterns) {
+    for (const steps of Object.values(pattern.steps)) {
+      for (const sampleId of steps) {
+        if (sampleId) inUse.add(sampleId)
+      }
+    }
+  }
+
+  const unusedNoteIds = state.sampleOrder.filter(
+    (sampleId) => state.samples[sampleId]?.kind === 'note' && !inUse.has(sampleId),
+  )
+  if (unusedNoteIds.length === 0) return state
+
+  const unused = new Set(unusedNoteIds)
+  const samples = { ...state.samples }
+  for (const sampleId of unused) delete samples[sampleId]
+  return {
+    ...state,
+    samples,
+    sampleOrder: state.sampleOrder.filter((sampleId) => !unused.has(sampleId)),
+  }
+}
+
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'ADD_SAMPLE':
@@ -312,13 +344,15 @@ export function reducer(state: AppState, action: Action): AppState {
         return { ...pattern, steps: { ...pattern.steps, [action.padId]: steps } }
       })
 
-    case 'CLEAR_PATTERN':
-      return updatePattern(state, action.patternId, (pattern) => ({
+    case 'CLEAR_PATTERN': {
+      const cleared = updatePattern(state, action.patternId, (pattern) => ({
         ...pattern,
         steps: Object.fromEntries(
           Object.keys(pattern.steps).map((padId) => [padId, new Array<string | null>(STEP_COUNT).fill(null)]),
         ),
       }))
+      return removeUnusedNoteSamples(cleared)
+    }
 
     case 'SET_VISIBLE_PAD_COUNT': {
       const count = Math.max(MIN_PAD_COUNT, action.count)
