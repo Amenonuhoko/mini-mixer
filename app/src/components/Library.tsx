@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
-import { InstrumentLibrary } from './InstrumentLibrary'
 import { PadAssignPrompt } from './PadAssignPrompt'
 import { StaticWaveform } from './Waveform'
 
@@ -18,9 +17,9 @@ import { StaticWaveform } from './Waveform'
  * them like anything else), but showing all 16 of an instrument's keys as
  * individual cards here would flood this grid the moment you build one
  * instrument, let alone several. They're managed as a unit via the
- * Instruments list above instead (deleting an instrument removes its keys
- * together) — building/applying an instrument should be quick and
- * self-contained, not spill 16 extra library entries into view.
+ * Pads-page Instrument Mode picker instead (deleting an instrument still
+ * removes its keys together) — building/applying an instrument should be quick
+ * and self-contained, not spill 16 extra library entries into view.
  */
 export function Library() {
   const { state, dispatch } = useAppState()
@@ -46,7 +45,6 @@ export function Library() {
 
   return (
     <div className="page library-page">
-      <InstrumentLibrary />
       <section className="panel library" aria-label="sample library">
         <h2>Library ({samples.length})</h2>
         {samples.length === 0 ? (
