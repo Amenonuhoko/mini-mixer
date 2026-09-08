@@ -84,6 +84,8 @@ export interface Instrument {
 export interface Pattern {
   id: string
   name: string
+  /** Number of 16th-note cells in this pattern (starts at 16, can grow to 64). */
+  stepCount: number
   /** Keyed by pad id; each cell holds the exact Sample id chosen when the step was placed, or null. */
   steps: Record<string, Array<string | null>>
 }
