@@ -1,4 +1,3 @@
-import { STEP_COUNT } from '../state/constants'
 import type { AppState, EffectId, EffectSetting, Pad, Sample } from '../state/types'
 import {
   buildGritCurve,
@@ -59,7 +58,7 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
   }
 
   const sampleRate = hits[0]!.sample.buffer.sampleRate
-  const patternSeconds = STEP_COUNT * secondsPerStep
+  const patternSeconds = pattern.stepCount * secondsPerStep
   const windows = hits.map((hit) =>
     trimToPlaybackWindow(hit.pad.trimStart, hit.pad.trimEnd, hit.sample.buffer.duration),
   )
