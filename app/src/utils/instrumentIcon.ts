@@ -9,6 +9,8 @@ const PRESET_ICONS: Record<string, string> = {
   Pluck: '🪕',
   Organ: '⛪',
   Bell: '🔔',
+  Guitar: '🎸',
+  'Drum Kit': '🥁',
 }
 
 /** A small, stable glyph for an instrument — shown on any pad holding one of its keys. */

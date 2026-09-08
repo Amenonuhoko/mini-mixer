@@ -36,11 +36,12 @@ These are load-bearing decisions made deliberately so the base doesn't need to b
 ### Instruments
 
 - Lives in the Library, above the raw sample list — a place to build a **16-key keyboard** from either a bundled synth preset or one of your own recordings, then lay it across the pads in one tap.
-- **Bundled presets**: Piano, Bass, Lead, Pad, Pluck, Organ, Bell — seven simple oscillator-plus-envelope synth patches (triangle/sine/sawtooth/square with an ADSR-ish envelope, no audio assets), not attempting to sound like real instruments, just distinct enough starting points to tell apart. Pad is a slow-attack sustained wash for holding a background loop; Pluck is a very short, snappy triangle for one-off hits; Organ layers a loud octave overtone on a square wave for a thick, buzzy sustain; Bell is a bright sine with a slow-decaying overtone for a struck-metal character. Rendered offline (via `OfflineAudioContext`, no live `AudioContext` needed) at 16 ascending semitones from a root frequency.
+- **Bundled pitched presets**: Piano, Bass, Lead, Pad, Pluck, Organ, Bell, Guitar — eight simple oscillator-plus-envelope synth patches (triangle/sine/sawtooth/square with an ADSR-ish envelope, no audio assets), not attempting to sound like real instruments, just distinct enough starting points to tell apart. Pad is a slow-attack sustained wash for holding a background loop; Pluck is a very short, snappy triangle for one-off hits; Organ layers a loud octave overtone on a square wave for a thick, buzzy sustain; Bell is a bright sine with a slow-decaying overtone for a struck-metal character; Guitar is a lowpass-softened sawtooth with a quick pluck-then-settle envelope. Each is rendered offline (via `OfflineAudioContext`, no live `AudioContext` needed) at 16 ascending semitones from a root frequency — one patch, pitch-shifted across the keyboard.
+- **Drum Kit — a structurally different preset**: 16 *distinct* percussion voices (Kick, Snare, Closed/Open Hat, Low/Mid/High Tom, Clap, Rimshot, Cowbell, Crash, Ride, a second Kick/Snare variation, Shaker, Tambourine — see `engine/drumSynth.ts`), not one sound pitch-shifted across the keys — a kick doesn't sound like a snare played faster, so each key gets its own independent offline render instead. Built from the same "no audio assets" synthesis approach as the pitched presets: tonal voices (kick/tom/cowbell) are a sine with a fast downward pitch sweep or a bandpassed square pair, noise-based voices (snare/hi-hat/rim/crash) are filtered white noise with a decay envelope, and clap layers three quick noise bursts instead of one smooth decay.
 - **From a recording**: pick any existing library sample as the root note; the app pitch-maps it across the same 16-key range by baking a `detune`d offline render into a new buffer per key — the same mechanism the live pitch dial already uses, just rendered once instead of applied at playback time. The picker excludes samples that are themselves already-generated instrument keys, so you can't accidentally build an instrument out of a synthesized note.
-- **Every key is a real library Sample** — no separate instrument-playback path. This means an instrument's keys get full trim/effects/loop/mute once on a pad, exactly like any recording.
+- **Every key is a real library Sample** — no separate instrument-playback path, drum kit included. This means an instrument's keys get full trim/effects/loop/mute once on a pad, exactly like any recording.
 - Deleting an instrument removes its generated key samples from the library too (unassigning any pad using one), so building a few instruments to try out doesn't leave a trail of orphaned samples behind.
-- Laying an instrument across the pads is **Instrument Mode**, a pad-grid setting (see Pad Playback Behavior below), not a Library action — building an instrument and applying it are two separate steps in two separate places.
+- Laying an instrument across the pads is **Instrument Mode**, a pad-grid setting (see Pad Playback Behavior below), not a Library action — building an instrument and applying it are two separate steps in two separate places. For a drum kit this means pad 1 becomes Kick, pad 2 becomes Snare, and so on down the fixed voice order — a familiar drum-machine-style layout once applied.
 
 ### Playthrough recording
 
@@ -140,7 +141,7 @@ interface Instrument {
   id: string;
   name: string;
   source: 'preset' | 'recording';
-  keySampleIds: string[];    // 16 keys, ascending semitones from the root; each is a real Sample id
+  keySampleIds: string[];    // 16 keys, each a real Sample id — ascending semitones from the root for a pitched instrument, or 16 distinct fixed-order voices for the Drum Kit (no pitch to order by)
 }
 
 interface Pattern {

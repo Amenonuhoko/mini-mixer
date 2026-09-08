@@ -122,6 +122,20 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       totalDurationSeconds: 2.2,
     },
   },
+  {
+    name: 'Guitar',
+    rootHz: 164.81, // E3
+    patch: {
+      waveform: 'sawtooth',
+      overtoneGain: 0.2,
+      attackSeconds: 0.005,
+      decaySeconds: 0.4,
+      sustainLevel: 0.15,
+      releaseSeconds: 0.3,
+      totalDurationSeconds: 1.0,
+      lowpassHz: 3500,
+    },
+  },
 ]
 
 /**

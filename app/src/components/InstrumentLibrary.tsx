@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { buildDrumKitKeys, DRUM_KIT_VOICES } from '../engine/drumSynth'
 import {
   buildInstrumentKeysFromPreset,
   buildInstrumentKeysFromRecording,
@@ -13,10 +14,11 @@ import type { Instrument, Sample } from '../state/types'
 /** Matches the resolution RecordFAB/projectFile use for their own waveform thumbnails. */
 const WAVEFORM_BUCKETS = 80
 
-function buildKeySamples(buffers: AudioBuffer[], namePrefix: string): Sample[] {
+/** Labels per key: pitched presets number the same name ("Piano 1", "Piano 2", ...); the drum kit instead passes each voice's own name ("Kick", "Snare", ...), since its keys aren't pitch variations of one sound. */
+function buildKeySamples(buffers: AudioBuffer[], labels: string[]): Sample[] {
   return buffers.map((buffer, i) => ({
     id: createId('sample'),
-    label: `${namePrefix} ${i + 1}`,
+    label: labels[i]!,
     buffer,
     recordedAt: timestampNow(),
     kind: 'note',
@@ -69,7 +71,19 @@ export function InstrumentLibrary() {
     setBuilding(preset.name)
     try {
       const buffers = await buildInstrumentKeysFromPreset(preset)
-      addInstrument(preset.name, 'preset', buildKeySamples(buffers, preset.name))
+      const labels = buffers.map((_, i) => `${preset.name} ${i + 1}`)
+      addInstrument(preset.name, 'preset', buildKeySamples(buffers, labels))
+    } finally {
+      setBuilding(null)
+    }
+  }
+
+  const handleBuildDrumKit = async () => {
+    setBuilding('Drum Kit')
+    try {
+      const buffers = await buildDrumKitKeys()
+      const labels = DRUM_KIT_VOICES.map((voice) => voice.name)
+      addInstrument('Drum Kit', 'preset', buildKeySamples(buffers, labels))
     } finally {
       setBuilding(null)
     }
@@ -80,7 +94,8 @@ export function InstrumentLibrary() {
     setBuilding(rootSample.label)
     try {
       const buffers = await buildInstrumentKeysFromRecording(rootSample.buffer)
-      addInstrument(rootSample.label, 'recording', buildKeySamples(buffers, rootSample.label))
+      const labels = buffers.map((_, i) => `${rootSample.label} ${i + 1}`)
+      addInstrument(rootSample.label, 'recording', buildKeySamples(buffers, labels))
     } finally {
       setBuilding(null)
     }
@@ -155,6 +170,15 @@ export function InstrumentLibrary() {
               {building === preset.name ? 'Building…' : preset.name}
             </button>
           ))}
+          <button
+            type="button"
+            className="btn btn-secondary preset-btn"
+            onClick={() => void handleBuildDrumKit()}
+            disabled={building !== null}
+            title="16 distinct percussion voices (kick, snare, hats, toms, and more) — not one sound pitch-shifted, a different hit on every key"
+          >
+            {building === 'Drum Kit' ? 'Building…' : 'Drum Kit'}
+          </button>
         </div>
         <button
           type="button"

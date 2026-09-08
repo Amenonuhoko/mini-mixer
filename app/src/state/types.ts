@@ -71,7 +71,13 @@ export interface Instrument {
   id: string
   name: string
   source: 'preset' | 'recording'
-  /** Ordered low to high pitch (semitone 0 first); references into AppState.samples. */
+  /**
+   * References into AppState.samples. For a pitched preset/recording instrument,
+   * ordered low to high pitch (semitone 0 first). A drum kit is the exception —
+   * its 16 keys are 16 distinct voices, not one sound pitch-shifted, so there's
+   * no pitch to order by; it's ordered by how often each voice gets reached for
+   * instead (see engine/drumSynth.ts's DRUM_KIT_VOICES).
+   */
   keySampleIds: string[]
 }
 
