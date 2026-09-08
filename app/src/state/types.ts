@@ -90,6 +90,13 @@ export interface Pattern {
 
 export type LoopMode = 'once' | 'continuous'
 
+/** The fields temporary Instrument Mode replaces on a pad, retained so cleanup can restore the user's layout. */
+export interface InstrumentPadSnapshot {
+  sampleId: string | null
+  trimStart: number
+  trimEnd: number
+}
+
 export interface Transport {
   bpm: number
   isPlaying: boolean
@@ -144,6 +151,8 @@ export interface Transport {
    * still owed a silent auto-delete.
    */
   autoInstrumentId: string | null
+  /** Pre-instrument assignments for a quick Instrument Mode preset; transient and never persisted. */
+  autoInstrumentPadSnapshot: Record<string, InstrumentPadSnapshot> | null
 }
 
 export interface AppState {
