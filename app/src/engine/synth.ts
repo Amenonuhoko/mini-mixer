@@ -428,26 +428,32 @@ function closestGuitarZone(targetMidi: number) {
 }
 
 function buildRecordedGuitarKeys(): Promise<AudioBuffer[]> {
-  recordedGuitarKeysPromise ??= (async () => {
-    // Fetch each source recording once, then derive the adjacent frets locally.
-    const sourceBuffers = await Promise.all(
-      RECORDED_GUITAR_ZONES.map(async (zone) => [
-        zone.midi,
-        await decodeRemoteAudio(`${CC0_ELECTRIC_GUITAR_BASE_URL}${zone.file}`),
-      ] as const),
-    )
-    const byMidi = new Map(sourceBuffers)
+  if (!recordedGuitarKeysPromise) {
+    recordedGuitarKeysPromise = (async () => {
+      // Fetch each source recording once, then derive the adjacent frets locally.
+      const sourceBuffers = await Promise.all(
+        RECORDED_GUITAR_ZONES.map(async (zone) => [
+          zone.midi,
+          await decodeRemoteAudio(`${CC0_ELECTRIC_GUITAR_BASE_URL}${zone.file}`),
+        ] as const),
+      )
+      const byMidi = new Map(sourceBuffers)
 
-    return Promise.all(
-      semitoneOffsets().map(async (semitones) => {
-        const targetMidi = GUITAR_ROOT_MIDI + semitones
-        const zone = closestGuitarZone(targetMidi)
-        const source = byMidi.get(zone.midi)
-        if (!source) throw new Error('Missing decoded guitar source zone')
-        return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
-      }),
-    )
-  })()
+      return Promise.all(
+        semitoneOffsets().map(async (semitones) => {
+          const targetMidi = GUITAR_ROOT_MIDI + semitones
+          const zone = closestGuitarZone(targetMidi)
+          const source = byMidi.get(zone.midi)
+          if (!source) throw new Error('Missing decoded guitar source zone')
+          return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
+        }),
+      )
+    })().catch((error: unknown) => {
+      // Do not cache a temporary network failure: a later picker open can retry.
+      recordedGuitarKeysPromise = null
+      throw error
+    })
+  }
 
   return recordedGuitarKeysPromise
 }
