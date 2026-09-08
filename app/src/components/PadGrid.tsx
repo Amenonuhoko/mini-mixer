@@ -121,6 +121,18 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
             />
           ),
         )}
+        {state.visiblePadCount < MAX_PAD_COUNT && (
+          <button
+            type="button"
+            className="pad pad-add-slot"
+            onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
+            aria-label="Add pad"
+            title="Add pad"
+          >
+            <span aria-hidden="true">+</span>
+            <small>Add pad</small>
+          </button>
+        )}
       </div>
     </section>
   )
