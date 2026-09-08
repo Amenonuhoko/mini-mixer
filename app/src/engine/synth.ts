@@ -1,18 +1,24 @@
 import { INSTRUMENT_KEY_COUNT } from '../state/constants'
 
 export type SynthWaveform = OscillatorType
+type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar'
 
-/** An ADSR-ish envelope plus a simple oscillator patch — enough character to tell presets apart without needing sample assets. */
+/**
+ * The synth bank deliberately distinguishes an instrument's sound-producing
+ * model from its general envelope. Lead and Pad stay oscillator voices; the
+ * acoustic-style presets select a focused procedural model instead of trying
+ * to make every sound from one oscillator plus ADSR.
+ */
 export interface SynthPatch {
+  voice: InstrumentVoice
   waveform: SynthWaveform
-  /** An optional second oscillator an octave up, mixed in quieter, for a richer tone (used for Piano). */
   overtoneGain?: number
+  unisonDetuneCents?: number
   attackSeconds: number
   decaySeconds: number
   sustainLevel: number
   releaseSeconds: number
   totalDurationSeconds: number
-  /** Optional lowpass to soften a bright waveform (e.g. Lead's sawtooth). */
   lowpassHz?: number
 }
 
@@ -24,189 +30,342 @@ export interface InstrumentPreset {
 }
 
 /**
- * Bundled presets — no audio assets, everything synthesized. Deliberately
- * simple oscillator-plus-envelope patches, not attempting to sound like a
- * real piano/bass/synth patch bank; enough character to be useful starting
- * points for a casual beat maker, not a serious softsynth.
+ * Procedural instruments, not generic waveforms wearing instrument labels:
+ * piano uses decaying partials plus a hammer transient; bass adds a short
+ * pluck and filtered harmonic body; pluck/guitar use a Karplus-Strong string;
+ * organ is a drawbar stack; Bell is a set of inharmonic modes. Lead and Pad
+ * remain intentionally synthetic but gain detuned unison voices.
  */
 export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   {
     name: 'Piano',
-    rootHz: 261.63, // C4
+    rootHz: 261.63,
     patch: {
+      voice: 'piano',
       waveform: 'triangle',
-      overtoneGain: 0.25,
-      attackSeconds: 0.005,
-      decaySeconds: 0.3,
-      sustainLevel: 0.25,
-      releaseSeconds: 0.8,
-      totalDurationSeconds: 1.6,
+      attackSeconds: 0.003,
+      decaySeconds: 0.8,
+      sustainLevel: 0,
+      releaseSeconds: 1.8,
+      totalDurationSeconds: 2.8,
     },
   },
   {
     name: 'Bass',
-    rootHz: 65.41, // C2
+    rootHz: 65.41,
     patch: {
+      voice: 'bass',
       waveform: 'sine',
-      attackSeconds: 0.005,
-      decaySeconds: 0.15,
-      sustainLevel: 0.6,
-      releaseSeconds: 0.3,
-      totalDurationSeconds: 0.6,
-      lowpassHz: 800,
+      attackSeconds: 0.004,
+      decaySeconds: 0.25,
+      sustainLevel: 0.45,
+      releaseSeconds: 0.35,
+      totalDurationSeconds: 1.15,
+      lowpassHz: 1050,
     },
   },
   {
     name: 'Lead',
-    rootHz: 261.63, // C4
+    rootHz: 261.63,
     patch: {
+      voice: 'lead',
       waveform: 'sawtooth',
-      attackSeconds: 0.01,
-      decaySeconds: 0.2,
-      sustainLevel: 0.5,
-      releaseSeconds: 0.4,
-      totalDurationSeconds: 1.0,
-      lowpassHz: 3000,
+      overtoneGain: 0.18,
+      unisonDetuneCents: 11,
+      attackSeconds: 0.008,
+      decaySeconds: 0.16,
+      sustainLevel: 0.58,
+      releaseSeconds: 0.42,
+      totalDurationSeconds: 1.2,
+      lowpassHz: 3600,
     },
   },
   {
     name: 'Pad',
-    rootHz: 261.63, // C4
+    rootHz: 261.63,
     patch: {
-      waveform: 'sine',
-      overtoneGain: 0.15,
-      attackSeconds: 0.4,
-      decaySeconds: 0.3,
-      sustainLevel: 0.8,
-      releaseSeconds: 1.5,
-      totalDurationSeconds: 3.0,
-      lowpassHz: 2000,
+      voice: 'pad',
+      waveform: 'sawtooth',
+      overtoneGain: 0.12,
+      unisonDetuneCents: 17,
+      attackSeconds: 0.48,
+      decaySeconds: 0.45,
+      sustainLevel: 0.7,
+      releaseSeconds: 1.8,
+      totalDurationSeconds: 3.5,
+      lowpassHz: 1900,
     },
   },
   {
     name: 'Pluck',
-    rootHz: 261.63, // C4
+    rootHz: 261.63,
     patch: {
+      voice: 'pluck',
       waveform: 'triangle',
-      attackSeconds: 0.002,
-      decaySeconds: 0.12,
-      sustainLevel: 0.05,
-      releaseSeconds: 0.15,
-      totalDurationSeconds: 0.35,
+      attackSeconds: 0.001,
+      decaySeconds: 0.22,
+      sustainLevel: 0,
+      releaseSeconds: 0.2,
+      totalDurationSeconds: 1.25,
     },
   },
   {
     name: 'Organ',
-    rootHz: 261.63, // C4
+    rootHz: 261.63,
     patch: {
-      waveform: 'square',
-      overtoneGain: 0.4,
-      attackSeconds: 0.01,
-      decaySeconds: 0.05,
+      voice: 'organ',
+      waveform: 'sine',
+      attackSeconds: 0.012,
+      decaySeconds: 0.08,
       sustainLevel: 0.9,
-      releaseSeconds: 0.2,
-      totalDurationSeconds: 1.2,
-      lowpassHz: 4000,
+      releaseSeconds: 0.22,
+      totalDurationSeconds: 1.6,
     },
   },
   {
     name: 'Bell',
-    rootHz: 261.63, // C4
+    rootHz: 261.63,
     patch: {
+      voice: 'bell',
       waveform: 'sine',
-      overtoneGain: 0.5,
       attackSeconds: 0.002,
-      decaySeconds: 1.0,
-      sustainLevel: 0.05,
-      releaseSeconds: 1.0,
-      totalDurationSeconds: 2.2,
+      decaySeconds: 1.2,
+      sustainLevel: 0,
+      releaseSeconds: 1.7,
+      totalDurationSeconds: 3.6,
     },
   },
   {
     name: 'Guitar',
-    rootHz: 164.81, // E3
+    rootHz: 164.81,
     patch: {
+      voice: 'guitar',
       waveform: 'sawtooth',
-      overtoneGain: 0.2,
-      attackSeconds: 0.005,
-      decaySeconds: 0.4,
-      sustainLevel: 0.15,
-      releaseSeconds: 0.3,
-      totalDurationSeconds: 1.0,
-      lowpassHz: 3500,
+      attackSeconds: 0.002,
+      decaySeconds: 0.45,
+      sustainLevel: 0,
+      releaseSeconds: 0.65,
+      totalDurationSeconds: 2,
+      lowpassHz: 3400,
     },
   },
 ]
 
-/**
- * Renders one synthesized note into a standalone AudioBuffer via an
- * OfflineAudioContext — fully self-contained, no dependency on the app's
- * live AudioContext/AudioEngine, since offline rendering needs neither.
- */
-export async function renderSynthNote(
-  frequencyHz: number,
-  patch: SynthPatch,
-): Promise<AudioBuffer> {
+function createRenderedBuffer(durationSeconds: number): AudioBuffer {
+  const sampleRate = 44100
+  const ctx = new OfflineAudioContext(1, Math.max(1, Math.ceil(durationSeconds * sampleRate)), sampleRate)
+  return ctx.createBuffer(1, Math.max(1, Math.ceil(durationSeconds * sampleRate)), sampleRate)
+}
+
+function normalize(buffer: AudioBuffer, ceiling = 0.86): AudioBuffer {
+  const data = buffer.getChannelData(0)
+  let peak = 0
+  for (const value of data) peak = Math.max(peak, Math.abs(value))
+  if (peak > ceiling) {
+    const scale = ceiling / peak
+    for (let i = 0; i < data.length; i++) data[i] *= scale
+  }
+  return buffer
+}
+
+function renderPiano(frequencyHz: number, duration: number): AudioBuffer {
+  const buffer = createRenderedBuffer(duration)
+  const data = buffer.getChannelData(0)
+  const sr = buffer.sampleRate
+  // Slightly stretched partials and progressively quicker upper-partial decay
+  // make the note read as struck strings rather than a static organ chord.
+  const partials = [
+    [1, 1, 1],
+    [2.01, 0.48, 0.62],
+    [3.03, 0.26, 0.42],
+    [4.08, 0.14, 0.3],
+    [5.12, 0.08, 0.22],
+    [6.2, 0.045, 0.16],
+  ] as const
+  const fundamentalDecay = Math.max(0.72, 2.5 - frequencyHz / 520)
+  for (let i = 0; i < data.length; i++) {
+    const time = i / sr
+    let value = 0
+    for (const [ratio, amplitude, decayScale] of partials) {
+      value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * time) * Math.exp(-time / (fundamentalDecay * decayScale))
+    }
+    // The very short filtered-noise-like transient supplies a felt-hammer cue.
+    value += (Math.random() * 2 - 1) * 0.055 * Math.exp(-time / 0.012)
+    data[i] = value
+  }
+  return normalize(buffer)
+}
+
+function renderBass(frequencyHz: number, duration: number): AudioBuffer {
+  const buffer = createRenderedBuffer(duration)
+  const data = buffer.getChannelData(0)
+  const sr = buffer.sampleRate
+  let lowpass = 0
+  const coefficient = 1 - Math.exp((-2 * Math.PI * 1100) / sr)
+  for (let i = 0; i < data.length; i++) {
+    const time = i / sr
+    const body = Math.sin(2 * Math.PI * frequencyHz * time) + 0.34 * Math.sin(2 * Math.PI * frequencyHz * 2 * time) + 0.12 * Math.sin(2 * Math.PI * frequencyHz * 3 * time)
+    const pluck = (Math.random() * 2 - 1) * 0.16 * Math.exp(-time / 0.018)
+    const envelope = (1 - Math.exp(-time / 0.006)) * (0.18 + 0.82 * Math.exp(-time / 0.8))
+    lowpass += coefficient * (Math.tanh((body + pluck) * 1.18) - lowpass)
+    data[i] = lowpass * envelope
+  }
+  return normalize(buffer, 0.82)
+}
+
+function renderPluckedString(frequencyHz: number, duration: number, brightness: number): AudioBuffer {
+  const buffer = createRenderedBuffer(duration)
+  const data = buffer.getChannelData(0)
+  const period = Math.max(2, Math.round(buffer.sampleRate / frequencyHz))
+  const delay = new Float32Array(period)
+  for (let i = 0; i < delay.length; i++) {
+    const position = i / delay.length
+    // A shaped excitation is less buzzy than white noise and captures a pick's
+    // brighter attack near the bridge.
+    delay[i] = (Math.random() * 2 - 1) * (0.55 + brightness * Math.sin(Math.PI * position))
+  }
+  const damping = 0.9945 - Math.min(0.003, frequencyHz / 300000)
+  let cursor = 0
+  for (let i = 0; i < data.length; i++) {
+    const current = delay[cursor]!
+    const next = delay[(cursor + 1) % delay.length]!
+    const averaged = (current * (0.52 + brightness * 0.12) + next * (0.48 - brightness * 0.12)) * damping
+    delay[cursor] = averaged
+    const time = i / buffer.sampleRate
+    data[i] = current * Math.exp(-time / (0.72 + brightness * 0.8))
+    cursor = (cursor + 1) % delay.length
+  }
+  return normalize(buffer, 0.82)
+}
+
+function renderOrgan(frequencyHz: number, duration: number): AudioBuffer {
+  const buffer = createRenderedBuffer(duration)
+  const data = buffer.getChannelData(0)
+  const sr = buffer.sampleRate
+  const drawbars = [
+    [0.5, 0.13],
+    [1, 0.9],
+    [2, 0.55],
+    [3, 0.32],
+    [4, 0.2],
+    [6, 0.13],
+    [8, 0.07],
+  ] as const
+  for (let i = 0; i < data.length; i++) {
+    const time = i / sr
+    const vibrato = Math.sin(2 * Math.PI * 5.7 * time) * 0.004
+    let value = 0
+    for (const [ratio, amplitude] of drawbars) {
+      value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * (time + vibrato))
+    }
+    const attack = Math.min(1, time / 0.012)
+    const release = Math.min(1, Math.max(0, (duration - time) / 0.22))
+    data[i] = value * attack * release
+  }
+  return normalize(buffer, 0.8)
+}
+
+function renderBell(frequencyHz: number, duration: number): AudioBuffer {
+  const buffer = createRenderedBuffer(duration)
+  const data = buffer.getChannelData(0)
+  const sr = buffer.sampleRate
+  const modes = [
+    [1, 0.82, 1],
+    [2.71, 0.38, 0.55],
+    [4.07, 0.24, 0.38],
+    [5.43, 0.16, 0.28],
+    [6.8, 0.1, 0.2],
+    [8.93, 0.065, 0.14],
+  ] as const
+  for (let i = 0; i < data.length; i++) {
+    const time = i / sr
+    let value = 0
+    for (const [ratio, amplitude, decay] of modes) {
+      value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * time) * Math.exp(-time / (1.8 * decay))
+    }
+    data[i] = value * (1 - Math.exp(-time / 0.0018))
+  }
+  return normalize(buffer, 0.8)
+}
+
+function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<AudioBuffer> {
   const sampleRate = 44100
   const length = Math.max(1, Math.ceil(patch.totalDurationSeconds * sampleRate))
   const ctx = new OfflineAudioContext(1, length, sampleRate)
-
   const envelope = ctx.createGain()
-  const t = patch
   envelope.gain.setValueAtTime(0, 0)
-  envelope.gain.linearRampToValueAtTime(1, t.attackSeconds)
-  envelope.gain.linearRampToValueAtTime(t.sustainLevel, t.attackSeconds + t.decaySeconds)
-  const releaseStart = Math.max(
-    t.attackSeconds + t.decaySeconds,
-    t.totalDurationSeconds - t.releaseSeconds,
-  )
-  envelope.gain.setValueAtTime(t.sustainLevel, releaseStart)
-  envelope.gain.linearRampToValueAtTime(0, t.totalDurationSeconds)
+  envelope.gain.linearRampToValueAtTime(1, patch.attackSeconds)
+  envelope.gain.linearRampToValueAtTime(patch.sustainLevel, patch.attackSeconds + patch.decaySeconds)
+  const releaseStart = Math.max(patch.attackSeconds + patch.decaySeconds, patch.totalDurationSeconds - patch.releaseSeconds)
+  envelope.gain.setValueAtTime(patch.sustainLevel, releaseStart)
+  envelope.gain.linearRampToValueAtTime(0, patch.totalDurationSeconds)
 
   if (patch.lowpassHz) {
     const filter = ctx.createBiquadFilter()
     filter.type = 'lowpass'
-    filter.frequency.value = patch.lowpassHz
+    filter.frequency.setValueAtTime(patch.lowpassHz * 1.25, 0)
+    filter.frequency.exponentialRampToValueAtTime(Math.max(160, patch.lowpassHz * 0.62), patch.totalDurationSeconds)
     envelope.connect(filter)
     filter.connect(ctx.destination)
   } else {
     envelope.connect(ctx.destination)
   }
 
-  const osc = ctx.createOscillator()
-  osc.type = patch.waveform
-  osc.frequency.value = frequencyHz
-  osc.connect(envelope)
-  osc.start(0)
-  osc.stop(patch.totalDurationSeconds)
+  const detune = patch.unisonDetuneCents ?? 0
+  for (const cents of detune ? [-detune, 0, detune] : [0]) {
+    const gain = ctx.createGain()
+    gain.gain.value = detune ? 0.34 : 1
+    const oscillator = ctx.createOscillator()
+    oscillator.type = patch.waveform
+    oscillator.frequency.value = frequencyHz
+    oscillator.detune.value = cents
+    oscillator.connect(gain)
+    gain.connect(envelope)
+    oscillator.start(0)
+    oscillator.stop(patch.totalDurationSeconds)
+  }
 
   if (patch.overtoneGain) {
     const overtoneGain = ctx.createGain()
     overtoneGain.gain.value = patch.overtoneGain
-    const overtoneOsc = ctx.createOscillator()
-    overtoneOsc.type = 'sine'
-    overtoneOsc.frequency.value = frequencyHz * 2
-    overtoneOsc.connect(overtoneGain)
+    const overtone = ctx.createOscillator()
+    overtone.type = 'sine'
+    overtone.frequency.value = frequencyHz * 2
+    overtone.connect(overtoneGain)
     overtoneGain.connect(envelope)
-    overtoneOsc.start(0)
-    overtoneOsc.stop(patch.totalDurationSeconds)
+    overtone.start(0)
+    overtone.stop(patch.totalDurationSeconds)
   }
-
   return ctx.startRendering()
 }
 
+/** Renders a preset key into a standalone buffer; acoustic voices use their own instrument-specific model. */
+export async function renderSynthNote(frequencyHz: number, patch: SynthPatch): Promise<AudioBuffer> {
+  switch (patch.voice) {
+    case 'piano':
+      return renderPiano(frequencyHz, patch.totalDurationSeconds)
+    case 'bass':
+      return renderBass(frequencyHz, patch.totalDurationSeconds)
+    case 'pluck':
+      return renderPluckedString(frequencyHz, patch.totalDurationSeconds, 0.75)
+    case 'guitar':
+      return renderPluckedString(frequencyHz, patch.totalDurationSeconds, 0.38)
+    case 'organ':
+      return renderOrgan(frequencyHz, patch.totalDurationSeconds)
+    case 'bell':
+      return renderBell(frequencyHz, patch.totalDurationSeconds)
+    case 'lead':
+    case 'pad':
+      return renderGenericSynth(frequencyHz, patch)
+  }
+}
+
 /**
- * Bakes a pitch shift permanently into a new buffer via an offline render —
- * the same detune mechanism the live pitch dial already uses, just rendered
- * once instead of applied at playback time. Semitones is always >= 0 here
- * (instrument keys only ever ascend from the root), which matters: a pitched
- * source plays faster/shorter, never longer, so `source.length` samples of
- * offline context is always enough to capture it in full — no truncation.
+ * Bakes a pitch shift permanently into a new buffer via an offline render.
+ * Instrument keys only ascend, so the shifted source is never longer than the
+ * original and the source-length render captures it in full.
  */
-export async function renderPitchShiftedCopy(
-  source: AudioBuffer,
-  semitones: number,
-): Promise<AudioBuffer> {
+export async function renderPitchShiftedCopy(source: AudioBuffer, semitones: number): Promise<AudioBuffer> {
   if (semitones === 0) return source
   const ctx = new OfflineAudioContext(source.numberOfChannels, source.length, source.sampleRate)
   const bufferSource = ctx.createBufferSource()
@@ -221,22 +380,10 @@ function semitoneOffsets(): number[] {
   return Array.from({ length: INSTRUMENT_KEY_COUNT }, (_, i) => i)
 }
 
-/** Builds all of a bundled preset's keys in parallel — each render is independent. */
-export async function buildInstrumentKeysFromPreset(
-  preset: InstrumentPreset,
-): Promise<AudioBuffer[]> {
-  return Promise.all(
-    semitoneOffsets().map((semitones) =>
-      renderSynthNote(preset.rootHz * Math.pow(2, semitones / 12), preset.patch),
-    ),
-  )
+export async function buildInstrumentKeysFromPreset(preset: InstrumentPreset): Promise<AudioBuffer[]> {
+  return Promise.all(semitoneOffsets().map((semitones) => renderSynthNote(preset.rootHz * Math.pow(2, semitones / 12), preset.patch)))
 }
 
-/** Builds all of a recording-derived instrument's keys in parallel; key 0 is the recording itself, untouched. */
-export async function buildInstrumentKeysFromRecording(
-  rootBuffer: AudioBuffer,
-): Promise<AudioBuffer[]> {
-  return Promise.all(
-    semitoneOffsets().map((semitones) => renderPitchShiftedCopy(rootBuffer, semitones)),
-  )
+export async function buildInstrumentKeysFromRecording(rootBuffer: AudioBuffer): Promise<AudioBuffer[]> {
+  return Promise.all(semitoneOffsets().map((semitones) => renderPitchShiftedCopy(rootBuffer, semitones)))
 }
