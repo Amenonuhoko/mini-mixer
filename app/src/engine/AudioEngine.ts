@@ -79,6 +79,8 @@ export class AudioEngine {
 
   /** Every playback node routes through this instead of ctx.destination directly, so a playthrough recording (see startPlaythroughRecording) can tap the same signal everything else hears. */
   private masterBus: GainNode | null = null
+  /** Final output gain, after the project mix but before the device speakers. */
+  private masterOutput: GainNode | null = null
   private recordTap: MediaStreamAudioDestinationNode | null = null
   private playthroughRecorder: MediaRecorder | null = null
   private playthroughChunks: Blob[] = []
@@ -139,9 +141,23 @@ export class AudioEngine {
     const ctx = this.getContext()
     if (!this.masterBus) {
       this.masterBus = ctx.createGain()
-      this.masterBus.connect(ctx.destination)
+      this.masterOutput = ctx.createGain()
+      this.masterBus.connect(this.masterOutput)
+      this.masterOutput.connect(ctx.destination)
     }
     return this.masterBus
+  }
+
+  /** Changes the final listening level without disturbing individual pad faders. */
+  setMasterVolume(level: number): void {
+    const ctx = this.getContext()
+    this.getMasterBus()
+    this.masterOutput!.gain.setTargetAtTime(Math.max(0, Math.min(100, level)) / 100, ctx.currentTime, PARAM_RAMP_SECONDS)
+  }
+
+  private getMasterOutput(): GainNode {
+    this.getMasterBus()
+    return this.masterOutput!
   }
 
   async decodeSample(data: ArrayBuffer): Promise<AudioBuffer> {
@@ -461,7 +477,7 @@ export class AudioEngine {
     const source = ctx.createBufferSource()
     source.buffer = buffer
     source.loop = true
-    source.connect(ctx.destination)
+    source.connect(this.getMasterOutput())
     this.activeSources.add(source)
     source.onended = () => this.activeSources.delete(source)
     source.start()
@@ -487,7 +503,7 @@ export class AudioEngine {
     gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05)
 
     osc.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(this.getMasterOutput())
     osc.start(time)
     osc.stop(time + 0.06)
   }
