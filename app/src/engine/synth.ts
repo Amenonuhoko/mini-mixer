@@ -393,7 +393,54 @@ function semitoneOffsets(): number[] {
   return Array.from({ length: INSTRUMENT_KEY_COUNT }, (_, i) => i)
 }
 
+/**
+ * Individually recorded chromatic notes from ClueSurf's Wavebase, which
+ * dedicates its audio files to the public domain. They are intentionally kept
+ * remote rather than bundled: this adds real electric-guitar articulation
+ * without turning a small web instrument into a multi-megabyte initial load.
+ */
+const WAVEBASE_GUITAR_BASE_URL = 'https://raw.githubusercontent.com/cluesurf/wavebase/make/base/guitar/'
+const WAVEBASE_GUITAR_NOTE_FILES = [
+  'string-4-E-as-E3.wav',
+  'string-4-F-as-F3.wav',
+  'string-4-Fx-as-Fx3.wav',
+  'string-3-G-as-G3.wav',
+  'string-3-Gx-as-Gx3.wav',
+  'string-3-A-as-A3.wav',
+  'string-3-Ax-as-Ax3.wav',
+  'string-2-B-as-B3.wav',
+  'string-2-C-as-C4.wav',
+  'string-2-Cx-as-Cx4.wav',
+  'string-2-D-as-D4.wav',
+  'string-2-Dx-as-Dx4.wav',
+  'string-1-E-as-E4.wav',
+  'string-1-F-as-F4.wav',
+  'string-1-Fx-as-Fx4.wav',
+  'string-1-G-as-G4.wav',
+] as const
+
+async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Could not load guitar sample (${response.status})`)
+  const audioData = await response.arrayBuffer()
+  const decoder = new OfflineAudioContext(1, 1, 44100)
+  return normalize(await decoder.decodeAudioData(audioData))
+}
+
+async function buildRecordedGuitarKeys(): Promise<AudioBuffer[]> {
+  return Promise.all(WAVEBASE_GUITAR_NOTE_FILES.map((file) => decodeRemoteAudio(`${WAVEBASE_GUITAR_BASE_URL}${file}`)))
+}
+
 export async function buildInstrumentKeysFromPreset(preset: InstrumentPreset): Promise<AudioBuffer[]> {
+  if (preset.patch.voice === 'guitar') {
+    try {
+      return await buildRecordedGuitarKeys()
+    } catch (error) {
+      // A picker must never be unusable because a third-party host is offline.
+      console.warn('Real guitar samples unavailable; using the built-in guitar model.', error)
+    }
+  }
+
   return Promise.all(semitoneOffsets().map((semitones) => renderSynthNote(preset.rootHz * Math.pow(2, semitones / 12), preset.patch)))
 }
 
