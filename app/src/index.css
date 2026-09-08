@@ -2111,3 +2111,9 @@ input[type='range']::-moz-range-thumb {
 .sequencer-floating-actions .sequencer-bounce, .sequencer-floating-actions .sequencer-trace, .sequencer-floating-actions .sequencer-clear { min-height:28px; padding:3px 7px; font-size:.68rem; }
 .sequencer-row-label { width:34px; height:34px; border-radius:7px; flex-direction:column; gap:0; }
 .sequencer-row-change { font-size:.58rem; line-height:1; opacity:.8; }
+
+/* The destructive confirmation belongs to its trigger, including while the timeline pans. */
+.sequencer-clear-control { position:relative; }
+.sequencer-clear-control .confirm-overwrite { position:absolute; z-index:10; top:calc(100% + 6px); right:0; width:max-content; max-width:min(300px, calc(100vw - 48px)); margin:0; padding:8px; border:1px solid var(--border); border-radius:10px; background:var(--panel-bg); box-shadow:0 10px 24px rgba(0,0,0,.2); font-size:.72rem; }
+.sequencer-clear-control .confirm-overwrite span { max-width:150px; }
+.sequencer-clear-control .confirm-overwrite .btn { min-height:30px; padding:4px 8px; font-size:.7rem; }

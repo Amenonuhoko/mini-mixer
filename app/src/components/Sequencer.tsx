@@ -149,6 +149,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
             Clear trace
           </button>
         )}
+        <div className="sequencer-clear-control">
         <button
           type="button"
           className="btn btn-ghost-danger sequencer-clear"
@@ -158,6 +159,25 @@ export function Sequencer({ onBounced }: SequencerProps) {
         >
           Clear Sequence
         </button>
+          {confirmClear && (
+            <div className="confirm-overwrite">
+              <span>Clear every step in this pattern? This can't be undone.</span>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => {
+                  dispatch({ type: 'CLEAR_PATTERN', patternId: pattern.id })
+                  setConfirmClear(false)
+                }}
+              >
+                Clear
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmClear(false)}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
         </div>
         <div className="sequencer-grid">
           <div className="sequencer-row sequencer-header-row">
@@ -203,24 +223,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
         </div>
 
       </div>
-      {confirmClear && (
-        <div className="confirm-overwrite">
-          <span>Clear every step in this pattern? This can't be undone.</span>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={() => {
-              dispatch({ type: 'CLEAR_PATTERN', patternId: pattern.id })
-              setConfirmClear(false)
-            }}
-          >
-            Clear
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={() => setConfirmClear(false)}>
-            Cancel
-          </button>
-        </div>
-      )}
       {swappingPadId && (
         <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />
       )}
