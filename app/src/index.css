@@ -1571,7 +1571,6 @@ input[type='range']::-moz-range-thumb {
   box-shadow: 0 4px 14px color-mix(in srgb, #000 12%, transparent);
 }
 
-.sequencer-add-row,
 .sequencer-bounce,
 .sequencer-trace,
 .sequencer-clear {
@@ -1588,6 +1587,29 @@ input[type='range']::-moz-range-thumb {
   margin: 0 -16px;
   padding: 0 16px;
   scroll-behavior: smooth;
+}
+
+.sequencer-add-row-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.sequencer-add-row {
+  min-width: 140px;
+  min-height: 34px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.sequencer-add-row:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .sequencer-grid {
@@ -1611,8 +1633,8 @@ input[type='range']::-moz-range-thumb {
 .sequencer-row-label {
   position: sticky;
   left: 0;
-  width: 26px;
-  height: 26px;
+  width: 46px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   padding: 0;
@@ -1627,6 +1649,14 @@ input[type='range']::-moz-range-thumb {
 
 .sequencer-row-label-spacer {
   background: transparent;
+}
+
+.sequencer-row-load {
+  font-size: 0.52rem;
+  line-height: 1;
+  opacity: 0.82;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .row-looping .sequencer-row-label {
@@ -1908,6 +1938,17 @@ input[type='range']::-moz-range-thumb {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.nav-project-btn {
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .nav-icon-btn {
