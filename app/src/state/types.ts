@@ -84,8 +84,8 @@ export interface Instrument {
 export interface Pattern {
   id: string
   name: string
-  /** Keyed by pad id; each array is STEP_COUNT booleans. */
-  steps: Record<string, boolean[]>
+  /** Keyed by pad id; each cell holds the exact Sample id chosen when the step was placed, or null. */
+  steps: Record<string, Array<string | null>>
 }
 
 export type LoopMode = 'once' | 'continuous'
