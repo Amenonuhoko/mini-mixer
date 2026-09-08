@@ -99,6 +99,8 @@ export interface Pattern {
   steps: Record<string, Array<string | null>>
   /** A visual-only snapshot of prior placements. It never produces audio or enters a bounce. */
   traceSteps: Record<string, Array<string | null>> | null
+  /** Hidden traces can be restored to playback; imported references stay visual-only. */
+  traceSource?: 'hidden' | 'reference' | null
 }
 
 export type LoopMode = 'once' | 'continuous'
