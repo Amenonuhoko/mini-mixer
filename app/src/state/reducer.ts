@@ -5,6 +5,8 @@ import {
   EFFECT_MIN,
   MIN_PAD_COUNT,
   MAX_PAD_COUNT,
+  MAX_STEP_COUNT,
+  STEP_ADD_COUNT,
   MIN_TRIM_GAP,
   MIX_LEVEL_MAX,
   MIX_LEVEL_MIN,
@@ -40,6 +42,7 @@ export type Action =
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
   | { type: 'CLEAR_PATTERN'; patternId: string }
+  | { type: 'ADD_PATTERN_STEPS'; patternId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
@@ -142,7 +145,7 @@ export function reducer(state: AppState, action: Action): AppState {
               ...pattern,
               steps: {
                 ...pattern.steps,
-                [newPad.id]: new Array<string | null>(STEP_COUNT).fill(null),
+                [newPad.id]: new Array<string | null>(pattern.stepCount).fill(null),
               },
             }))
       return {
@@ -273,7 +276,7 @@ export function reducer(state: AppState, action: Action): AppState {
                 steps: {
                   ...pattern.steps,
                   ...Object.fromEntries(
-                    newPads.map((pad) => [pad.id, new Array<string | null>(STEP_COUNT).fill(null)]),
+                    newPads.map((pad) => [pad.id, new Array<string | null>(pattern.stepCount).fill(null)]),
                   ),
                 },
               })),
@@ -363,7 +366,7 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'TOGGLE_STEP':
       return updatePattern(state, action.patternId, (pattern) => {
-        const existing = pattern.steps[action.padId] ?? new Array<string | null>(STEP_COUNT).fill(null)
+        const existing = pattern.steps[action.padId] ?? new Array<string | null>(pattern.stepCount).fill(null)
         const steps = existing.slice()
         // The sample id is captured when the cell is turned on. Swapping the
         // pad later only affects new steps; it never rewrites this sequence.
@@ -380,11 +383,27 @@ export function reducer(state: AppState, action: Action): AppState {
       const cleared = updatePattern(state, action.patternId, (pattern) => ({
         ...pattern,
         steps: Object.fromEntries(
-          Object.keys(pattern.steps).map((padId) => [padId, new Array<string | null>(STEP_COUNT).fill(null)]),
+          Object.keys(pattern.steps).map((padId) => [padId, new Array<string | null>(pattern.stepCount).fill(null)]),
         ),
       }))
       return removeUnusedNoteSamples(cleared)
     }
+
+    case 'ADD_PATTERN_STEPS':
+      return updatePattern(state, action.patternId, (pattern) => {
+        if (pattern.stepCount >= MAX_STEP_COUNT) return pattern
+        const stepCount = Math.min(MAX_STEP_COUNT, pattern.stepCount + STEP_ADD_COUNT)
+        return {
+          ...pattern,
+          stepCount,
+          steps: Object.fromEntries(
+            Object.entries(pattern.steps).map(([padId, steps]) => [
+              padId,
+              [...steps, ...new Array<string | null>(stepCount - pattern.stepCount).fill(null)],
+            ]),
+          ),
+        }
+      })
 
     case 'SET_VISIBLE_PAD_COUNT': {
       const count = Math.max(MIN_PAD_COUNT, action.count)
@@ -407,7 +426,7 @@ export function reducer(state: AppState, action: Action): AppState {
           steps: {
             ...pattern.steps,
             ...Object.fromEntries(
-              newPadIds.map((id) => [id, new Array<string | null>(STEP_COUNT).fill(null)]),
+              newPadIds.map((id) => [id, new Array<string | null>(pattern.stepCount).fill(null)]),
             ),
           },
         })),
