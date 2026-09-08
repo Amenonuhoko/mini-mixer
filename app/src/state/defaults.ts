@@ -52,6 +52,7 @@ export function createDefaultPattern(padIds: string[]): Pattern {
     stepCount: STEP_COUNT,
     steps: createEmptySteps(padIds),
     traceSteps: null,
+    traceSource: null,
   }
 }
 
