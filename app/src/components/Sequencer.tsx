@@ -164,22 +164,23 @@ export function Sequencer({ onBounced }: SequencerProps) {
         <button
           type="button"
           className="btn btn-secondary sequencer-trace"
-          onClick={() => dispatch({ type: 'CAPTURE_PATTERN_TRACE', patternId: pattern.id })}
-          disabled={!patternHasSteps}
-          title={patternHasSteps ? 'Hide this sequence while retaining it as a visual guide' : 'Program a step first'}
+          onClick={() =>
+            dispatch({
+              type: pattern.traceSource === 'hidden' ? 'RESTORE_PATTERN_TRACE' : 'CAPTURE_PATTERN_TRACE',
+              patternId: pattern.id,
+            })
+          }
+          disabled={pattern.traceSource !== 'hidden' && !patternHasSteps}
+          title={
+            pattern.traceSource === 'hidden'
+              ? 'Restore this hidden sequence to playback'
+              : patternHasSteps
+                ? 'Hide this sequence while retaining it as a visual guide'
+                : 'Program a step first'
+          }
         >
-          Hide sequence
+          {pattern.traceSource === 'hidden' ? 'Show sequence' : 'Hide sequence'}
         </button>
-        {pattern.traceSource === 'hidden' && (
-          <button
-            type="button"
-            className="btn btn-secondary sequencer-trace"
-            onClick={() => dispatch({ type: 'RESTORE_PATTERN_TRACE', patternId: pattern.id })}
-            title="Restore this hidden sequence to playback"
-          >
-            Show sequence
-          </button>
-        )}
         {pattern.traceSteps && (
           <button
             type="button"
