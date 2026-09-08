@@ -166,14 +166,38 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'APPLY_INSTRUMENT_TO_PADS': {
       const instrument = state.instruments[action.instrumentId]
       if (!instrument) return state
+      // An instrument is a keyboard layout, so the active grid follows its
+      // actual key count rather than whatever pad count happened to be active
+      // before it was selected. Existing pad slots are preserved; only missing
+      // slots are appended with normal empty-pad/default-pattern state.
+      const targetCount = instrument.keySampleIds.length
+      const newPads =
+        targetCount > state.pads.length
+          ? Array.from({ length: targetCount - state.pads.length }, (_, i) =>
+              createPad(state.pads.length + i),
+            )
+          : []
+      const pads = [...state.pads, ...newPads].map((pad, index) => {
+        if (index >= targetCount) return pad
+        const keySampleId = instrument.keySampleIds[index]
+        return keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
+      })
       return {
         ...state,
-        pads: state.pads.map((pad, index) => {
-          if (index >= state.visiblePadCount) return pad
-          const keySampleId = instrument.keySampleIds[index]
-          if (!keySampleId) return pad
-          return { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 }
-        }),
+        pads,
+        visiblePadCount: targetCount,
+        patterns:
+          newPads.length === 0
+            ? state.patterns
+            : state.patterns.map((pattern) => ({
+                ...pattern,
+                steps: {
+                  ...pattern.steps,
+                  ...Object.fromEntries(
+                    newPads.map((pad) => [pad.id, new Array<boolean>(STEP_COUNT).fill(false)]),
+                  ),
+                },
+              })),
       }
     }
 
