@@ -438,7 +438,7 @@ export function reducer(state: AppState, action: Action): AppState {
       })
 
     case 'SET_VISIBLE_PAD_COUNT': {
-      const count = Math.max(MIN_PAD_COUNT, action.count)
+      const count = Math.min(MAX_PAD_COUNT, Math.max(MIN_PAD_COUNT, action.count))
       if (count <= state.pads.length) {
         // Shrinking is display-only: existing pad slots and their data are retained,
         // not truncated from `pads`. Visibility is derived at read-time from this count.
@@ -556,6 +556,7 @@ export function reducer(state: AppState, action: Action): AppState {
       // a one-shot mode or an invalid gain.
       return {
         ...action.state,
+        visiblePadCount: Math.min(MAX_PAD_COUNT, Math.max(MIN_PAD_COUNT, action.state.visiblePadCount)),
         transport: {
           ...action.state.transport,
           masterVolume: action.state.transport.masterVolume ?? 100,
