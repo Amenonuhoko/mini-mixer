@@ -1211,3 +1211,22 @@ The two string instruments benefit most from recorded attack and resonance. Near
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Master output volume and explicit Gate/One-shot pads
+
+### Context
+Pad Mixer Mode controls balance between individual pads, but the app had no single listening-level control. The Pads header also contained a Pad Record control even though the desired immediate performance choice is whether a pad release gates sound or a tap lets the full file play.
+
+### Decision(s)
+- Added a persistent Master Volume control beside Metronome. It controls the final audio output after pad effects and Mixer faders, and applies live without changing any saved per-pad mix level.
+- Replaced the Pads-header Pad Record control with an explicit Gate / One-shot toggle. Gate is the default: release stops the source. One-shot lets each tap play the complete trimmed sample.
+- Older autosaves hydrate to Master Volume 100% and Gate mode, so the new fields cannot alter a saved project unexpectedly.
+
+### Reasoning
+Source balance and total listening level solve different problems and need separate controls. A visible named playback-mode toggle makes an important timing choice intentional, while preserving the familiar gate behavior by default.
+
+### Open questions / carried forward
+None.
