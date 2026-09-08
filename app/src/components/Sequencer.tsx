@@ -108,7 +108,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
           +4
         </button>
       </div>
-        <div className="sequencer-floating-actions">
+        <div className="sequencer-scroll">
+      <div className="sequencer-floating-actions">
         <button
           type="button"
           className="btn btn-secondary sequencer-bounce"
@@ -158,7 +159,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
           Clear Sequence
         </button>
         </div>
-      <div className="sequencer-scroll">
         <div className="sequencer-grid">
           <div className="sequencer-row sequencer-header-row">
             <span className="sequencer-row-label sequencer-row-label-spacer" />
