@@ -34,7 +34,7 @@ interface SchedulerOptions {
 export class Scheduler {
   private readonly clock: SchedulerClock
   private readonly onStep: StepCallback
-  private readonly stepCount: number
+  private stepCount: number
   private readonly scheduleAheadSeconds: number
   private readonly lookaheadIntervalMs: number
   private readonly setIntervalFn: typeof setInterval
@@ -71,6 +71,11 @@ export class Scheduler {
 
   setBpm(bpm: number): void {
     this.bpm = clamp(bpm, BPM_MIN, BPM_MAX)
+  }
+
+  setStepCount(stepCount: number): void {
+    this.stepCount = Math.max(1, Math.floor(stepCount))
+    this.currentStep %= this.stepCount
   }
 
   start(): void {
