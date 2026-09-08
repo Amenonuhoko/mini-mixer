@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import { deserializeProject, isSerializedProject, serializeProject } from '../engine/projectFile'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
@@ -15,12 +17,40 @@ interface NavProps {
  */
 export function Nav({ onOpenSettings }: NavProps) {
   const { page, goToPads, goToSequencer, goToLibrary } = useNavigation()
-  const { dispatch } = useAppState()
+  const { state, dispatch } = useAppState()
   const engine = useEngine()
+  const loadInputRef = useRef<HTMLInputElement>(null)
 
   const handleStopAll = () => {
     engine.stopAllSounds()
     dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+  }
+
+  const handleSaveProject = () => {
+    const project = serializeProject(state, Date.now())
+    const stamp = new Date(project.savedAt).toISOString().slice(0, 16).replace(':', '-')
+    const url = URL.createObjectURL(new Blob([JSON.stringify(project)], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `mini-mixer-${stamp}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleLoadProject = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      const parsed: unknown = JSON.parse(await file.text())
+      if (!isSerializedProject(parsed) || !window.confirm(`Load "${file.name}"? This replaces the current project.`)) {
+        return
+      }
+      engine.stopAllSounds()
+      dispatch({ type: 'LOAD_PROJECT', state: await deserializeProject(parsed, engine) })
+    } catch {
+      window.alert("Couldn't load that project file.")
+    }
   }
 
   return (
@@ -55,6 +85,29 @@ export function Nav({ onOpenSettings }: NavProps) {
         </button>
       </div>
       <div className="top-nav-actions">
+        <button
+          type="button"
+          className="nav-project-btn"
+          onClick={handleSaveProject}
+          title="Save a portable project backup"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          className="nav-project-btn"
+          onClick={() => loadInputRef.current?.click()}
+          title="Load a project backup"
+        >
+          Load
+        </button>
+        <input
+          ref={loadInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(event) => void handleLoadProject(event)}
+        />
         <button
           type="button"
           className="nav-icon-btn nav-stop-all"
