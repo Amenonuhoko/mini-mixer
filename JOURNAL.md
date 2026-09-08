@@ -1399,3 +1399,22 @@ A hidden sequence is a reversible arrangement layer, not a second duplicated pat
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-09 — Temporary instruments and live sequence entry
+
+### Context
+The quick Instrument picker still exposed an obsolete “Your library” section, even though generated keys are temporary pad-layout assets. The arrangement controls also needed stable placement and a direct way to write a pattern while it plays.
+
+### Decision(s)
+- Removed the instrument-library picker path and its associated stale callbacks. The Instrument control now offers only quick, temporary pad layouts; generated key files remain internal and are cleaned up when no pad or programmed step needs them.
+- Moved −4/+4 out of the expanding timeline and into a fixed left-side pattern-length rail.
+- Added an armable **Seq rec** control at the top-right of Pads. While playback is running, each audible pad press writes that pad’s current sound into the current sequencer cell. It overwrites that cell rather than toggling it off, making repeated live passes predictable.
+
+### Reasoning
+Instrument selection is an immediate performance state, not a second asset-management system. Live sequence entry must preserve the exact sound being played and must not depend on a moving timeline control.
+
+### Open questions / carried forward
+None.
