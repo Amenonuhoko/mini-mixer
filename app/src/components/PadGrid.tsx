@@ -12,7 +12,7 @@ import { InstrumentModeButton } from './InstrumentModeButton'
 import { LoopModeSwitch } from './LoopModeSwitch'
 import { MixerModeButton } from './MixerModeButton'
 import { PadEffectsMenuButton } from './PadEffectsMenuButton'
-import { PlaythroughToggle } from './PlaythroughToggle'
+import { PadPlaybackModeButton } from './PadPlaybackModeButton'
 import { StaticWaveform } from './Waveform'
 
 /** A pad's badge when it holds an instrument key: its 1-based position within that instrument, plus a glyph identifying what it actually is — a specific drum voice for a Drum Kit (kick/snare/hi-hat/... are genuinely different sounds), or the instrument's own single glyph for anything pitched (every key there is literally the same sound, just pitch-shifted). */
@@ -33,6 +33,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   const loopModeEnabled = state.transport.padLoopModeEnabled
   const instrumentModeEnabled = state.transport.padInstrumentModeEnabled
   const mixerModeEnabled = state.transport.padMixerModeEnabled
+  const playbackMode = state.transport.padPlaybackMode
 
   // Which key position (1-based, low to high) each key sample holds within its
   // instrument, plus what to show for it, if any — built once per render
@@ -63,7 +64,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
           <LoopModeSwitch />
           <MixerModeButton />
           <span className="header-divider" aria-hidden="true" />
-          <PlaythroughToggle />
+          <PadPlaybackModeButton />
           <PadEffectsMenuButton />
         </div>
       </div>
@@ -94,6 +95,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
               engine={engine}
               selected={pad.id === selectedPadId}
               loopModeEnabled={loopModeEnabled}
+              playbackMode={playbackMode}
               instrumentKeyInfo={pad.sampleId ? sampleKeyInfo.get(pad.sampleId) : undefined}
               onSelect={onSelectPad}
             />
@@ -110,6 +112,7 @@ interface PadButtonProps {
   engine: AudioEngine
   selected: boolean
   loopModeEnabled: boolean
+  playbackMode: 'gate' | 'oneshot'
   /** Set when this pad's sample is an instrument key — shown as a small badge (see InstrumentKeyInfo). */
   instrumentKeyInfo: InstrumentKeyInfo | undefined
   onSelect: (padId: string) => void
@@ -132,6 +135,7 @@ function PadButton({
   engine,
   selected,
   loopModeEnabled,
+  playbackMode,
   instrumentKeyInfo,
   onSelect,
 }: PadButtonProps) {
@@ -167,7 +171,8 @@ function PadButton({
 
     const sample = state.samples[pad.sampleId]
     if (!sample) return
-    activeSourceRef.current = engine.triggerPad(pad, sample.buffer)
+    const source = engine.triggerPad(pad, sample.buffer)
+    if (playbackMode === 'gate') activeSourceRef.current = source
   }
 
   const handlePointerUp = () => {
@@ -183,14 +188,14 @@ function PadButton({
       return
     }
 
-    stopActiveSource()
+    if (playbackMode === 'gate') stopActiveSource()
   }
 
   const handlePointerCancel = () => {
     // A dropped gesture (OS interruption, scroll takeover) behaves like a
     // release for gating purposes, but never toggles a loop — an incomplete
     // gesture shouldn't commit to a discrete on/off action.
-    stopActiveSource()
+    if (playbackMode === 'gate') stopActiveSource()
   }
 
   return (
