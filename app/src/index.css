@@ -849,6 +849,40 @@ h2 {
   border-radius: var(--radius-lg);
 }
 
+
+/* Arm real-time pattern entry from the Pads surface. It deliberately lives in
+   the header so it remains visible while playing the grid, not buried in a
+   recording menu. */
+.sequencer-record-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sequencer-record-toggle span {
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+.sequencer-record-toggle.armed {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--text);
+}
+
+.sequencer-record-toggle.armed span {
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+
 .pad-grid-header {
   display: flex;
   align-items: center;
@@ -1728,16 +1762,20 @@ input[type='range']::-moz-range-thumb {
 }
 
 .step-length-controls {
-  position: sticky;
-  right: 0;
-  z-index: 2;
   display: flex;
   gap: 4px;
-  margin-left: 6px;
+  width: max-content;
+  margin: 0 0 8px;
   padding: 3px;
   border-radius: 8px;
   background: var(--panel-bg);
-  box-shadow: -8px 0 10px var(--panel-bg);
+  box-shadow: 0 3px 10px color-mix(in srgb, #000 12%, transparent);
+}
+
+.step-length-controls-left {
+  position: sticky;
+  left: 0;
+  z-index: 4;
 }
 
 .step-add-right {
