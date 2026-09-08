@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
-import { MAX_PAD_COUNT, STEP_COUNT } from '../state/constants'
+import { MAX_PAD_COUNT, MAX_STEP_COUNT, STEP_COUNT } from '../state/constants'
 import { createId, timestampNow } from '../state/defaults'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
@@ -96,13 +96,23 @@ export function Sequencer({ onBounced }: SequencerProps) {
           <div className="sequencer-row sequencer-header-row" aria-hidden="true">
             <span className="sequencer-row-label sequencer-row-label-spacer" />
             {chunk(
-              Array.from({ length: STEP_COUNT }, (_, i) => i),
+              Array.from({ length: pattern.stepCount }, (_, i) => i),
               GROUP_SIZE,
             ).map((group, gi) => (
               <div className="step-group" key={gi}>
                 <span className="step-group-number">{group[0]! + 1}</span>
               </div>
             ))}
+            <button
+              type="button"
+              className="step-group step-add-right"
+              onClick={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
+              disabled={pattern.stepCount >= MAX_STEP_COUNT}
+              title={pattern.stepCount >= MAX_STEP_COUNT ? 'Maximum pattern length reached' : 'Add four steps to the right'}
+              aria-label="Add four steps to the right"
+            >
+              +4
+            </button>
           </div>
           {visiblePads.map((pad, padIndex) => (
             <SequencerRow
@@ -110,7 +120,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
               pad={pad}
               padIndex={padIndex}
               patternId={pattern.id}
-              steps={pattern.steps[pad.id] ?? new Array<string | null>(STEP_COUNT).fill(null)}
+              steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
               sampleLabels={Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))}
               transport={state.transport}
               engine={engine}
