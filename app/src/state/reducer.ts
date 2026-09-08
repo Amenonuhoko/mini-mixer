@@ -372,8 +372,11 @@ export function reducer(state: AppState, action: Action): AppState {
         transport: {
           ...state.transport,
           padMixerModeEnabled: action.enabled,
+          // Mixer is an overlay for changing pad levels, not a replacement for
+          // the selected instrument. Keep Instrument Mode selected underneath
+          // it so closing Mixer returns to the same playable instrument layout.
+          padInstrumentModeEnabled: state.transport.padInstrumentModeEnabled,
           padLoopModeEnabled: action.enabled ? false : state.transport.padLoopModeEnabled,
-          padInstrumentModeEnabled: action.enabled ? false : state.transport.padInstrumentModeEnabled,
         },
       }
 
