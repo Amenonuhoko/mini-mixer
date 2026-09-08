@@ -375,12 +375,14 @@ export async function renderSynthNote(frequencyHz: number, patch: SynthPatch): P
 
 /**
  * Bakes a pitch shift permanently into a new buffer via an offline render.
- * Instrument keys only ascend, so the shifted source is never longer than the
- * original and the source-length render captures it in full.
+ * Downward shifts need a longer render than their source so their release is
+ * never cut short; upward shifts retain the source-length capture behavior.
  */
 export async function renderPitchShiftedCopy(source: AudioBuffer, semitones: number): Promise<AudioBuffer> {
   if (semitones === 0) return source
-  const ctx = new OfflineAudioContext(source.numberOfChannels, source.length, source.sampleRate)
+  const playbackRate = Math.pow(2, semitones / 12)
+  const renderLength = Math.max(1, Math.ceil(source.length / playbackRate))
+  const ctx = new OfflineAudioContext(source.numberOfChannels, renderLength, source.sampleRate)
   const bufferSource = ctx.createBufferSource()
   bufferSource.buffer = source
   bufferSource.detune.value = semitones * 100
@@ -458,14 +460,64 @@ function buildRecordedGuitarKeys(): Promise<AudioBuffer[]> {
   return recordedGuitarKeysPromise
 }
 
+
+/**
+ * CC0 fingered-bass zones from Karoryfer's Growlybass pack, prepared as
+ * browser-decodable WAVs by MAESTRO String Studio. C2–D#3 is covered by the
+ * nearest of three notes, retaining real pluck, fret, and finger character.
+ */
+const CC0_BASS_BASE_URL =
+  'https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/'
+const RECORDED_BASS_ZONES = [
+  { midi: 37, file: '37_v100_rr1.wav' }, // C#2
+  { midi: 45, file: '45_v100_rr1.wav' }, // A2
+  { midi: 52, file: '52_v100_rr1.wav' }, // E3
+] as const
+const BASS_ROOT_MIDI = 36
+let recordedBassKeysPromise: Promise<AudioBuffer[]> | null = null
+
+function closestBassZone(targetMidi: number) {
+  return RECORDED_BASS_ZONES.reduce((closest, zone) =>
+    Math.abs(zone.midi - targetMidi) < Math.abs(closest.midi - targetMidi) ? zone : closest,
+  )
+}
+
+function buildRecordedBassKeys(): Promise<AudioBuffer[]> {
+  if (!recordedBassKeysPromise) {
+    recordedBassKeysPromise = (async () => {
+      const sourceBuffers = await Promise.all(
+        RECORDED_BASS_ZONES.map(async (zone) => [
+          zone.midi,
+          await decodeRemoteAudio(`${CC0_BASS_BASE_URL}${zone.file}`),
+        ] as const),
+      )
+      const byMidi = new Map(sourceBuffers)
+
+      return Promise.all(
+        semitoneOffsets().map(async (semitones) => {
+          const targetMidi = BASS_ROOT_MIDI + semitones
+          const zone = closestBassZone(targetMidi)
+          const source = byMidi.get(zone.midi)
+          if (!source) throw new Error('Missing decoded bass source zone')
+          return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
+        }),
+      )
+    })().catch((error: unknown) => {
+      recordedBassKeysPromise = null
+      throw error
+    })
+  }
+
+  return recordedBassKeysPromise
+}
+
 export async function buildInstrumentKeysFromPreset(preset: InstrumentPreset): Promise<AudioBuffer[]> {
-  if (preset.patch.voice === 'guitar') {
-    try {
-      return await buildRecordedGuitarKeys()
-    } catch (error) {
-      // A picker must never be unusable because a third-party host is offline.
-      console.warn('Real guitar samples unavailable; using the built-in guitar model.', error)
-    }
+  try {
+    if (preset.patch.voice === 'guitar') return await buildRecordedGuitarKeys()
+    if (preset.patch.voice === 'bass') return await buildRecordedBassKeys()
+  } catch (error) {
+    // A picker must never be unusable because a third-party host is offline.
+    console.warn(`Recorded ${preset.name} samples unavailable; using the built-in model.`, error)
   }
 
   return Promise.all(semitoneOffsets().map((semitones) => renderSynthNote(preset.rootHz * Math.pow(2, semitones / 12), preset.patch)))
