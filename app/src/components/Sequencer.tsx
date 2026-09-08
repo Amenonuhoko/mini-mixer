@@ -86,6 +86,47 @@ export function Sequencer({ onBounced }: SequencerProps) {
     <section className="panel sequencer" aria-label="sequencer">
       <h2>Sequencer — {pattern.name}</h2>
       <p className="muted sequencer-hint">Swipe sideways for all 16 steps on narrow screens.</p>
+      <div className="sequencer-floating-actions">
+        <button
+          type="button"
+          className="btn btn-secondary sequencer-bounce"
+          onClick={() => void handleBounce()}
+          disabled={!patternHasSteps || bouncing}
+          title={patternHasSteps ? 'Save this sequence, then choose an existing or new pad' : 'Program a step first'}
+        >
+          {bouncing ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary sequencer-trace"
+          onClick={() =>
+            dispatch({
+              type: pattern.traceSource === 'hidden' ? 'RESTORE_PATTERN_TRACE' : 'CAPTURE_PATTERN_TRACE',
+              patternId: pattern.id,
+            })
+          }
+          disabled={pattern.traceSource !== 'hidden' && !patternHasSteps}
+        >
+          {pattern.traceSource === 'hidden' ? 'Show' : 'Hide'}
+        </button>
+        {pattern.traceSteps && (
+          <button
+            type="button"
+            className="btn btn-secondary sequencer-trace"
+            onClick={() => dispatch({ type: 'CLEAR_PATTERN_TRACE', patternId: pattern.id })}
+          >
+            Trace off
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn btn-ghost-danger sequencer-clear"
+          onClick={() => setConfirmClear(true)}
+          disabled={!patternHasSteps}
+        >
+          Clear
+        </button>
+      </div>
       <div className="sequencer-scroll">
         <div className="sequencer-grid">
           <div className="sequencer-row sequencer-header-row">
@@ -115,93 +156,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
                 onClick={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
                 disabled={pattern.stepCount >= MAX_STEP_COUNT}
                 title={pattern.stepCount >= MAX_STEP_COUNT ? 'Maximum pattern length reached' : 'Add four steps to the right'}
-                aria-label="Add four steps to the right"
-              >
-                +4
-              </button>
-            </div>
-          </div>
-          {visiblePads.map((pad, padIndex) => (
-            <SequencerRow
-              key={pad.id}
-              pad={pad}
-              padIndex={padIndex}
-              patternId={pattern.id}
-              steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
-              traceSteps={pattern.traceSteps?.[pad.id] ?? []}
-              sampleLabels={Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))}
-              transport={state.transport}
-              engine={engine}
-              onToggleStep={(stepIndex) =>
-                dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
-              }
-              onSwapSound={() => setSwappingPadId(pad.id)}
-            />
-          ))}
-          {state.visiblePadCount < MAX_PAD_COUNT && (
-            <div className="sequencer-add-row-slot">
-              <span className="sequencer-row-label sequencer-row-label-spacer" />
-              <button
-                type="button"
-                className="sequencer-add-row"
-                onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-              >
-                + Add row
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="sequencer-footer-actions">
-        <button
-          type="button"
-          className="btn btn-secondary sequencer-bounce"
-          onClick={() => void handleBounce()}
-          disabled={!patternHasSteps || bouncing}
-          title={patternHasSteps ? 'Save this sequence, then choose an existing or new pad' : 'Program a step first'}
-        >
-          {bouncing ? 'Saving…' : 'Save sequence'}
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary sequencer-trace"
-          onClick={() =>
-            dispatch({
-              type: pattern.traceSource === 'hidden' ? 'RESTORE_PATTERN_TRACE' : 'CAPTURE_PATTERN_TRACE',
-              patternId: pattern.id,
-            })
-          }
-          disabled={pattern.traceSource !== 'hidden' && !patternHasSteps}
-          title={
-            pattern.traceSource === 'hidden'
-              ? 'Restore this hidden sequence to playback'
-              : patternHasSteps
-                ? 'Hide this sequence while retaining it as a visual guide'
-                : 'Program a step first'
-          }
-        >
-          {pattern.traceSource === 'hidden' ? 'Show sequence' : 'Hide sequence'}
-        </button>
-        {pattern.traceSteps && (
-          <button
-            type="button"
-            className="btn btn-secondary sequencer-trace"
-            onClick={() => dispatch({ type: 'CLEAR_PATTERN_TRACE', patternId: pattern.id })}
-            title="Remove the visual trace"
-          >
-            Clear trace
-          </button>
-        )}
-        <button
-          type="button"
-          className="btn btn-ghost-danger sequencer-clear"
-          onClick={() => setConfirmClear(true)}
-          disabled={!patternHasSteps}
-          title={patternHasSteps ? 'Clear every programmed step in this pattern' : 'Nothing programmed yet'}
-        >
-          Clear Sequence
-        </button>
-        </div>
-      </div>
+                aria-label="Add four st      </div>
       {confirmClear && (
         <div className="confirm-overwrite">
           <span>Clear every step in this pattern? This can't be undone.</span>
@@ -260,10 +215,10 @@ function SequencerRow({
         className="sequencer-row-label"
         style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
         onClick={onSwapSound}
-        title="Load or replace this row’s pad sound"
+        title="Change this row’s sound"
       >
         <span>{padIndex + 1}</span>
-        <span className="sequencer-row-load">Load</span>
+        <span className="sequencer-row-change" aria-hidden="true">↻</span>
         {looping && <span className="row-loop-badge" aria-hidden="true" />}
       </button>
       {chunk(steps, GROUP_SIZE).map((group, groupIndex) => (
