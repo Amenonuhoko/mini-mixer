@@ -88,7 +88,7 @@ export function PadsPage() {
               onClick={() => setPickingLibrary(true)}
             >
               <LibraryGlyph />
-              Library
+              Load sound
             </button>
           </div>
         </div>
