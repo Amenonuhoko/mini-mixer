@@ -176,6 +176,26 @@ describe('reducer', () => {
     expect(next.patterns[0]!.steps[padId]![1]).toBe(guitar.id)
   })
 
+  it('captures a visual-only trace without changing the live sequence', () => {
+    const state = createInitialState(1)
+    const patternId = state.activePatternId
+    const padId = state.pads[0]!.id
+    const programmed = reducer(state, {
+      type: 'TOGGLE_STEP',
+      patternId,
+      padId,
+      stepIndex: 2,
+      sampleId: 'piano_1',
+    })
+
+    const traced = reducer(programmed, { type: 'CAPTURE_PATTERN_TRACE', patternId })
+    const cleared = reducer(traced, { type: 'CLEAR_PATTERN', patternId })
+
+    expect(traced.patterns[0]!.traceSteps?.[padId]![2]).toBe('piano_1')
+    expect(cleared.patterns[0]!.steps[padId]![2]).toBeNull()
+    expect(cleared.patterns[0]!.traceSteps?.[padId]![2]).toBe('piano_1')
+  })
+
   it('adds four sequencer cells to the right without changing existing steps', () => {
     const state = createInitialState(1)
     const patternId = state.activePatternId
