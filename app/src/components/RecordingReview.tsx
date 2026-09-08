@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { createId, timestampNow } from '../state/defaults'
+import { MAX_PAD_COUNT } from '../state/constants'
 import { useNavigation } from '../state/NavigationContext'
 import { contrastingTextColor } from '../utils/color'
 import type { SampleKind, SequenceTrace } from '../state/types'
@@ -111,6 +112,23 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
     onDone()
   }
 
+  const assignToNewPad = () => {
+    const id = createId('sample')
+    dispatch({
+      type: 'ADD_SAMPLE_TO_NEW_PAD',
+      sample: {
+        id,
+        label: label.trim() || recording.label,
+        buffer: recording.buffer,
+        recordedAt: timestampNow(),
+        kind: recording.kind ?? 'recording',
+        ...(recording.sequenceTrace ? { sequenceTrace: recording.sequenceTrace } : {}),
+        peaks: recording.peaks,
+      },
+    })
+    onDone()
+  }
+
   return (
     <div className="panel assign-prompt" role="dialog" aria-label="Review the recording">
       <div className="review-preview-row">
@@ -169,6 +187,17 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
                 </button>
               )
             })}
+            {visiblePads.length < MAX_PAD_COUNT && (
+              <button
+                type="button"
+                className="pad-swatch pad-swatch-add"
+                onClick={assignToNewPad}
+                title="Add a new pad for this sequence"
+                aria-label="Add new pad"
+              >
+                + New
+              </button>
+            )}
           </div>
           {confirmPadId && (
             <div className="confirm-overwrite">
