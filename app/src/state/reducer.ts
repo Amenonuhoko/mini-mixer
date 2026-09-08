@@ -42,6 +42,8 @@ export type Action =
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
   | { type: 'CLEAR_PATTERN'; patternId: string }
   | { type: 'ADD_PATTERN_STEPS'; patternId: string }
+  | { type: 'CAPTURE_PATTERN_TRACE'; patternId: string }
+  | { type: 'CLEAR_PATTERN_TRACE'; patternId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
@@ -387,6 +389,17 @@ export function reducer(state: AppState, action: Action): AppState {
       }))
       return removeUnusedNoteSamples(cleared)
     }
+
+    case 'CAPTURE_PATTERN_TRACE':
+      return updatePattern(state, action.patternId, (pattern) => ({
+        ...pattern,
+        traceSteps: Object.fromEntries(
+          Object.entries(pattern.steps).map(([padId, steps]) => [padId, steps.slice()]),
+        ),
+      }))
+
+    case 'CLEAR_PATTERN_TRACE':
+      return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, traceSteps: null }))
 
     case 'ADD_PATTERN_STEPS':
       return updatePattern(state, action.patternId, (pattern) => {
