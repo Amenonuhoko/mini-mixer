@@ -863,7 +863,16 @@ h2 {
 .pad-grid-header-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pad-count-button {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 .fx-menu-btn {
