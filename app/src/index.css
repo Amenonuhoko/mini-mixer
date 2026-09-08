@@ -155,6 +155,12 @@ h2 {
   background: var(--danger-strong);
 }
 
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* Recording */
 
 .record-dot {
@@ -243,42 +249,48 @@ h2 {
   color: #fff;
 }
 
-.grid-mode-fab {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--muted);
+.mixer-mode-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
 }
 
-.grid-mode-fab.on {
-  background: var(--accent);
+.mixer-mode-btn.on {
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent);
 }
 
-.playthrough-fab {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--muted);
+/* Colored with the "record" red always, not just once on, so it visually
+   reads as part of the recording family (like the mic record button) at a
+   glance, distinct from the accent-blue pad-grid mode toggles beside it. */
+.playthrough-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--danger);
+  background: none;
+  color: var(--danger);
 }
 
-.playthrough-fab.on {
+.playthrough-btn.on {
   background: var(--danger);
-  border-color: var(--danger);
   color: #fff;
+}
+
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
 }
 
 .mode-menu-list {
@@ -717,6 +729,10 @@ h2 {
   flex-wrap: wrap;
 }
 
+.assigned-next-step p {
+  margin: 4px 0 0;
+}
+
 .btn-ghost-danger {
   background: none;
   border: none;
@@ -987,6 +1003,14 @@ h2 {
   font-weight: 700;
   line-height: 1.4;
   text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pad-instrument-icon {
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .pad-empty-hint {
@@ -1449,13 +1473,16 @@ input[type='range']::-moz-range-thumb {
 
 .sequencer-footer-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
 }
 
 .sequencer-add-row,
-.sequencer-bounce {
+.sequencer-bounce,
+.sequencer-clear {
   flex: 1;
+  min-width: 120px;
 }
 
 .sequencer-scroll {

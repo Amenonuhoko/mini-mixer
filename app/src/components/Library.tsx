@@ -12,6 +12,15 @@ import { StaticWaveform } from './Waveform'
  * sequence — see SampleKind), how long it is, and roughly how loud. All three
  * are derived from data the app already has (how the sample was made, its
  * buffer duration, its precomputed peaks) rather than any new audio analysis.
+ *
+ * Deliberately excludes `kind: 'note'` samples — an instrument's generated
+ * keys. They're real library Samples under the hood (so pads can reference
+ * them like anything else), but showing all 16 of an instrument's keys as
+ * individual cards here would flood this grid the moment you build one
+ * instrument, let alone several. They're managed as a unit via the
+ * Instruments list above instead (deleting an instrument removes its keys
+ * together) — building/applying an instrument should be quick and
+ * self-contained, not spill 16 extra library entries into view.
  */
 export function Library() {
   const { state, dispatch } = useAppState()
@@ -23,6 +32,7 @@ export function Library() {
   const samples = state.sampleOrder
     .map((id) => state.samples[id])
     .filter((sample) => sample !== undefined)
+    .filter((sample) => sample.kind !== 'note')
 
   const startRename = (sampleId: string, currentLabel: string) => {
     setRenamingSampleId(sampleId)

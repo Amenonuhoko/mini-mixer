@@ -42,6 +42,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
   const [bouncing, setBouncing] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const patternHasSteps = pattern
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some(Boolean))
@@ -122,7 +123,34 @@ export function Sequencer({ onBounced }: SequencerProps) {
         >
           {bouncing ? 'Bouncing…' : 'Bounce to Pad'}
         </button>
+        <button
+          type="button"
+          className="btn btn-ghost-danger sequencer-clear"
+          onClick={() => setConfirmClear(true)}
+          disabled={!patternHasSteps}
+          title={patternHasSteps ? 'Clear every programmed step in this pattern' : 'Nothing programmed yet'}
+        >
+          Clear Sequence
+        </button>
       </div>
+      {confirmClear && (
+        <div className="confirm-overwrite">
+          <span>Clear every step in this pattern? This can't be undone.</span>
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => {
+              dispatch({ type: 'CLEAR_PATTERN', patternId: pattern.id })
+              setConfirmClear(false)
+            }}
+          >
+            Clear
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirmClear(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
       {swappingPadId && (
         <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />
       )}

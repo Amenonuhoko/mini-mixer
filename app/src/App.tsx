@@ -1,12 +1,10 @@
 import { useState, type ReactNode } from 'react'
-import { GridModeButton } from './components/GridModeButton'
 import { Library } from './components/Library'
 import { MetronomeButton } from './components/MetronomeButton'
 import { Nav } from './components/Nav'
 import { PadEditOverlay } from './components/PadEditOverlay'
 import { PadsPage } from './components/PadsPage'
 import { PlayBar } from './components/PlayBar'
-import { PlaythroughToggle } from './components/PlaythroughToggle'
 import { RecordFAB } from './components/RecordFAB'
 import { RecordingReviewOverlay } from './components/RecordingReviewOverlay'
 import type { PendingRecording } from './components/RecordingReview'
@@ -90,15 +88,7 @@ function Shell() {
       </main>
       {showPlayBar && <PlayBar />}
       <div className="fab-cluster">
-        {/* The pad edit popup has its own pad-specific loop control (see the pad
-            switcher strip in PadEditPage) — the global mode button would be
-            redundant, even confusing, sitting right next to it, so it's the
-            one FAB hidden while the popup is open. Record and Metronome stay
-            reachable regardless, per the app's established "always reachable"
-            principle for those two. */}
-        {editingPadId === null && <GridModeButton />}
         <MetronomeButton />
-        <PlaythroughToggle />
         <RecordFAB
           sampleCount={Object.keys(state.samples).length}
           onRecorded={setPendingRecording}

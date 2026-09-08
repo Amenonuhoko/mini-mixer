@@ -146,6 +146,21 @@ describe('reducer', () => {
     expect(off.patterns[0]!.steps[padId]![3]).toBe(false)
   })
 
+  it('clears every step in a pattern across every pad it tracks', () => {
+    const state = createInitialState(2)
+    const patternId = state.activePatternId
+    const padA = state.pads[0]!.id
+    const padB = state.pads[1]!.id
+
+    let next = reducer(state, { type: 'TOGGLE_STEP', patternId, padId: padA, stepIndex: 0 })
+    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId: padA, stepIndex: 5 })
+    next = reducer(next, { type: 'TOGGLE_STEP', patternId, padId: padB, stepIndex: 2 })
+
+    const cleared = reducer(next, { type: 'CLEAR_PATTERN', patternId })
+    expect(cleared.patterns[0]!.steps[padA]!.every((on) => !on)).toBe(true)
+    expect(cleared.patterns[0]!.steps[padB]!.every((on) => !on)).toBe(true)
+  })
+
   it('clamps BPM to the 40-240 range', () => {
     const state = createInitialState(1)
     const tooLow = reducer(state, { type: 'SET_BPM', bpm: 10 })

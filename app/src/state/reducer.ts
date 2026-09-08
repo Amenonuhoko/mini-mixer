@@ -37,6 +37,7 @@ export type Action =
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number }
+  | { type: 'CLEAR_PATTERN'; patternId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
@@ -257,6 +258,14 @@ export function reducer(state: AppState, action: Action): AppState {
         steps[action.stepIndex] = !steps[action.stepIndex]
         return { ...pattern, steps: { ...pattern.steps, [action.padId]: steps } }
       })
+
+    case 'CLEAR_PATTERN':
+      return updatePattern(state, action.patternId, (pattern) => ({
+        ...pattern,
+        steps: Object.fromEntries(
+          Object.keys(pattern.steps).map((padId) => [padId, new Array<boolean>(STEP_COUNT).fill(false)]),
+        ),
+      }))
 
     case 'SET_VISIBLE_PAD_COUNT': {
       const count = Math.max(MIN_PAD_COUNT, action.count)
