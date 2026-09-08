@@ -281,6 +281,7 @@ Reversed from the original "session-only, no persistence" decision once real use
 - Active steps show the pad's own color/icon (each pad gets a distinct color/icon when created, for quick visual ID — stable per pad regardless of which sample it currently references).
 - Each row shows a small badge whenever that pad is independently looping (via its pad-page loop button), so the sequencer's programmed pattern is never confused with a separate loop already playing.
 - Moving playhead highlights the current step across all rows as the sequencer plays.
+- **Bounce to New Pad** renders the active sequence and assigns it to the next visible pad in one step; the existing **Bounce to Pad** keeps its review-and-choose-destination flow. The Pads header also has **+ Pad** and **− Pad** controls. Minus hides the last pad rather than deleting its assignment or sequence data, so it is restored if added again.
 
 ### Step 6 — Repeating for other pads
 
