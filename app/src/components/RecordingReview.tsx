@@ -4,7 +4,7 @@ import { useEngine } from '../state/EngineContext'
 import { createId, timestampNow } from '../state/defaults'
 import { useNavigation } from '../state/NavigationContext'
 import { contrastingTextColor } from '../utils/color'
-import type { SampleKind } from '../state/types'
+import type { SampleKind, SequenceTrace } from '../state/types'
 import { StaticWaveform } from './Waveform'
 
 export interface PendingRecording {
@@ -13,6 +13,8 @@ export interface PendingRecording {
   peaks: number[]
   /** How this recording was made — see SampleKind. Defaults to 'recording' (a plain mic take) if omitted. */
   kind?: SampleKind
+  /** Portable placement snapshot attached to a bounced sequence. */
+  sequenceTrace?: SequenceTrace
 }
 
 interface RecordingReviewProps {
@@ -76,6 +78,7 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
         buffer: recording.buffer,
         recordedAt: timestampNow(),
         kind: recording.kind ?? 'recording',
+        sequenceTrace: recording.sequenceTrace,
         peaks: recording.peaks,
       },
     })
