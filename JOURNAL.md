@@ -1324,3 +1324,21 @@ Autosave is a startup convenience, whereas loading a project is an explicit user
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-08 — Immediate transport stop and 32-pad ceiling
+
+### Context
+Stopping playback could leave a lookahead-scheduled sequencer hit able to start while React processed the transport update. The pad-count limit was also increased from 16 to 32.
+
+### Decision(s)
+- Stop now immediately closes an engine-side sequencer gate, stops every active source, and turns off the metronome. The reducer update then stops the scheduler as usual.
+- The maximum visible pad count is now 32. It is enforced by the controls, reducer actions, and imported-project hydration; quick instruments therefore also have up to 32 key slots.
+
+### Reasoning
+Audio scheduling runs ahead of UI state by design. A synchronous engine gate prevents an already queued callback from escaping the stop event. A hard state-level cap keeps the intended pad limit reliable even for imported older data.
+
+### Open questions / carried forward
+None.
