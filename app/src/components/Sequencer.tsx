@@ -8,7 +8,7 @@ import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
 import { computePeaks } from '../utils/waveform'
 import type { AudioEngine } from '../engine/AudioEngine'
-import type { Pad, Transport } from '../state/types'
+import type { Pad, SequenceTrace, Transport } from '../state/types'
 import { PadLibraryPicker } from './PadLibraryPicker'
 import type { PendingRecording } from './RecordingReview'
 
@@ -59,11 +59,21 @@ export function Sequencer({ onBounced }: SequencerProps) {
     try {
       const buffer = await renderPatternToBuffer(state, pattern.id)
       const peaks = computePeaks(buffer, WAVEFORM_BUCKETS)
+      const sequenceTrace: SequenceTrace = {
+        stepCount: pattern.stepCount,
+        rows: visiblePads.map((pad) =>
+          Array.from(
+            { length: pattern.stepCount },
+            (_, stepIndex) => (pattern.steps[pad.id]?.[stepIndex] ?? null) !== null,
+          ),
+        ),
+      }
       const recording = {
         label: `Bounce ${Object.keys(state.samples).length + 1}`,
         buffer,
         peaks,
         kind: 'sequence' as const,
+        sequenceTrace,
       }
       if (toNewPad) {
         dispatch({
@@ -74,6 +84,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
             buffer: recording.buffer,
             peaks: recording.peaks,
             kind: recording.kind,
+            sequenceTrace: recording.sequenceTrace,
             recordedAt: timestampNow(),
           },
         })
