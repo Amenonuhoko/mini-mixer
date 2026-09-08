@@ -4,6 +4,7 @@ import type {
   AppState,
   Instrument,
   LoopMode,
+  PadPlaybackMode,
   Pad,
   Pattern,
   Sample,
@@ -109,6 +110,10 @@ export interface ProjectMeta {
     bpm: number
     loopMode: LoopMode
     metronomeEnabled: boolean
+    /** Optional for backwards-compatible import of projects saved before this control. */
+    masterVolume?: number
+    /** Optional for backwards-compatible import of projects saved before this control. */
+    padPlaybackMode?: PadPlaybackMode
     padLoopModeEnabled: boolean
     padInstrumentModeEnabled: boolean
     padMixerModeEnabled: boolean
@@ -129,6 +134,8 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
       bpm: state.transport.bpm,
       loopMode: state.transport.loopMode,
       metronomeEnabled: state.transport.metronomeEnabled,
+      masterVolume: state.transport.masterVolume,
+      padPlaybackMode: state.transport.padPlaybackMode,
       padLoopModeEnabled: state.transport.padLoopModeEnabled,
       padInstrumentModeEnabled: state.transport.padInstrumentModeEnabled,
       padMixerModeEnabled: state.transport.padMixerModeEnabled,
@@ -158,6 +165,8 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
   return {
     ...meta,
     // Older saved projects/autosave records predate these — default them in.
+    masterVolume: meta.masterVolume ?? 100,
+    padPlaybackMode: meta.padPlaybackMode ?? 'gate',
     padInstrumentModeEnabled: meta.padInstrumentModeEnabled ?? false,
     padMixerModeEnabled: meta.padMixerModeEnabled ?? false,
     playthroughRecordingEnabled: meta.playthroughRecordingEnabled ?? false,
