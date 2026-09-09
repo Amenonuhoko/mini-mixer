@@ -1512,3 +1512,21 @@ Recorded sources provide the breath, attack, and resonant character that a gener
 
 ### Open questions / carried forward
 Per-hit round robin and velocity layers would require pads to retain multiple source buffers rather than the present one-buffer pad asset.
+
+
+---
+
+## 2026-09-09 — Multi-touch pad input hardening
+
+### Context
+The pad grid had per-pointer audio-source tracking, but the grid did not opt out of browser gesture handling. A second finger could therefore be treated as a page gesture and cancel an already-held Gate pad on touch devices.
+
+### Decision(s)
+- Set the performance grid to own touch input: no browser pinch/pan gesture arbitration while a finger is on a pad, no text selection, and contained overscroll.
+- Added a lost-pointer-capture cleanup path alongside normal release and cancellation, so every gated source is stopped even when the operating system or browser interrupts a pointer stream.
+
+### Reasoning
+A pad grid is an instrument surface. Multiple fingers must be independent physical inputs, and a disrupted input must safely release only its own source rather than leaving sound hanging or affecting another pad.
+
+### Open questions / carried forward
+None.

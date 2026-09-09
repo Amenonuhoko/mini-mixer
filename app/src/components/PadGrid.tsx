@@ -317,6 +317,7 @@ function PadButton({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
+      onLostPointerCapture={handlePointerCancel}
       onClick={handleClick}
     >
       {sample && sample.peaks.length > 0 && (
