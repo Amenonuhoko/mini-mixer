@@ -239,10 +239,10 @@ function PadButton({
     // able to stop an already-looping pad even while it's muted.
     event.currentTarget.setPointerCapture(event.pointerId)
 
-    if (loopModeEnabled || pad.muted || playbackMode === 'oneshot') return
-    // One-shot intentionally waits for the completed click below. Gate begins
-    // on press so mouse and touch users can hold the sound open.
-
+    if (loopModeEnabled || pad.muted) return
+    // Both Gate and One-shot begin from Pointer Events. Touch browsers only
+    // guarantee a synthetic click for the primary finger, whereas pointerdown
+    // is delivered independently to every simultaneous finger.
     const sample = state.samples[pad.sampleId]
     if (!sample) return
     recordCurrentStep()
@@ -274,10 +274,10 @@ function PadButton({
   }
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    // Gate and Loop have pointer lifecycles for a physical mouse/touch
-    // interaction. One-shot is deliberately click-driven; detail 0 is
-    // Enter/Space activation, which likewise needs a complete one-shot.
-    if (event.detail !== 0 && (loopModeEnabled || playbackMode === 'gate')) return
+    // Physical Gate, Loop, and One-shot presses are fully handled through
+    // Pointer Events above. A detail-0 click is keyboard activation, which has
+    // no pointer lifecycle and should still trigger one complete audible hit.
+    if (event.detail !== 0) return
     onSelect(pad.id)
     if (!pad.sampleId) return
 

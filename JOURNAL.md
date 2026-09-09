@@ -1548,3 +1548,20 @@ The page gesture remains available on deliberately empty page space, but musical
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-09 — One-shot multi-touch trigger path
+
+### Context
+Gate worked for several simultaneous fingers because it started from Pointer Events. One-shot waited for the browser's synthesized click, which touch browsers may emit only for the primary contact after a multi-touch gesture.
+
+### Decision(s)
+One-shot now starts directly on each pad's pointer-down event, like Gate. Mouse/touch clicks are suppressed afterward to avoid a second hit; keyboard activation remains handled through its detail-zero click path.
+
+### Reasoning
+Pointer Events represent each physical contact independently, while click is a high-level activation abstraction with inconsistent multi-touch behavior. The direct route makes one-shot performance equally reliable for touch, mouse, and multi-finger use.
+
+### Open questions / carried forward
+None.
