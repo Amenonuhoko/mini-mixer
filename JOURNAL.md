@@ -1476,3 +1476,21 @@ A complete performance kit needs real recorded shells, cymbals, and articulation
 
 ### Open questions / carried forward
 True per-hit random round robin and hi-hat choke behavior require the pad model to retain a voice's multiple buffers instead of one rendered sample per pad.
+
+
+---
+
+## 2026-09-09 — Drum-kit loudness rebalance
+
+### Context
+The recorded kit uses real acoustic velocity layers. Their intentional difference in energy made some tom, hat, ride, and cymbal takes disappear beside the kick and snare after the previous conservative peak ceiling.
+
+### Decision(s)
+- Added kit-family loudness targets during decoded-buffer normalisation: kick/toms lead, snare follows closely, and hats/rides/cymbals receive enough make-up to remain present.
+- Raised the safety ceiling from 0.82 to 0.96, preserving headroom while allowing the recorded sources to use the available output range.
+
+### Reasoning
+Peak matching alone does not equal perceived loudness, particularly for a short shell transient versus a long cymbal. Family-aware RMS targets make the kit playable before per-pad mixing, while pad-level mix controls still retain final authority.
+
+### Open questions / carried forward
+None.

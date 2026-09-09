@@ -17,6 +17,8 @@ export interface DrumVoice {
   decaySeconds: number
   freqHz?: number
   filterHz?: number
+  /** Target RMS after source normalisation; keeps quieter kit families present. */
+  targetRms?: number
   /** A real, licensed recording to prefer over the synthesis fallback. */
   recordedFile?: string
   recordedBank?: 'core' | 'cymbals'
@@ -128,7 +130,7 @@ export function isDrumInstrumentName(name: string): boolean {
   return getDrumKitByName(name) !== undefined
 }
 
-function normalize(buffer: AudioBuffer, targetRms = .16, ceiling = .82): AudioBuffer {
+function normalize(buffer: AudioBuffer, targetRms = .16, ceiling = .96): AudioBuffer {
   let energy = 0, peak = 0
   for (const data of Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel))) {
     for (const value of data) { energy += value * value; peak = Math.max(peak, Math.abs(value)) }
@@ -143,6 +145,29 @@ function normalize(buffer: AudioBuffer, targetRms = .16, ceiling = .82): AudioBu
   return buffer
 }
 
+function targetRmsForVoice(voice: DrumVoice): number {
+  // Long cymbals and quiet stick articulations otherwise lose audibility to a
+  // kick/snare pair even when every file is peak-normalised.
+  if (voice.targetRms != null) return voice.targetRms
+  switch (voice.kind) {
+    case 'kick':
+    case 'tom':
+      return .20
+    case 'snare':
+      return .19
+    case 'rim':
+      return .185
+    case 'hihat':
+    case 'ride':
+      return .18
+    case 'crash':
+    case 'china':
+      return .19
+    default:
+      return .17
+  }
+}
+
 const recordedCache = new Map<string, Promise<AudioBuffer>>()
 async function recordedVoice(voice: DrumVoice): Promise<AudioBuffer> {
   const url = `${voice.recordedBank === 'cymbals' ? CYMBALS : CORE}${voice.recordedFile}`
@@ -152,7 +177,7 @@ async function recordedVoice(voice: DrumVoice): Promise<AudioBuffer> {
       const response = await fetch(url)
       if (!response.ok) throw new Error(`Could not load drum sample (${response.status})`)
       const decoder = new OfflineAudioContext(1, 1, 44100)
-      return normalize(await decoder.decodeAudioData(await response.arrayBuffer()))
+      return normalize(await decoder.decodeAudioData(await response.arrayBuffer()), targetRmsForVoice(voice))
     })().catch((error: unknown) => { recordedCache.delete(url); throw error })
     recordedCache.set(url, cached)
   }
