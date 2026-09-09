@@ -3,6 +3,9 @@ import { INSTRUMENT_KEY_COUNT } from '../state/constants'
 export type SynthWaveform = OscillatorType
 type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar'
 
+/** A real sampled wind source, fetched only when its layout is selected. */
+export type RecordedWindPack = 'altoSaxophone' | 'trumpet' | 'flute' | 'clarinet'
+
 /**
  * The synth bank deliberately distinguishes an instrument's sound-producing
  * model from its general envelope. Lead and Pad stay oscillator voices; the
@@ -31,6 +34,8 @@ export interface InstrumentPreset {
   name: string
   /** Frequency of key 0 (the root); each subsequent key is one semitone higher. */
   rootHz: number
+  /** Real CC0 recordings are preferred; the patch is the offline fallback. */
+  recordedWindPack?: RecordedWindPack
   patch: SynthPatch
 }
 
@@ -159,6 +164,22 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       totalDurationSeconds: 2.6,
       lowpassHz: 3400,
     },
+  },
+  {
+    name: 'Alto Saxophone', rootHz: 164.81, recordedWindPack: 'altoSaxophone',
+    patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: 0.12, unisonDetuneCents: 5, attackSeconds: 0.045, decaySeconds: 0.22, sustainLevel: 0.72, releaseSeconds: 0.5, totalDurationSeconds: 2.8, lowpassHz: 2400, vibratoHz: 5.1, vibratoCents: 10, filterMovement: 0.08 },
+  },
+  {
+    name: 'Trumpet', rootHz: 261.63, recordedWindPack: 'trumpet',
+    patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: 0.2, unisonDetuneCents: 4, attackSeconds: 0.03, decaySeconds: 0.16, sustainLevel: 0.64, releaseSeconds: 0.38, totalDurationSeconds: 2.4, lowpassHz: 3300, vibratoHz: 5.4, vibratoCents: 8, filterMovement: 0.1 },
+  },
+  {
+    name: 'Flute', rootHz: 261.63, recordedWindPack: 'flute',
+    patch: { voice: 'lead', waveform: 'sine', overtoneGain: 0.08, attackSeconds: 0.07, decaySeconds: 0.2, sustainLevel: 0.7, releaseSeconds: 0.62, totalDurationSeconds: 3, lowpassHz: 4100, vibratoHz: 5.3, vibratoCents: 7, filterMovement: 0.06 },
+  },
+  {
+    name: 'Clarinet', rootHz: 130.81, recordedWindPack: 'clarinet',
+    patch: { voice: 'lead', waveform: 'square', overtoneGain: 0.07, attackSeconds: 0.055, decaySeconds: 0.18, sustainLevel: 0.68, releaseSeconds: 0.48, totalDurationSeconds: 2.7, lowpassHz: 2500, vibratoHz: 4.9, vibratoCents: 6, filterMovement: 0.06 },
   },
 ]
 
@@ -461,7 +482,7 @@ let recordedGuitarKeysPromise: Promise<AudioBuffer[]> | null = null
 
 async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
   const response = await fetch(url)
-  if (!response.ok) throw new Error(`Could not load guitar sample (${response.status})`)
+  if (!response.ok) throw new Error(`Could not load recorded sample (${response.status})`)
   const audioData = await response.arrayBuffer()
   const decoder = new OfflineAudioContext(1, 1, 44100)
   return normalize(await decoder.decodeAudioData(audioData))
@@ -555,8 +576,80 @@ function buildRecordedBassKeys(): Promise<AudioBuffer[]> {
   return recordedBassKeysPromise
 }
 
+/**
+ * Real CC0 multisample sources: Weresax provides the alto recordings; the
+ * remaining packs are VSCO-derived wind zones. Only the nearest zones needed
+ * for the 32 pads are fetched, cached, and locally pitch-rendered.
+ */
+type RecordedSourceZone = { midi: number; file: string }
+type StaticWindPack = { baseUrl: string; zones: readonly RecordedSourceZone[] }
+type ManifestWindPack = { baseUrl: string; manifestUrl: string }
+type WindPackDefinition = StaticWindPack | ManifestWindPack
+
+const CC0_WIND_PACKS: Record<RecordedWindPack, WindPackDefinition> = {
+  altoSaxophone: {
+    baseUrl: 'https://raw.githubusercontent.com/sfzinstruments/karoryfer.weresax/master/Samples/alto/',
+    zones: [
+      { midi: 52, file: 'e2_f_rr1_cnd.wav' }, { midi: 60, file: 'c3_f_rr1_cnd.wav' },
+      { midi: 68, file: 'ab3_f_rr1_cnd.wav' }, { midi: 76, file: 'e4_f_rr1_cnd.wav' },
+    ],
+  },
+  trumpet: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-trumpet-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-trumpet-samples/resolve/main/manifest.json' },
+  flute: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-flute-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-flute-samples/resolve/main/manifest.json' },
+  clarinet: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-clarinet-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-clarinet-samples/resolve/main/manifest.json' },
+}
+const recordedWindKeysPromises = new Map<string, Promise<AudioBuffer[]>>()
+
+function isStaticWindPack(pack: WindPackDefinition): pack is StaticWindPack { return 'zones' in pack }
+function parseWindZones(value: unknown): RecordedSourceZone[] {
+  if (!value || typeof value !== 'object' || !Array.isArray((value as { zones?: unknown }).zones)) throw new Error('Invalid wind sample manifest')
+  const zones = ((value as { zones: unknown[] }).zones).flatMap((zone): RecordedSourceZone[] => {
+    if (!zone || typeof zone !== 'object') return []
+    const item = zone as { file?: unknown; rootPitch?: unknown }
+    return typeof item.file === 'string' && typeof item.rootPitch === 'number' ? [{ file: item.file, midi: item.rootPitch }] : []
+  })
+  if (zones.length === 0) throw new Error('Wind sample manifest contains no playable zones')
+  return zones
+}
+async function loadWindZones(pack: WindPackDefinition): Promise<RecordedSourceZone[]> {
+  if (isStaticWindPack(pack)) return [...pack.zones]
+  const response = await fetch(pack.manifestUrl)
+  if (!response.ok) throw new Error(`Could not load wind sample manifest (${response.status})`)
+  return parseWindZones(await response.json())
+}
+function nearestWindZone(targetMidi: number, zones: readonly RecordedSourceZone[]): RecordedSourceZone {
+  return zones.reduce((best, zone) => Math.abs(zone.midi - targetMidi) < Math.abs(best.midi - targetMidi) ? zone : best)
+}
+function windFileUrl(baseUrl: string, file: string): string {
+  return /^https?:\\/\\//.test(file) ? file : `${baseUrl}${file.replace(/^\\.\\//, '')}`
+}
+function frequencyToMidi(frequencyHz: number): number { return Math.round(69 + 12 * Math.log2(frequencyHz / 440)) }
+function buildRecordedWindKeys(packId: RecordedWindPack, rootMidi: number): Promise<AudioBuffer[]> {
+  const cacheKey = `${packId}:${rootMidi}`
+  const cached = recordedWindKeysPromises.get(cacheKey)
+  if (cached) return cached
+  const task = (async () => {
+    const pack = CC0_WIND_PACKS[packId]
+    const zones = await loadWindZones(pack)
+    const selected = new Map<number, RecordedSourceZone>()
+    for (const offset of semitoneOffsets()) { const zone = nearestWindZone(rootMidi + offset, zones); selected.set(zone.midi, zone) }
+    const decoded = await Promise.all([...selected.values()].map(async (zone) => [zone.midi, await decodeRemoteAudio(windFileUrl(pack.baseUrl, zone.file))] as const))
+    const buffers = new Map(decoded)
+    return Promise.all(semitoneOffsets().map(async (offset) => {
+      const targetMidi = rootMidi + offset
+      const zone = nearestWindZone(targetMidi, zones)
+      const source = buffers.get(zone.midi)
+      if (!source) throw new Error('Missing decoded wind source zone')
+      return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
+    }))
+  })().catch((error: unknown) => { recordedWindKeysPromises.delete(cacheKey); throw error })
+  recordedWindKeysPromises.set(cacheKey, task)
+  return task
+}
+
 export async function buildInstrumentKeysFromPreset(preset: InstrumentPreset): Promise<AudioBuffer[]> {
   try {
+    if (preset.recordedWindPack) return await buildRecordedWindKeys(preset.recordedWindPack, frequencyToMidi(preset.rootHz))
     if (preset.patch.voice === 'guitar') return await buildRecordedGuitarKeys()
     if (preset.patch.voice === 'bass') return await buildRecordedBassKeys()
   } catch (error) {

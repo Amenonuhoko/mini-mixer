@@ -117,6 +117,17 @@ export function Sequencer({ onBounced }: SequencerProps) {
           +4
         </button>
       </div>
+      <div className="sequencer-gate-control">
+        <button
+          type="button"
+          className={sequencerGateMode ? 'btn btn-secondary sequencer-gate-toggle armed' : 'btn btn-secondary sequencer-gate-toggle'}
+          onClick={() => setSequencerGateMode((enabled) => !enabled)}
+          aria-pressed={sequencerGateMode}
+          title={sequencerGateMode ? 'Hold a sequencer cell to hear a gated note; click to turn Gate off' : 'Turn on Gate to hear notes only while holding a sequencer cell'}
+        >
+          {sequencerGateMode ? 'Gate on' : 'Gate'}
+        </button>
+      </div>
         <div className="sequencer-scroll" onWheel={handleTimelineWheel}>
       <div className="sequencer-floating-actions">
         <button
@@ -127,15 +138,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
           title={patternHasSteps ? 'Save this sequence, then choose an existing or new pad' : 'Program a step first'}
         >
           {bouncing ? 'Saving…' : 'Save sequence'}
-        </button>
-        <button
-          type="button"
-          className={sequencerGateMode ? 'btn btn-secondary sequencer-gate-toggle armed' : 'btn btn-secondary sequencer-gate-toggle'}
-          onClick={() => setSequencerGateMode((enabled) => !enabled)}
-          aria-pressed={sequencerGateMode}
-          title={sequencerGateMode ? 'Hold a sequencer cell to hear a gated note; click to turn Gate off' : 'Turn on Gate to hear notes only while holding a sequencer cell'}
-        >
-          {sequencerGateMode ? 'Gate on' : 'Gate'}
         </button>
         <button
           type="button"

@@ -2133,3 +2133,15 @@ input[type='range']::-moz-range-thumb {
   .sequencer-fits-desktop .step { flex:1 1 0; width:auto; min-width:18px; }
   .sequencer-fits-desktop .step-group-number { width:auto; }
 }
+
+
+/* Gate is deliberately separate from the sequence action rail: it is a live
+   input mode, so it stays at the fixed left controls while the rail pans. */
+.sequencer-gate-control {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  margin: 0 0 8px;
+}
+.sequencer-gate-control .sequencer-gate-toggle { min-height: 30px; padding: 4px 9px; font-size: .7rem; }

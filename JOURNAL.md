@@ -1494,3 +1494,21 @@ Peak matching alone does not equal perceived loudness, particularly for a short 
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-09 — Recorded wind family and fixed Gate control
+
+### Context
+The instrument picker needed credible wind sounds, including saxophone and trumpet. Separately, sequencer Gate was a live input mode but sat among the scrolling sequence actions.
+
+### Decision(s)
+- Added Alto Saxophone, Trumpet, Flute, and Clarinet as temporary 32-key instrument layouts. They load real CC0 multi-sample sources lazily, cache decoded zones, and map each pad from its nearest recording. Tuned synthesis remains an offline fallback if a host or codec fails.
+- Moved Gate out of the scrolling sequence action rail into a distinct fixed-left sequencer button alongside pattern-length controls.
+
+### Reasoning
+Recorded sources provide the breath, attack, and resonant character that a generic oscillator cannot. Gate changes how a cell is performed, whereas save/hide/clear act on the pattern itself; separating them keeps the performance choice stable and obvious during horizontal navigation.
+
+### Open questions / carried forward
+Per-hit round robin and velocity layers would require pads to retain multiple source buffers rather than the present one-buffer pad asset.
