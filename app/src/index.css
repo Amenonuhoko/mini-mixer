@@ -2121,3 +2121,15 @@ input[type='range']::-moz-range-thumb {
 /* Sequencer auditions: normal clicks play a newly-filled cell immediately; Gate
    holds its audition source only for the active mouse/finger press. */
 .sequencer-gate-toggle.armed { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Desktop normal-length patterns are an instrument, not a spreadsheet: make
+   all 4–16 steps available at once. Longer arrangements retain the timeline
+   scroller and Shift+wheel pans it horizontally. */
+@media (min-width: 1100px) {
+  .sequencer-fits-desktop .sequencer-scroll { overflow-x: visible; }
+  .sequencer-fits-desktop .sequencer-grid,
+  .sequencer-fits-desktop .sequencer-row { width:100%; min-width:0; }
+  .sequencer-fits-desktop .step-group { flex:1 1 0; min-width:0; }
+  .sequencer-fits-desktop .step { flex:1 1 0; width:auto; min-width:18px; }
+  .sequencer-fits-desktop .step-group-number { width:auto; }
+}

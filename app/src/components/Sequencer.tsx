@@ -81,10 +81,18 @@ export function Sequencer({ onBounced }: SequencerProps) {
     }
   }
 
+  const handleTimelineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!event.shiftKey) return
+    const timeline = event.currentTarget
+    if (timeline.scrollWidth <= timeline.clientWidth) return
+    event.preventDefault()
+    timeline.scrollLeft += event.deltaX || event.deltaY
+  }
+
   if (!pattern) return null
 
   return (
-    <section className="panel sequencer" aria-label="sequencer">
+    <section className={pattern.stepCount <= 16 ? 'panel sequencer sequencer-fits-desktop' : 'panel sequencer'} aria-label="sequencer">
       <h2>Sequencer — {pattern.name}</h2>
       <p className="muted sequencer-hint">Swipe sideways for all 16 steps on narrow screens.</p>
       <div className="step-length-controls step-length-controls-left" aria-label="Pattern length">
@@ -109,7 +117,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
           +4
         </button>
       </div>
-        <div className="sequencer-scroll">
+        <div className="sequencer-scroll" onWheel={handleTimelineWheel}>
       <div className="sequencer-floating-actions">
         <button
           type="button"
