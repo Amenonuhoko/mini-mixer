@@ -1437,3 +1437,23 @@ Separate kits keep a pad layout playable rather than treating 32 slots as a dump
 
 ### Open questions / carried forward
 Round-robin playback and true velocity response require a future pad-trigger metadata layer; the current pads remain one-shot samples by design.
+
+
+---
+
+## 2026-09-09 — Instrument articulation pass
+
+### Context
+The keyboard presets had distinct basic voices, but sustained Lead and Pad keys were static once rendered, while the procedural Organ and Bell lacked the small transients and movement that make an instrument read as performed rather than labelled oscillator audio.
+
+### Decision(s)
+- Retained CC0 multi-zone recordings for Guitar and Bass, with their existing offline models as network-failure fallbacks.
+- Added deterministic pitch and filter movement to Lead and Pad, keeping their tuning stable enough for sequence work.
+- Revoiced Organ with drawbar balance, key-click, percussion, and a restrained rotary swell; revoiced Bell with independent inharmonic decay and a strike transient.
+- Extended Piano, Pluck, Organ, Bell, Lead, and Pad note durations where their natural decay benefits from it. Normalisation remains applied to every generated or decoded key.
+
+### Reasoning
+Recorded strings carry articulation better than a generic model, whereas procedural instruments benefit most from stable, repeatable movement baked into their sample buffers. The changes preserve predictable pad playback and keep the temporary-instrument workflow intact.
+
+### Open questions / carried forward
+Velocity-sensitive re-rendering and round-robin key variations would require pad-trigger metadata; they remain a future enhancement.

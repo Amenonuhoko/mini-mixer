@@ -20,6 +20,11 @@ export interface SynthPatch {
   releaseSeconds: number
   totalDurationSeconds: number
   lowpassHz?: number
+  /** Slow, deterministic movement baked into each key so sustained notes breathe. */
+  vibratoHz?: number
+  vibratoCents?: number
+  /** Fraction of lowpass frequency used as the filter LFO depth. */
+  filterMovement?: number
 }
 
 export interface InstrumentPreset {
@@ -47,7 +52,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 0.8,
       sustainLevel: 0,
       releaseSeconds: 1.8,
-      totalDurationSeconds: 2.8,
+      totalDurationSeconds: 3.4,
     },
   },
   {
@@ -60,7 +65,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 0.25,
       sustainLevel: 0.45,
       releaseSeconds: 0.35,
-      totalDurationSeconds: 1.15,
+      totalDurationSeconds: 1.35,
       lowpassHz: 1050,
     },
   },
@@ -76,8 +81,11 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 0.16,
       sustainLevel: 0.58,
       releaseSeconds: 0.42,
-      totalDurationSeconds: 1.2,
+      totalDurationSeconds: 1.45,
       lowpassHz: 3600,
+      vibratoHz: 5.2,
+      vibratoCents: 12,
+      filterMovement: 0.16,
     },
   },
   {
@@ -92,8 +100,11 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 0.45,
       sustainLevel: 0.7,
       releaseSeconds: 1.8,
-      totalDurationSeconds: 3.5,
+      totalDurationSeconds: 4.6,
       lowpassHz: 1900,
+      vibratoHz: 0.19,
+      vibratoCents: 7,
+      filterMovement: 0.32,
     },
   },
   {
@@ -106,7 +117,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 0.22,
       sustainLevel: 0,
       releaseSeconds: 0.2,
-      totalDurationSeconds: 1.25,
+      totalDurationSeconds: 1.55,
     },
   },
   {
@@ -119,7 +130,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 0.08,
       sustainLevel: 0.9,
       releaseSeconds: 0.22,
-      totalDurationSeconds: 1.6,
+      totalDurationSeconds: 2.4,
     },
   },
   {
@@ -132,7 +143,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 1.2,
       sustainLevel: 0,
       releaseSeconds: 1.7,
-      totalDurationSeconds: 3.6,
+      totalDurationSeconds: 4.6,
     },
   },
   {
@@ -145,7 +156,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
       decaySeconds: 0.45,
       sustainLevel: 0,
       releaseSeconds: 0.65,
-      totalDurationSeconds: 2,
+      totalDurationSeconds: 2.6,
       lowpassHz: 3400,
     },
   },
@@ -255,25 +266,27 @@ function renderOrgan(frequencyHz: number, duration: number): AudioBuffer {
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const sr = buffer.sampleRate
+  // 16' through 1' drawbars: the upper harmonics carry enough bite to stay
+  // intelligible in a mix, while the sub octave supplies real body.
   const drawbars = [
-    [0.5, 0.13],
-    [1, 0.9],
-    [2, 0.55],
-    [3, 0.32],
-    [4, 0.2],
-    [6, 0.13],
-    [8, 0.07],
+    [0.5, 0.16], [1, 0.88], [2, 0.53], [3, 0.29],
+    [4, 0.19], [5, 0.09], [6, 0.12], [8, 0.07],
   ] as const
   for (let i = 0; i < data.length; i++) {
     const time = i / sr
-    const vibrato = Math.sin(2 * Math.PI * 5.7 * time) * 0.004
+    // A slow Leslie-like swell plus a faster gentle pitch wobble gives held
+    // chords motion without making individual notes sound out of tune.
+    const vibrato = Math.sin(2 * Math.PI * 5.8 * time) * 0.0035
+    const rotary = 0.88 + 0.12 * Math.sin(2 * Math.PI * 0.74 * time)
     let value = 0
     for (const [ratio, amplitude] of drawbars) {
       value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * (time + vibrato))
     }
+    const percussion = Math.sin(2 * Math.PI * frequencyHz * 4 * time) * 0.18 * Math.exp(-time / 0.09)
+    const keyClick = (Math.random() * 2 - 1) * 0.018 * Math.exp(-time / 0.006)
     const attack = Math.min(1, time / 0.012)
-    const release = Math.min(1, Math.max(0, (duration - time) / 0.22))
-    data[i] = value * attack * release
+    const release = Math.min(1, Math.max(0, (duration - time) / 0.24))
+    data[i] = (value + percussion + keyClick) * attack * release * rotary
   }
   return normalize(buffer)
 }
@@ -282,21 +295,21 @@ function renderBell(frequencyHz: number, duration: number): AudioBuffer {
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const sr = buffer.sampleRate
+  // Inharmonic modes decay independently; the short strike noise prevents
+  // this from reading as a clean FM tone.
   const modes = [
-    [1, 0.82, 1],
-    [2.71, 0.38, 0.55],
-    [4.07, 0.24, 0.38],
-    [5.43, 0.16, 0.28],
-    [6.8, 0.1, 0.2],
-    [8.93, 0.065, 0.14],
+    [1, 0.82, 1], [2.71, 0.38, 0.55], [4.07, 0.24, 0.38],
+    [5.43, 0.16, 0.28], [6.8, 0.1, 0.2], [8.93, 0.065, 0.14],
   ] as const
   for (let i = 0; i < data.length; i++) {
     const time = i / sr
     let value = 0
     for (const [ratio, amplitude, decay] of modes) {
-      value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * time) * Math.exp(-time / (1.8 * decay))
+      const phase = ratio * 0.17
+      value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * time + phase) * Math.exp(-time / (2.15 * decay))
     }
-    data[i] = value * (1 - Math.exp(-time / 0.0018))
+    const strike = (Math.random() * 2 - 1) * 0.045 * Math.exp(-time / 0.009)
+    data[i] = (value + strike) * (1 - Math.exp(-time / 0.0018))
   }
   return normalize(buffer)
 }
@@ -313,8 +326,9 @@ function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<Aud
   envelope.gain.setValueAtTime(patch.sustainLevel, releaseStart)
   envelope.gain.linearRampToValueAtTime(0, patch.totalDurationSeconds)
 
+  let filter: BiquadFilterNode | null = null
   if (patch.lowpassHz) {
-    const filter = ctx.createBiquadFilter()
+    filter = ctx.createBiquadFilter()
     filter.type = 'lowpass'
     filter.frequency.setValueAtTime(patch.lowpassHz * 1.25, 0)
     filter.frequency.exponentialRampToValueAtTime(Math.max(160, patch.lowpassHz * 0.62), patch.totalDurationSeconds)
@@ -322,6 +336,33 @@ function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<Aud
     filter.connect(ctx.destination)
   } else {
     envelope.connect(ctx.destination)
+  }
+
+  // Use one deterministic LFO for every oscillator in the patch. It gives lead
+  // a restrained player-like vibrato and lets Pad evolve while it sustains.
+  let vibratoGain: GainNode | null = null
+  let vibrato: OscillatorNode | null = null
+  if (patch.vibratoHz && patch.vibratoCents) {
+    vibrato = ctx.createOscillator()
+    vibrato.type = 'sine'
+    vibrato.frequency.value = patch.vibratoHz
+    vibratoGain = ctx.createGain()
+    vibratoGain.gain.value = patch.vibratoCents
+    vibrato.connect(vibratoGain)
+    vibrato.start(0)
+    vibrato.stop(patch.totalDurationSeconds)
+  }
+
+  if (filter && patch.filterMovement) {
+    const filterLfo = ctx.createOscillator()
+    const filterLfoGain = ctx.createGain()
+    filterLfo.type = 'sine'
+    filterLfo.frequency.value = patch.voice === 'pad' ? 0.13 : 1.8
+    filterLfoGain.gain.value = (patch.lowpassHz ?? 0) * patch.filterMovement
+    filterLfo.connect(filterLfoGain)
+    filterLfoGain.connect(filter.frequency)
+    filterLfo.start(0)
+    filterLfo.stop(patch.totalDurationSeconds)
   }
 
   const detune = patch.unisonDetuneCents ?? 0
@@ -332,6 +373,7 @@ function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<Aud
     oscillator.type = patch.waveform
     oscillator.frequency.value = frequencyHz
     oscillator.detune.value = cents
+    if (vibratoGain) vibratoGain.connect(oscillator.detune)
     oscillator.connect(gain)
     gain.connect(envelope)
     oscillator.start(0)
@@ -344,11 +386,13 @@ function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<Aud
     const overtone = ctx.createOscillator()
     overtone.type = 'sine'
     overtone.frequency.value = frequencyHz * 2
+    if (vibratoGain) vibratoGain.connect(overtone.detune)
     overtone.connect(overtoneGain)
     overtoneGain.connect(envelope)
     overtone.start(0)
     overtone.stop(patch.totalDurationSeconds)
   }
+
   return ctx.startRendering().then((buffer) => normalize(buffer))
 }
 
