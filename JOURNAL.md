@@ -1457,3 +1457,22 @@ Recorded strings carry articulation better than a generic model, whereas procedu
 
 ### Open questions / carried forward
 Velocity-sensitive re-rendering and round-robin key variations would require pad-trigger metadata; they remain a future enhancement.
+
+
+---
+
+## 2026-09-09 — Recorded full acoustic drum layout
+
+### Context
+The first acoustic layout contained only ten recorded voices and left many familiar kit choices to a separate synthetic/percussion menu. That could not provide the articulation, transient detail, or usable physical layout of a real played kit.
+
+### Decision(s)
+- Expanded Acoustic Drums to all 32 available pad positions, each backed by a CC0 Virtuosity Drums recording: kick, ghost/center/accent snare layers, side sticks, closed/pedal/open hats, high and floor tom takes, ride bow/bell takes, crash, splash, and china cymbals.
+- Ordered pads by performance role and retained distinct recorded velocity/round-robin source takes as dedicated playable pads rather than replacing missing character with synthetic drum approximations.
+- Kept synthetic rendering strictly as an offline contingency and for the separate Electronic Drums/Hand Percussion instruments.
+
+### Reasoning
+A complete performance kit needs real recorded shells, cymbals, and articulations; a procedural oscillator cannot reproduce their interacting transients and decay. The selected Virtuosity bank is CC0 and provides the actual source categories needed without adding an attribution or redistribution burden.
+
+### Open questions / carried forward
+True per-hit random round robin and hi-hat choke behavior require the pad model to retain a voice's multiple buffers instead of one rendered sample per pad.
