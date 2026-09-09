@@ -851,12 +851,13 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  /* Every finger remains a musical pointer; do not let pinch/scroll gesture
-     recognition cancel a second pad while another is being held. */
-  touch-action: none;
+  /* Pads retain independent Pointer Events for multi-touch, but vertical
+     panning stays native so a drag from the grid can still scroll the page.
+     Horizontal browser gestures remain out of the performance surface. */
+  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
 }
 
 /* A clear but non-intrusive signal that tapping a pad right now toggles its

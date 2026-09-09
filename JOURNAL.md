@@ -1565,3 +1565,20 @@ Pointer Events represent each physical contact independently, while click is a h
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-09 — Preserve vertical scroll on the pad grid
+
+### Context
+The multi-touch hardening used `touch-action: none` on the whole pad grid. That made it safe against browser gestures, but it also prevented a normal vertical drag beginning over a pad from scrolling the Pads page.
+
+### Decision(s)
+The grid now uses `touch-action: pan-y`: vertical panning remains native, while horizontal browser gestures are contained. Existing pointer-cancel cleanup stops a gated note if its contact becomes a scroll.
+
+### Reasoning
+Pads are both a performance surface and part of a scrollable mobile page. Allowing the browser to arbitrate only vertical pans gives users a natural way to reach content below the grid without reintroducing accidental horizontal navigation.
+
+### Open questions / carried forward
+None.
