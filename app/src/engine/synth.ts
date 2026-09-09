@@ -621,7 +621,7 @@ function nearestWindZone(targetMidi: number, zones: readonly RecordedSourceZone[
   return zones.reduce((best, zone) => Math.abs(zone.midi - targetMidi) < Math.abs(best.midi - targetMidi) ? zone : best)
 }
 function windFileUrl(baseUrl: string, file: string): string {
-  return /^https?:\\/\\//.test(file) ? file : `${baseUrl}${file.replace(/^\\.\\//, '')}`
+  return /^https?:\/\//.test(file) ? file : `${baseUrl}${file.replace(/^\.\//, '')}`
 }
 function frequencyToMidi(frequencyHz: number): number { return Math.round(69 + 12 * Math.log2(frequencyHz / 440)) }
 function buildRecordedWindKeys(packId: RecordedWindPack, rootMidi: number): Promise<AudioBuffer[]> {
