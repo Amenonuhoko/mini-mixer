@@ -65,7 +65,7 @@ function Shell() {
   const engine = useEngine()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const swipeStart = useRef<{ x: number; y: number; identifier: number; startedAt: number } | null>(null)
   useAutosave(state, dispatch, engine)
 
 
@@ -85,23 +85,40 @@ function Shell() {
 
   const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
     if (isWide || (page !== 'pads' && page !== 'sequencer')) return
+    // The pads, sequencer grid, and every control are performance/input
+    // surfaces—not page-navigation handles. Their touches may bubble to this
+    // shell, but they must never arm a page swipe.
+    const origin = event.target instanceof Element ? event.target : null
+    if (origin?.closest('button, input, select, textarea, a, [data-no-page-swipe], .pad-grid, .sequencer-scroll, .sequencer-grid')) {
+      swipeStart.current = null
+      return
+    }
+    if (event.touches.length !== 1) {
+      swipeStart.current = null
+      return
+    }
     const touch = event.touches[0]
-    if (touch) swipeStart.current = { x: touch.clientX, y: touch.clientY }
+    if (touch) swipeStart.current = { x: touch.clientX, y: touch.clientY, identifier: touch.identifier, startedAt: Date.now() }
   }
 
   const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
     const start = swipeStart.current
     swipeStart.current = null
-    if (!start || isWide || (page !== 'pads' && page !== 'sequencer')) return
-    const touch = event.changedTouches[0]
+    if (!start || isWide || (page !== 'pads' && page !== 'sequencer') || event.touches.length !== 0) return
+    const touch = Array.from(event.changedTouches).find((candidate) => candidate.identifier === start.identifier)
     if (!touch) return
     const horizontalDistance = touch.clientX - start.x
     const verticalDistance = touch.clientY - start.y
-    // A deliberate horizontal swipe only: keep normal vertical scrolling and
-    // ordinary pad taps untouched.
-    if (Math.abs(horizontalDistance) < 72 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) {
-      return
-    }
+    const elapsed = Date.now() - start.startedAt
+    // Page changes are deliberately stricter than normal scrolling: one quick,
+    // clearly horizontal 120px gesture. This keeps incidental pad drags,
+    // diagonal scrolling, pinch attempts, and long presses in their own UI.
+    if (
+      elapsed > 700 ||
+      Math.abs(horizontalDistance) < 120 ||
+      Math.abs(horizontalDistance) < Math.abs(verticalDistance) * 2 ||
+      Math.abs(verticalDistance) > 48
+    ) return
     if (page === 'pads' && horizontalDistance < 0) goToSequencer()
     if (page === 'sequencer' && horizontalDistance > 0) goToPads()
   }

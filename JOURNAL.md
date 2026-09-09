@@ -1530,3 +1530,21 @@ A pad grid is an instrument surface. Multiple fingers must be independent physic
 
 ### Open questions / carried forward
 None.
+
+
+---
+
+## 2026-09-09 — Intentional page swipes only
+
+### Context
+The Pads ↔ Sequencer gesture lived on the entire application shell. Even though it was intended for a page-level swipe, a drag across a pad or other control could bubble into the shell and trigger navigation.
+
+### Decision(s)
+- Page swipes now refuse to arm from buttons, form fields, pads, the sequencer timeline/grid, and explicitly marked no-swipe areas.
+- Navigation requires exactly one touch, the same touch to finish, no concurrent finger, a fast gesture, at least 120px of travel, a 2:1 horizontal direction ratio, and very little vertical drift.
+
+### Reasoning
+The page gesture remains available on deliberately empty page space, but musical gestures and browser touch interactions must take priority wherever a user is manipulating the instrument.
+
+### Open questions / carried forward
+None.
