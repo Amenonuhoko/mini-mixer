@@ -6,6 +6,7 @@ import { MAX_PAD_COUNT } from '../state/constants'
 import { useNavigation } from '../state/NavigationContext'
 import { contrastingTextColor } from '../utils/color'
 import type { SampleKind, SequenceTrace } from '../state/types'
+import { ConfirmDialog } from './ConfirmDialog'
 import { StaticWaveform } from './Waveform'
 
 export interface PendingRecording {
@@ -200,15 +201,12 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
             )}
           </div>
           {confirmPadId && (
-            <div className="confirm-overwrite">
-              <p>That pad already has a sound. Replace it?</p>
-              <button type="button" className="btn btn-danger" onClick={() => assign(confirmPadId)}>
-                Replace
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={() => setConfirmPadId(null)}>
-                Cancel
-              </button>
-            </div>
+            <ConfirmDialog
+              message="That pad already has a sound. Replace it?"
+              confirmLabel="Replace"
+              onConfirm={() => assign(confirmPadId)}
+              onCancel={() => setConfirmPadId(null)}
+            />
           )}
           <div className="review-actions">
             <button type="button" className="btn btn-secondary" onClick={handleKeepInLibrary}>

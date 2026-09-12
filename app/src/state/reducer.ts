@@ -24,6 +24,14 @@ export type Action =
   | { type: 'ADD_INSTRUMENT'; instrument: Instrument; keySamples: Sample[] }
   | { type: 'REMOVE_INSTRUMENT'; instrumentId: string }
   | { type: 'APPLY_INSTRUMENT_TO_PADS'; instrumentId: string }
+  | {
+      type: 'APPLY_LOOP_PRESET'
+      instrument: Instrument
+      keySamples: Sample[]
+      patternId: string
+      /** Active step indices to program, keyed by the pad index (0-based, matching instrument.keySampleIds order) the preset's build lays each hit's sound across. */
+      stepsByPadIndex: Record<number, number[]>
+    }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
   | { type: 'SET_PAD_MUTED'; padId: string; muted: boolean }
   | { type: 'SET_PAD_EFFECTS_BYPASSED'; padId: string; bypassed: boolean }
@@ -286,6 +294,81 @@ export function reducer(state: AppState, action: Action): AppState {
                   ),
                 },
               })),
+      }
+    }
+
+    case 'APPLY_LOOP_PRESET': {
+      // Same grid-follows-the-instrument resize APPLY_INSTRUMENT_TO_PADS uses
+      // above — a loop preset's build is a normal instrument, just applied
+      // together with the pattern data that plays it.
+      const instrument = action.instrument
+      const targetCount = instrument.keySampleIds.length
+      const newPads =
+        targetCount > state.pads.length
+          ? Array.from({ length: targetCount - state.pads.length }, (_, i) =>
+              createPad(state.pads.length + i),
+            )
+          : []
+      const pads = [...state.pads, ...newPads].map((pad, index) => {
+        if (index >= targetCount) return pad
+        const keySampleId = instrument.keySampleIds[index]
+        return keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
+      })
+      const keySamplesById = Object.fromEntries(action.keySamples.map((s) => [s.id, s]))
+      const patterns = state.patterns.map((pattern) => {
+        if (pattern.id !== action.patternId) {
+          if (newPads.length === 0) return pattern
+          return {
+            ...pattern,
+            steps: {
+              ...pattern.steps,
+              ...Object.fromEntries(
+                newPads.map((pad) => [pad.id, new Array<string | null>(pattern.stepCount).fill(null)]),
+              ),
+            },
+          }
+        }
+        // Replaces the whole active pattern, not just the rows this preset
+        // touches — every visible pad's sound is also being replaced above,
+        // so a leftover row from whatever was there before would silently
+        // reference the wrong new sound rather than being clearly gone.
+        const stepCount = Math.max(pattern.stepCount, 16)
+        const steps: Record<string, Array<string | null>> = {}
+        for (let index = 0; index < targetCount; index++) {
+          const padId = pads[index]!.id
+          const keySampleId = instrument.keySampleIds[index] ?? null
+          const activeSteps = new Set(action.stepsByPadIndex[index] ?? [])
+          steps[padId] = Array.from({ length: stepCount }, (_, stepIndex) =>
+            activeSteps.has(stepIndex) ? keySampleId : null,
+          )
+        }
+        for (const [padId, existing] of Object.entries(pattern.steps)) {
+          if (steps[padId]) continue
+          steps[padId] = Array.from({ length: stepCount }, (_, i) => existing[i] ?? null)
+        }
+        return {
+          ...pattern,
+          stepCount,
+          steps,
+          traceSteps: pattern.traceSteps
+            ? Object.fromEntries(
+                Object.entries(pattern.traceSteps).map(([padId, existing]) => [
+                  padId,
+                  Array.from({ length: stepCount }, (_, i) => existing[i] ?? null),
+                ]),
+              )
+            : null,
+        }
+      })
+      return {
+        ...state,
+        samples: { ...state.samples, ...keySamplesById },
+        sampleOrder: [...state.sampleOrder, ...action.keySamples.map((s) => s.id)],
+        instruments: { ...state.instruments, [instrument.id]: instrument },
+        instrumentOrder: [...state.instrumentOrder, instrument.id],
+        pads,
+        visiblePadCount: targetCount,
+        patterns,
       }
     }
 

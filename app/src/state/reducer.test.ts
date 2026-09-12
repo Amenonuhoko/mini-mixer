@@ -472,10 +472,13 @@ describe('reducer', () => {
 
     expect(applied.pads[0]!.sampleId).toBe('key_0')
     expect(applied.pads[1]!.sampleId).toBe('key_1')
+    expect(applied.pads[2]!.sampleId).toBe('key_2')
     expect(applied.pads[0]!.trimStart).toBe(0)
     expect(applied.pads[0]!.trimEnd).toBe(1)
-    // Only visiblePadCount (2) pads are touched, even though the instrument has a 3rd key.
-    expect(applied.pads).toHaveLength(2)
+    // The grid follows the instrument's own key count, growing past the
+    // pad count active before it was applied rather than clamping to it.
+    expect(applied.pads).toHaveLength(3)
+    expect(applied.visiblePadCount).toBe(3)
   })
 
   it('expands the visible pad grid to an instrument’s key count and initializes new pattern rows', () => {
@@ -490,6 +493,62 @@ describe('reducer', () => {
     expect(next.pads.map((pad) => pad.sampleId)).toEqual(keySamples.map((sample) => sample.id))
     expect(next.patterns[0]!.steps[next.pads[2]!.id]).toHaveLength(16)
     expect(next.patterns[0]!.steps[next.pads[3]!.id]).toHaveLength(16)
+  })
+
+  it('applying a loop preset builds the instrument, resizes the grid to its key count, and writes the given steps into the pattern', () => {
+    const state = createInitialState(2)
+    const patternId = state.activePatternId
+    const keySamples = [makeSample('loop_key_0'), makeSample('loop_key_1')]
+    const instrument = makeInstrument(
+      'loop_inst',
+      keySamples.map((s) => s.id),
+    )
+
+    const applied = reducer(state, {
+      type: 'APPLY_LOOP_PRESET',
+      instrument,
+      keySamples,
+      patternId,
+      stepsByPadIndex: { 0: [0, 8] },
+    })
+
+    expect(applied.instruments[instrument.id]).toBe(instrument)
+    expect(applied.pads[0]!.sampleId).toBe('loop_key_0')
+    expect(applied.pads[1]!.sampleId).toBe('loop_key_1')
+    expect(applied.visiblePadCount).toBe(2)
+    const pattern = applied.patterns.find((p) => p.id === patternId)!
+    const padId0 = applied.pads[0]!.id
+    const padId1 = applied.pads[1]!.id
+    expect(pattern.steps[padId0]![0]).toBe('loop_key_0')
+    expect(pattern.steps[padId0]![8]).toBe('loop_key_0')
+    expect(pattern.steps[padId0]!.filter((id) => id !== null)).toHaveLength(2)
+    // Pad 1 wasn't in stepsByPadIndex — its row is cleared, not left stale.
+    expect(pattern.steps[padId1]!.every((id) => id === null)).toBe(true)
+  })
+
+  it('applying a loop preset grows the pad grid to the instrument’s full key count, even beyond what the preset’s own steps use', () => {
+    const state = createInitialState(2)
+    const keySamples = Array.from({ length: 5 }, (_, i) => makeSample(`grow_key_${i}`))
+    const instrument = makeInstrument(
+      'grow_inst',
+      keySamples.map((s) => s.id),
+    )
+
+    const applied = reducer(state, {
+      type: 'APPLY_LOOP_PRESET',
+      instrument,
+      keySamples,
+      patternId: state.activePatternId,
+      stepsByPadIndex: { 3: [0] },
+    })
+
+    expect(applied.visiblePadCount).toBe(5)
+    expect(applied.pads).toHaveLength(5)
+    expect(applied.pads[3]!.sampleId).toBe('grow_key_3')
+    expect(applied.pads[4]!.sampleId).toBe('grow_key_4')
+    const pattern = applied.patterns.find((p) => p.id === state.activePatternId)!
+    expect(pattern.steps[applied.pads[3]!.id]![0]).toBe('grow_key_3')
+    expect(pattern.steps[applied.pads[4]!.id]!.every((id) => id === null)).toBe(true)
   })
 
   it('removing an instrument deletes its key samples too and unassigns any pad using one', () => {

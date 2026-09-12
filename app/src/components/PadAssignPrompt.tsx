@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { contrastingTextColor } from '../utils/color'
+import { ConfirmDialog } from './ConfirmDialog'
 import { StaticWaveform } from './Waveform'
 
 interface PadAssignPromptProps {
@@ -82,15 +83,12 @@ export function PadAssignPrompt({ sampleId, sampleLabel, onDone }: PadAssignProm
         })}
       </div>
       {confirmPadId && (
-        <div className="confirm-overwrite">
-          <p>That pad already has a sound. Replace it?</p>
-          <button type="button" className="btn btn-danger" onClick={() => assign(confirmPadId)}>
-            Replace
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={() => setConfirmPadId(null)}>
-            Cancel
-          </button>
-        </div>
+        <ConfirmDialog
+          message="That pad already has a sound. Replace it?"
+          confirmLabel="Replace"
+          onConfirm={() => assign(confirmPadId)}
+          onCancel={() => setConfirmPadId(null)}
+        />
       )}
       <button type="button" className="skip-assign" onClick={handleSkip}>
         Skip — keep it in the library only

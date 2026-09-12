@@ -5,6 +5,7 @@ import type { SerializedProject } from '../engine/projectFile'
 import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import { ConfirmDialog } from './ConfirmDialog'
 
 function downloadJson(filename: string, data: unknown): void {
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
@@ -139,45 +140,25 @@ export function SettingsPanel() {
       )}
 
       {pendingLoad && (
-        <div className="confirm-overwrite">
-          <span>
-            Load "{pendingLoad.fileName}"? This replaces your current pads, library, and pattern.
-          </span>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={() => void handleConfirmLoad()}
-            disabled={loadStatus === 'loading'}
-          >
-            {loadStatus === 'loading' ? 'Loading…' : 'Yes, load it'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setPendingLoad(null)}
-            disabled={loadStatus === 'loading'}
-          >
-            Cancel
-          </button>
-        </div>
+        <ConfirmDialog
+          message={`Load "${pendingLoad.fileName}"? This replaces your current pads, library, and pattern.`}
+          confirmLabel={loadStatus === 'loading' ? 'Loading…' : 'Yes, load it'}
+          confirmDisabled={loadStatus === 'loading'}
+          cancelDisabled={loadStatus === 'loading'}
+          onConfirm={() => void handleConfirmLoad()}
+          onCancel={() => setPendingLoad(null)}
+        />
       )}
 
       <div className="settings-divider" />
 
       {confirmClear ? (
-        <div className="confirm-overwrite">
-          <span>Clear everything — recordings, pads, pattern?</span>
-          <button type="button" className="btn btn-danger" onClick={handleClearAll}>
-            Yes, clear all
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setConfirmClear(false)}
-          >
-            Cancel
-          </button>
-        </div>
+        <ConfirmDialog
+          message="Clear everything — recordings, pads, pattern?"
+          confirmLabel="Yes, clear all"
+          onConfirm={handleClearAll}
+          onCancel={() => setConfirmClear(false)}
+        />
       ) : (
         <button type="button" className="btn btn-secondary" onClick={() => setConfirmClear(true)}>
           Clear All

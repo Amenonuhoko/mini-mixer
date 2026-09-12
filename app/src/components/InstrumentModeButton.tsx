@@ -4,6 +4,7 @@ import { buildInstrumentKeysFromPreset, INSTRUMENT_PRESETS, type InstrumentPrese
 import { useAppState } from '../state/AppStateContext'
 import { createId } from '../state/defaults'
 import type { Instrument } from '../state/types'
+import { captureAutoInstrumentPadSnapshot } from '../utils/autoInstrumentSnapshot'
 import { buildKeySamples } from '../utils/buildInstrumentSamples'
 import { instrumentIconForName } from '../utils/instrumentIcon'
 import { Overlay } from './Overlay'
@@ -70,14 +71,7 @@ export function InstrumentModeButton() {
       const keySamples = buildKeySamples(buffers, labels)
       // Snapshot every existing pad the instrument will expose, including
       // currently hidden slots, before its keys replace their assignments.
-      const padSnapshot =
-        state.transport.autoInstrumentPadSnapshot ??
-        Object.fromEntries(
-          state.pads.slice(0, Math.max(state.visiblePadCount, keySamples.length)).map((pad) => [
-            pad.id,
-            { sampleId: pad.sampleId, trimStart: pad.trimStart, trimEnd: pad.trimEnd },
-          ]),
-        )
+      const padSnapshot = captureAutoInstrumentPadSnapshot(state, keySamples.length)
       const instrument: Instrument = {
         id: createId('instrument'),
         name,

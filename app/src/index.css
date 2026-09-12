@@ -685,10 +685,6 @@ h2 {
   padding: 8px 10px;
 }
 
-.confirm-inline {
-  margin: 0;
-}
-
 .tag {
   display: inline-flex;
   align-items: center;
@@ -768,12 +764,50 @@ h2 {
   font-weight: 700;
 }
 
-.confirm-overwrite {
+/* Confirm dialog — a small centered modal layer, see ConfirmDialog.tsx.
+   Deliberately its own backdrop (not a styled block dropped into whatever
+   panel raised it) and a higher z-index than .overlay-backdrop, since it's
+   frequently raised from inside an already-open Overlay and needs to read
+   as a distinct decision stacked above that sheet. */
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 8px 0;
+  justify-content: center;
+  padding: 20px;
+}
+
+.confirm-dialog {
+  width: 100%;
+  max-width: 340px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.confirm-dialog-message {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-dialog-actions .btn {
+  min-width: 84px;
 }
 
 .skip-assign {
@@ -1637,6 +1671,30 @@ input[type='range']::-moz-range-thumb {
 
 /* Sequencer */
 
+.sequencer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sequencer-header h2 {
+  margin: 0;
+}
+
+.loop-preset-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
 .sequencer-hint {
   margin: -4px 0 10px;
 }
@@ -2119,12 +2177,6 @@ input[type='range']::-moz-range-thumb {
 .sequencer-row-label { width:34px; height:34px; border-radius:7px; flex-direction:column; gap:0; }
 .sequencer-row-change { font-size:.58rem; line-height:1; opacity:.8; }
 
-/* The destructive confirmation belongs to its trigger, including while the timeline pans. */
-.sequencer-clear-control { position:relative; }
-.sequencer-clear-control .confirm-overwrite { position:absolute; z-index:10; top:calc(100% + 6px); right:0; width:max-content; max-width:min(300px, calc(100vw - 48px)); margin:0; padding:8px; border:1px solid var(--border); border-radius:10px; background:var(--panel-bg); box-shadow:0 10px 24px rgba(0,0,0,.2); font-size:.72rem; }
-.sequencer-clear-control .confirm-overwrite span { max-width:150px; }
-.sequencer-clear-control .confirm-overwrite .btn { min-height:30px; padding:4px 8px; font-size:.7rem; }
-
 /* Sequencer auditions: normal clicks play a newly-filled cell immediately; Gate
    holds its audition source only for the active mouse/finger press. */
 .sequencer-gate-toggle.armed { background:var(--accent); border-color:var(--accent); color:#fff; }
@@ -2152,3 +2204,76 @@ input[type='range']::-moz-range-thumb {
   margin: 0 0 8px;
 }
 .sequencer-gate-control .sequencer-gate-toggle { min-height: 30px; padding: 4px 9px; font-size: .7rem; }
+
+/* Loop preset menu — bundled one-bar loops offered from the Sequencer's
+   header, see LoopPresetMenuButton.tsx. Compact by design: a preset's card
+   is just its name plus a tiny multi-row step grid (same rows-of-16-steps
+   shape as the real sequencer, shrunk down), sized to sit several-per-row
+   even at phone width. */
+
+.loopers-category {
+  margin-top: 16px;
+}
+
+.loopers-category-title {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.loopers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.loop-preset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  text-align: left;
+}
+
+.loop-preset-card:disabled {
+  opacity: 0.6;
+}
+
+.loop-preset-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.loop-preset-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.loop-preview-row {
+  display: flex;
+  gap: 1px;
+}
+
+.loop-preview-cell {
+  flex: 1;
+  height: 6px;
+  min-width: 4px;
+  border-radius: 1px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.loop-preview-cell.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}

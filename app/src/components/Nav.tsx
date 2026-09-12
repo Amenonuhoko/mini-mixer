@@ -1,8 +1,9 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { deserializeProject, isSerializedProject, serializeProject } from '../engine/projectFile'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface NavProps {
   onOpenSettings: () => void
@@ -20,6 +21,7 @@ export function Nav({ onOpenSettings }: NavProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const loadInputRef = useRef<HTMLInputElement>(null)
+  const [pendingLoad, setPendingLoad] = useState<{ fileName: string; project: unknown } | null>(null)
 
   const handleStopAll = () => {
     engine.stopAllSounds()
@@ -43,14 +45,21 @@ export function Nav({ onOpenSettings }: NavProps) {
     if (!file) return
     try {
       const parsed: unknown = JSON.parse(await file.text())
-      if (!isSerializedProject(parsed) || !window.confirm(`Load "${file.name}"? This replaces the current project.`)) {
+      if (!isSerializedProject(parsed)) {
+        window.alert("Couldn't load that project file.")
         return
       }
-      engine.stopAllSounds()
-      dispatch({ type: 'LOAD_PROJECT', state: await deserializeProject(parsed, engine) })
+      setPendingLoad({ fileName: file.name, project: parsed })
     } catch {
       window.alert("Couldn't load that project file.")
     }
+  }
+
+  const confirmLoadProject = async () => {
+    if (!pendingLoad || !isSerializedProject(pendingLoad.project)) return
+    engine.stopAllSounds()
+    dispatch({ type: 'LOAD_PROJECT', state: await deserializeProject(pendingLoad.project, engine) })
+    setPendingLoad(null)
   }
 
   return (
@@ -127,6 +136,14 @@ export function Nav({ onOpenSettings }: NavProps) {
           <GearIcon />
         </button>
       </div>
+      {pendingLoad && (
+        <ConfirmDialog
+          message={`Load "${pendingLoad.fileName}"? This replaces the current project.`}
+          confirmLabel="Yes, load it"
+          onConfirm={() => void confirmLoadProject()}
+          onCancel={() => setPendingLoad(null)}
+        />
+      )}
     </nav>
   )
 }

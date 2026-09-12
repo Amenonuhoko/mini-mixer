@@ -4,6 +4,7 @@ import { useAppState } from '../state/AppStateContext'
 import { useNavigation } from '../state/NavigationContext'
 import { getLibrarySamples } from '../state/librarySamples'
 import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
+import { ConfirmDialog } from './ConfirmDialog'
 import { PadAssignPrompt } from './PadAssignPrompt'
 import { StaticWaveform } from './Waveform'
 
@@ -201,35 +202,24 @@ export function Library() {
                         Trace
                       </button>
                     )}
-                    {isDeleting ? (
-                      <span className="confirm-overwrite confirm-inline">
-                        <button
-                          type="button"
-                          className="btn btn-danger"
-                          onClick={() => {
-                            dispatch({ type: 'REMOVE_SAMPLE', sampleId: sample.id })
-                            setDeletingSampleId(null)
-                          }}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() => setDeletingSampleId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-icon-only"
-                        onClick={() => setDeletingSampleId(sample.id)}
-                        aria-label={`Delete ${sample.label}`}
-                      >
-                        🗑
-                      </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-icon-only"
+                      onClick={() => setDeletingSampleId(sample.id)}
+                      aria-label={`Delete ${sample.label}`}
+                    >
+                      🗑
+                    </button>
+                    {isDeleting && (
+                      <ConfirmDialog
+                        message={`Delete "${sample.label}"? This can't be undone.`}
+                        confirmLabel="Delete"
+                        onConfirm={() => {
+                          dispatch({ type: 'REMOVE_SAMPLE', sampleId: sample.id })
+                          setDeletingSampleId(null)
+                        }}
+                        onCancel={() => setDeletingSampleId(null)}
+                      />
                     )}
                   </div>
                 </div>

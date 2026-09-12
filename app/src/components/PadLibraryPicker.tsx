@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { getLibrarySamples } from '../state/librarySamples'
+import { ConfirmDialog } from './ConfirmDialog'
 import { Overlay } from './Overlay'
 import { StaticWaveform } from './Waveform'
 
@@ -63,15 +64,12 @@ export function PadLibraryPicker({ padId, onClose }: PadLibraryPickerProps) {
         </ul>
       )}
       {confirmSampleId && (
-        <div className="confirm-overwrite">
-          <span>Replace this pad's current sound?</span>
-          <button type="button" className="btn btn-danger" onClick={() => assign(confirmSampleId)}>
-            Replace
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={() => setConfirmSampleId(null)}>
-            Cancel
-          </button>
-        </div>
+        <ConfirmDialog
+          message="Replace this pad's current sound?"
+          confirmLabel="Replace"
+          onConfirm={() => assign(confirmSampleId)}
+          onCancel={() => setConfirmSampleId(null)}
+        />
       )}
       <button type="button" className="btn btn-secondary overlay-close" onClick={onClose}>
         Cancel

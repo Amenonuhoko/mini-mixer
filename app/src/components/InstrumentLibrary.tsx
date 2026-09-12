@@ -10,6 +10,7 @@ import { useAppState } from '../state/AppStateContext'
 import { createId } from '../state/defaults'
 import { buildKeySamples } from '../utils/buildInstrumentSamples'
 import type { Instrument, Sample } from '../state/types'
+import { ConfirmDialog } from './ConfirmDialog'
 
 /**
  * Instruments live in the Library, above the raw sample list — a place to
@@ -115,26 +116,15 @@ export function InstrumentLibrary() {
                 </button>
               </div>
               {confirmDeleteId === instrument.id && (
-                <div className="confirm-overwrite">
-                  <span>Delete "{instrument.name}"? This removes its generated samples too.</span>
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={() => {
-                      dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
-                      setConfirmDeleteId(null)
-                    }}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setConfirmDeleteId(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <ConfirmDialog
+                  message={`Delete "${instrument.name}"? This removes its generated samples too.`}
+                  confirmLabel="Delete"
+                  onConfirm={() => {
+                    dispatch({ type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
+                    setConfirmDeleteId(null)
+                  }}
+                  onCancel={() => setConfirmDeleteId(null)}
+                />
               )}
             </li>
           ))}

@@ -8,6 +8,8 @@ import { contrastingTextColor } from '../utils/color'
 import { computePeaks } from '../utils/waveform'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Pad, Sample, SequenceTrace, Transport } from '../state/types'
+import { ConfirmDialog } from './ConfirmDialog'
+import { LoopPresetMenuButton } from './LoopPresetMenuButton'
 import { PadLibraryPicker } from './PadLibraryPicker'
 import type { PendingRecording } from './RecordingReview'
 
@@ -93,7 +95,10 @@ export function Sequencer({ onBounced }: SequencerProps) {
 
   return (
     <section className={pattern.stepCount <= 16 ? 'panel sequencer sequencer-fits-desktop' : 'panel sequencer'} aria-label="sequencer">
-      <h2>Sequencer — {pattern.name}</h2>
+      <div className="sequencer-header">
+        <h2>Sequencer — {pattern.name}</h2>
+        <LoopPresetMenuButton />
+      </div>
       <p className="muted sequencer-hint">Swipe sideways for all 16 steps on narrow screens.</p>
       <div className="step-length-controls step-length-controls-left" aria-label="Pattern length">
         <button
@@ -169,7 +174,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
             Clear trace
           </button>
         )}
-        <div className="sequencer-clear-control">
         <button
           type="button"
           className="btn btn-ghost-danger sequencer-clear"
@@ -179,25 +183,17 @@ export function Sequencer({ onBounced }: SequencerProps) {
         >
           Clear Sequence
         </button>
-          {confirmClear && (
-            <div className="confirm-overwrite">
-              <span>Clear every step in this pattern? This can't be undone.</span>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => {
-                  dispatch({ type: 'CLEAR_PATTERN', patternId: pattern.id })
-                  setConfirmClear(false)
-                }}
-              >
-                Clear
-              </button>
-              <button type="button" className="btn btn-secondary" onClick={() => setConfirmClear(false)}>
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
+        {confirmClear && (
+          <ConfirmDialog
+            message="Clear every step in this pattern? This can't be undone."
+            confirmLabel="Clear"
+            onConfirm={() => {
+              dispatch({ type: 'CLEAR_PATTERN', patternId: pattern.id })
+              setConfirmClear(false)
+            }}
+            onCancel={() => setConfirmClear(false)}
+          />
+        )}
         </div>
         <div className="sequencer-grid">
           <div className="sequencer-row sequencer-header-row">
