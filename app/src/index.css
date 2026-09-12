@@ -2251,14 +2251,21 @@ input[type='range']::-moz-range-thumb {
   }
 }
 
-/* Compact anchored whole-grid effect controls. */
+/* Compact whole-grid effect controls — portaled to document.body (see
+   PadEffectsMenuButton's own doc comment for why), so its position is always
+   driven by JS (computeAnchoredPosition) rather than CSS anchoring: fixed,
+   with top/left supplied inline once measured against either the header
+   button (wide desktop layout) or the last-played pad (mobile — see
+   `followPadId`, which is what makes it "follow" as you move around the
+   grid). Capped height/scroll guards against landing near a screen edge
+   with too little room to show the whole panel. */
 .fx-popover-anchor { position: relative; }
 .fx-floating-panel {
-  position: absolute;
+  position: fixed;
   z-index: 20;
-  top: calc(100% + 8px);
-  left: 0;
   width: min(300px, calc(100vw - 48px));
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -2266,6 +2273,18 @@ input[type='range']::-moz-range-thumb {
   box-shadow: 0 12px 28px rgba(0,0,0,.22);
 }
 .fx-floating-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; font-size:.78rem; font-weight:700; }
+.fx-floating-close {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1;
+  padding: 0;
+}
 .fx-floating-heading-text { display:flex; align-items:baseline; gap:6px; min-width:0; }
 .fx-floating-heading .effects-switch { flex-shrink:0; }
 .fx-floating-heading .effects-switch-label { font-size:.72rem; }

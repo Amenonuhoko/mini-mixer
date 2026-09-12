@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   EFFECT_IDS,
   EFFECT_MAX,
@@ -10,8 +11,46 @@ import {
 } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import { useIsWideScreen } from '../hooks/useIsWideScreen'
 import type { EffectId } from '../state/types'
 import { EffectsSwitch } from './EffectsSwitch'
+
+const FLOAT_MARGIN = 8
+
+interface FloatingPosition {
+  top: number
+  left: number
+}
+
+/**
+ * Where to place the panel next to an anchor element (the last-played pad on
+ * mobile, or the toggle button itself on a wide desktop layout), clamped
+ * fully inside the viewport. Prefers sitting below the anchor and only flips
+ * above when there isn't room — the same "flip if clipped" logic a tooltip/
+ * popover needs. Centers on the anchor when following a pad (so it doesn't
+ * read as lopsided next to a small square tile); left-aligns to the anchor
+ * when it's the header button (matching how the popover always used to hang
+ * off that button's left edge before it needed real position math).
+ */
+function computeAnchoredPosition(
+  anchorRect: DOMRect,
+  panelSize: { width: number; height: number },
+  align: 'center' | 'left',
+): FloatingPosition {
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const fitsBelow = anchorRect.bottom + FLOAT_MARGIN + panelSize.height <= viewportHeight
+  const top = fitsBelow
+    ? anchorRect.bottom + FLOAT_MARGIN
+    : Math.max(FLOAT_MARGIN, anchorRect.top - FLOAT_MARGIN - panelSize.height)
+  const idealLeft =
+    align === 'center' ? anchorRect.left + anchorRect.width / 2 - panelSize.width / 2 : anchorRect.left
+  const left = Math.min(
+    Math.max(FLOAT_MARGIN, idealLeft),
+    viewportWidth - panelSize.width - FLOAT_MARGIN,
+  )
+  return { top, left: Math.max(FLOAT_MARGIN, left) }
+}
 
 const CUSTOM_PRESETS_KEY = 'mini-mixer.custom-effect-presets'
 const CHARACTER_EFFECT_IDS = ['filter', 'grit', 'echo', 'reverb'] as const
@@ -39,23 +78,74 @@ function readCustomPresets(): EffectPreset[] {
   } catch { return [] }
 }
 
-/** Compact, anchored grid-wide effect controls. The preview bars make the
- * Filter/Grit/Echo/Reverb balance readable before choosing a preset. */
-export function PadEffectsMenuButton() {
+interface PadEffectsMenuButtonProps {
+  /** The most recently played/tapped pad's id, if any — on mobile, the open panel floats next to it instead of staying anchored under the header button (see the floating-position effect below). */
+  followPadId?: string | null
+}
+
+/** Compact grid-wide effect controls, portaled to `document.body` like every
+ * other popup in the app (see Overlay.tsx) — `.app-shell` is `position:
+ * fixed`, which per spec always opens its own stacking context, so a panel
+ * left as its DOM descendant would have its z-index trapped inside that
+ * context and could end up visually underneath a fixed sibling of
+ * `.app-shell` (the top nav, the FAB cluster) no matter how high its own
+ * z-index reads. On mobile, the open panel floats next to whichever pad was
+ * last played (see `followPadId`) instead of staying anchored under the
+ * header button — the pad grid can be much taller than the header, so an
+ * anchored popover can end up far from where you're actually playing. On a
+ * wide desktop layout there's no such reachability problem, so it stays
+ * anchored to the button there, just positioned by the same math instead of
+ * plain CSS (necessary once portaling took away the CSS-relative anchor).
+ * The preview bars make the Filter/Grit/Echo/Reverb balance readable before
+ * choosing a preset. */
+export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButtonProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
+  const isWide = useIsWideScreen()
   const [open, setOpen] = useState(false)
   const [customPresets, setCustomPresets] = useState<EffectPreset[]>(readCustomPresets)
+  const [position, setPosition] = useState<FloatingPosition | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
   const allPresets = [...EFFECT_PRESETS, ...customPresets]
   const anyBypassed = visiblePads.some((pad) => pad.effectsBypassed)
   const anyCustomized = visiblePads.some((pad) =>
     pad.effects.some((effect) => effect.value !== NEUTRAL_EFFECT_VALUE),
   )
+  const floating = open && !isWide && followPadId !== null
 
   useEffect(() => {
     localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(customPresets))
   }, [customPresets])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const reposition = () => {
+      const panel = panelRef.current
+      const anchorEl = floating && followPadId
+        ? document.querySelector(`[data-pad-id="${CSS.escape(followPadId)}"]`)
+        : buttonRef.current
+      if (!panel || !anchorEl) return
+      setPosition(
+        computeAnchoredPosition(
+          anchorEl.getBoundingClientRect(),
+          { width: panel.offsetWidth, height: panel.offsetHeight },
+          floating ? 'center' : 'left',
+        ),
+      )
+    }
+    reposition()
+    window.addEventListener('resize', reposition)
+    // 'scroll' doesn't bubble, but a capturing listener still sees it fire on
+    // any scrollable ancestor (the pad grid lives inside .app-shell's own
+    // scroll container, not the document) — see project.md's Scroll architecture.
+    window.addEventListener('scroll', reposition, true)
+    return () => {
+      window.removeEventListener('resize', reposition)
+      window.removeEventListener('scroll', reposition, true)
+    }
+  }, [open, floating, followPadId])
 
   const applyPreset = (preset: EffectPreset) => {
     dispatch({
@@ -122,9 +212,89 @@ export function PadEffectsMenuButton() {
     setOpen(false)
   }
 
+  const panel = open && (
+    <div
+      ref={panelRef}
+      className="fx-floating-panel"
+      style={position ? { top: position.top, left: position.left } : { visibility: 'hidden' }}
+      role="dialog"
+      aria-label="Quick pad effects"
+    >
+      <div className="fx-floating-heading">
+        <div className="fx-floating-heading-text">
+          <span>Pad effects</span>
+          <span className="muted">{visiblePads.length} pads</span>
+        </div>
+        <EffectsSwitch bypassed={anyBypassed} onToggle={toggleBypassAll} />
+        {floating && (
+          // Following the last-played pad can land the panel right over its
+          // own toggle button (a pad near the header, or a tall panel
+          // flipped upward) — a guaranteed close affordance inside the panel
+          // itself means that never traps you unable to close it.
+          <button
+            type="button"
+            className="fx-floating-close"
+            onClick={() => setOpen(false)}
+            aria-label="Close pad effects"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      <div className="fx-quick-presets">
+        {allPresets.map((preset) => (
+          <button
+            key={preset.name}
+            type="button"
+            className="fx-preset-button"
+            onClick={() => applyPreset(preset)}
+          >
+            <EffectPreview preset={preset} />
+            <span>{preset.name}</span>
+          </button>
+        ))}
+      </div>
+      <div className="fx-custom-dials">
+        {CHARACTER_EFFECT_IDS.map((effectId) => {
+          const value = currentCharacterValue(effectId)
+          return (
+            <div className="dial-row fx-custom-dial-row" key={effectId}>
+              <div className="dial-label-row">
+                <label htmlFor={`fx-dial-${effectId}`} className="dial-label-text">
+                  {CHARACTER_EFFECT_LABELS[effectId]}
+                </label>
+                <span className="dial-value">{formatDialValue(value)}</span>
+              </div>
+              <input
+                id={`fx-dial-${effectId}`}
+                type="range"
+                className="dial-slider"
+                min={EFFECT_MIN}
+                max={EFFECT_MAX}
+                step={EFFECT_STEP}
+                value={value}
+                disabled={visiblePads.length === 0}
+                onChange={(event) => handleDialChange(effectId, Number(event.target.value))}
+              />
+            </div>
+          )
+        })}
+      </div>
+      <div className="fx-floating-actions">
+        <button type="button" className="btn btn-secondary" onClick={saveCurrentPreset} disabled={visiblePads.length === 0}>
+          Save preset
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={resetAll}>
+          Reset
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="fx-popover-anchor">
       <button
+        ref={buttonRef}
         type="button"
         className={anyBypassed || anyCustomized ? 'fx-menu-btn on' : 'fx-menu-btn'}
         onClick={() => setOpen((value) => !value)}
@@ -134,64 +304,7 @@ export function PadEffectsMenuButton() {
       >
         <FxIcon />
       </button>
-      {open && (
-        <div className="fx-floating-panel" role="dialog" aria-label="Quick pad effects">
-          <div className="fx-floating-heading">
-            <div className="fx-floating-heading-text">
-              <span>Pad effects</span>
-              <span className="muted">{visiblePads.length} pads</span>
-            </div>
-            <EffectsSwitch bypassed={anyBypassed} onToggle={toggleBypassAll} />
-          </div>
-          <div className="fx-quick-presets">
-            {allPresets.map((preset) => (
-              <button
-                key={preset.name}
-                type="button"
-                className="fx-preset-button"
-                onClick={() => applyPreset(preset)}
-              >
-                <EffectPreview preset={preset} />
-                <span>{preset.name}</span>
-              </button>
-            ))}
-          </div>
-          <div className="fx-custom-dials">
-            {CHARACTER_EFFECT_IDS.map((effectId) => {
-              const value = currentCharacterValue(effectId)
-              return (
-                <div className="dial-row fx-custom-dial-row" key={effectId}>
-                  <div className="dial-label-row">
-                    <label htmlFor={`fx-dial-${effectId}`} className="dial-label-text">
-                      {CHARACTER_EFFECT_LABELS[effectId]}
-                    </label>
-                    <span className="dial-value">{formatDialValue(value)}</span>
-                  </div>
-                  <input
-                    id={`fx-dial-${effectId}`}
-                    type="range"
-                    className="dial-slider"
-                    min={EFFECT_MIN}
-                    max={EFFECT_MAX}
-                    step={EFFECT_STEP}
-                    value={value}
-                    disabled={visiblePads.length === 0}
-                    onChange={(event) => handleDialChange(effectId, Number(event.target.value))}
-                  />
-                </div>
-              )
-            })}
-          </div>
-          <div className="fx-floating-actions">
-            <button type="button" className="btn btn-secondary" onClick={saveCurrentPreset} disabled={visiblePads.length === 0}>
-              Save preset
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={resetAll}>
-              Reset
-            </button>
-          </div>
-        </div>
-      )}
+      {panel && createPortal(panel, document.body)}
     </div>
   )
 }

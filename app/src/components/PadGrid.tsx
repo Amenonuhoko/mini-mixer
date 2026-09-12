@@ -104,7 +104,7 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
         <InstrumentModeButton />
         <LoopModeSwitch />
         <MixerModeButton />
-        <PadEffectsMenuButton />
+        <PadEffectsMenuButton followPadId={selectedPadId} />
       </div>
       <div
         className={[
@@ -306,6 +306,7 @@ function PadButton({
       ]
         .filter(Boolean)
         .join(' ')}
+      data-pad-id={pad.id}
       style={{
         borderColor: pad.color,
         // Empty pads keep a faint tint of their own color instead of a fully
@@ -395,6 +396,7 @@ function MixerPadFader({ pad, index, engine, instrumentKeyInfo }: MixerPadFaderP
     <button
       type="button"
       className={looping ? 'pad mixer-fader looping' : 'pad mixer-fader'}
+      data-pad-id={pad.id}
       style={{ borderColor: pad.color }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
