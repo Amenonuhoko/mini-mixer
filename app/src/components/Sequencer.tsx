@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
-import { MAX_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
+import { MAX_PAD_COUNT, MIN_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { contrastingTextColor } from '../utils/color'
@@ -11,6 +11,7 @@ import type { Pad, Sample, SequenceTrace, Transport } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { LoopPresetMenuButton } from './LoopPresetMenuButton'
 import { PadLibraryPicker } from './PadLibraryPicker'
+import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
 
 const GROUP_SIZE = 4
@@ -46,6 +47,11 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [sequencerGateMode, setSequencerGateMode] = useState(false)
+  const [previewOnClick, setPreviewOnClick] = useState(true)
+  const [removingPadId, setRemovingPadId] = useState<string | null>(null)
+  const [loadPickerOpen, setLoadPickerOpen] = useState(false)
+  const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
+  const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
 
   const patternHasSteps = pattern
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
@@ -60,10 +66,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
       const sequenceTrace: SequenceTrace = {
         stepCount: pattern.stepCount,
         rows: visiblePads.map((pad) =>
-          Array.from(
-            { length: pattern.stepCount },
-            (_, stepIndex) => (pattern.steps[pad.id]?.[stepIndex] ?? null) !== null,
-          ),
+          Array.from({ length: pattern.stepCount }, (_, stepIndex) => pattern.steps[pad.id]?.[stepIndex] ?? null),
         ),
       }
       const recording = {
@@ -132,6 +135,15 @@ export function Sequencer({ onBounced }: SequencerProps) {
         >
           {sequencerGateMode ? 'Gate on' : 'Gate'}
         </button>
+        <button
+          type="button"
+          className={previewOnClick ? 'btn btn-secondary sequencer-preview-toggle' : 'btn btn-secondary sequencer-preview-toggle off'}
+          onClick={() => setPreviewOnClick((enabled) => !enabled)}
+          aria-pressed={previewOnClick}
+          title={previewOnClick ? 'Filling a step plays it once — click to stop previewing on fill' : 'Preview off — filling a step stays silent'}
+        >
+          {previewOnClick ? 'Preview on' : 'Preview off'}
+        </button>
       </div>
         <div className="sequencer-scroll" onWheel={handleTimelineWheel}>
       <div className="sequencer-floating-actions">
@@ -143,6 +155,14 @@ export function Sequencer({ onBounced }: SequencerProps) {
           title={patternHasSteps ? 'Save this sequence, then choose an existing or new pad' : 'Program a step first'}
         >
           {bouncing ? 'Saving…' : 'Save sequence'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary sequencer-load"
+          onClick={() => setLoadPickerOpen(true)}
+          title="Load a previously saved sequence into this pattern"
+        >
+          Load sequence
         </button>
         <button
           type="button"
@@ -197,7 +217,10 @@ export function Sequencer({ onBounced }: SequencerProps) {
         </div>
         <div className="sequencer-grid">
           <div className="sequencer-row sequencer-header-row">
-            <span className="sequencer-row-label sequencer-row-label-spacer" />
+            <div className="sequencer-row-fixed">
+              <span className="sequencer-row-remove sequencer-row-remove-spacer" />
+              <span className="sequencer-row-label sequencer-row-label-spacer" />
+            </div>
             {chunk(
               Array.from({ length: pattern.stepCount }, (_, i) => i),
               GROUP_SIZE,
@@ -220,15 +243,25 @@ export function Sequencer({ onBounced }: SequencerProps) {
               engine={engine}
               sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
               gateMode={sequencerGateMode}
+              previewOnClick={previewOnClick}
               onToggleStep={(stepIndex) =>
                 dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
               }
+              onFillStep={(stepIndex) => {
+                if (!pad.sampleId) return
+                dispatch({ type: 'SET_STEP_SAMPLE', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
+              }}
               onSwapSound={() => setSwappingPadId(pad.id)}
+              onRemove={() => setRemovingPadId(pad.id)}
+              removeDisabled={state.pads.length <= MIN_PAD_COUNT}
             />
           ))}
           {state.visiblePadCount < MAX_PAD_COUNT && (
             <div className="sequencer-add-row-slot">
-              <span className="sequencer-row-label sequencer-row-label-spacer" />
+              <div className="sequencer-row-fixed">
+                <span className="sequencer-row-remove sequencer-row-remove-spacer" />
+                <span className="sequencer-row-label sequencer-row-label-spacer" />
+              </div>
               <button
                 type="button"
                 className="sequencer-add-row"
@@ -243,6 +276,18 @@ export function Sequencer({ onBounced }: SequencerProps) {
       </div>
       {swappingPadId && (
         <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />
+      )}
+      {loadPickerOpen && <SequenceLoadPicker onClose={() => setLoadPickerOpen(false)} />}
+      {removingPad && (
+        <ConfirmDialog
+          message={`Remove Pad ${removingPadIndex + 1} from the sequencer? Its programmed steps go with it — its sample stays in the library, and every other row is unaffected.`}
+          confirmLabel="Remove"
+          onConfirm={() => {
+            dispatch({ type: 'REMOVE_PAD', padId: removingPad.id })
+            setRemovingPadId(null)
+          }}
+          onCancel={() => setRemovingPadId(null)}
+        />
       )}
     </section>
   )
@@ -259,8 +304,12 @@ interface SequencerRowProps {
   engine: AudioEngine
   sample: Sample | undefined
   gateMode: boolean
+  previewOnClick: boolean
   onToggleStep: (stepIndex: number) => void
+  onFillStep: (stepIndex: number) => void
   onSwapSound: () => void
+  onRemove: () => void
+  removeDisabled: boolean
 }
 
 function SequencerRow({
@@ -273,11 +322,22 @@ function SequencerRow({
   engine,
   sample,
   gateMode,
+  previewOnClick,
   onToggleStep,
+  onFillStep,
   onSwapSound,
+  onRemove,
+  removeDisabled,
 }: SequencerRowProps) {
   const looping = usePadLooping(engine, pad.id)
   const gateSources = useRef(new Map<number, AudioBufferSourceNode>())
+  const rowRef = useRef<HTMLDivElement>(null)
+  // A drag across several cells ("slide an instrument across multiple
+  // beats") vs. a plain tap on one — tracked per-gesture so a real drag can
+  // suppress the click event the browser still fires on the origin cell
+  // afterward, without a second, spurious toggle undoing what the drag just
+  // painted there.
+  const paintRef = useRef<{ originIndex: number; painted: boolean } | null>(null)
 
   const stopGateSource = (pointerId: number) => {
     const source = gateSources.current.get(pointerId)
@@ -297,26 +357,73 @@ function SequencerRow({
   }
 
   const fillAndAudition = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number) => {
+    if (paintRef.current?.painted) {
+      // The drag already set this exact cell's final state; the click the
+      // browser fires right after pointerup on the same element is not a
+      // second, independent tap and must not toggle it back.
+      paintRef.current = null
+      return
+    }
+    paintRef.current = null
     onToggleStep(stepIndex)
-    if (on || !sample || pad.muted) return
+    if (on || !sample || pad.muted || !previewOnClick) return
     // In Gate mode the note began on pointer-down and is stopped by release.
     // Keyboard activation has no pointer lifecycle, so give it a normal audition.
     if (!gateMode || event.detail === 0) engine.triggerPad(pad, sample.buffer)
   }
 
+  // Dragging fills a run of cells on, the same direction a plain tap-to-fill
+  // already goes — a drag never erases, so the result of painting across a
+  // mix of on/off cells is always predictable. Only active outside Gate
+  // mode, which already owns the pointer-hold gesture for live audition.
+  const startPaint = (event: React.PointerEvent<HTMLButtonElement>, stepIndex: number) => {
+    if (gateMode || !sample || pad.muted) return
+    paintRef.current = { originIndex: stepIndex, painted: false }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const continuePaint = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const paint = paintRef.current
+    if (!paint || gateMode) return
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+    const stepEl = target instanceof Element ? target.closest<HTMLElement>('[data-step-index]') : null
+    if (!stepEl || !rowRef.current?.contains(stepEl)) return
+    const stepIndex = Number(stepEl.dataset.stepIndex)
+    if (stepIndex === paint.originIndex && !paint.painted) return
+    paint.painted = true
+    onFillStep(stepIndex)
+  }
+
+  const endPaint = () => {
+    const paint = paintRef.current
+    if (paint?.painted) onFillStep(paint.originIndex)
+  }
+
   return (
-    <div className={looping ? 'sequencer-row row-looping' : 'sequencer-row'}>
-      <button
-        type="button"
-        className="sequencer-row-label"
-        style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
-        onClick={onSwapSound}
-        title="Load or replace this row’s pad sound"
-      >
-        <span>{padIndex + 1}</span>
-        <span className="sequencer-row-load">Load</span>
-        {looping && <span className="row-loop-badge" aria-hidden="true" />}
-      </button>
+    <div className={looping ? 'sequencer-row row-looping' : 'sequencer-row'} ref={rowRef}>
+      <div className="sequencer-row-fixed">
+        <button
+          type="button"
+          className="sequencer-row-remove"
+          onClick={onRemove}
+          disabled={removeDisabled}
+          aria-label={`Remove Pad ${padIndex + 1} from the sequencer`}
+          title={removeDisabled ? 'At least one pad must remain' : 'Remove this row from the sequencer'}
+        >
+          ✕
+        </button>
+        <button
+          type="button"
+          className="sequencer-row-label"
+          style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
+          onClick={onSwapSound}
+          title="Load or replace this row’s pad sound"
+        >
+          <span>{padIndex + 1}</span>
+          <span className="sequencer-row-load">Load</span>
+          {looping && <span className="row-loop-badge" aria-hidden="true" />}
+        </button>
+      </div>
       {chunk(steps, GROUP_SIZE).map((group, groupIndex) => (
         <div className="step-group" key={groupIndex}>
           {group.map((sampleId, i) => {
@@ -330,6 +437,7 @@ function SequencerRow({
               <button
                 key={stepIndex}
                 type="button"
+                data-step-index={stepIndex}
                 className={[
                   'step',
                   on ? 'on' : '',
@@ -339,9 +447,19 @@ function SequencerRow({
                   .filter(Boolean)
                   .join(' ')}
                 style={on ? { background: pad.color } : traced ? { borderColor: pad.color } : undefined}
-                onPointerDown={startGate}
-                onPointerUp={(event) => stopGateSource(event.pointerId)}
-                onPointerCancel={(event) => stopGateSource(event.pointerId)}
+                onPointerDown={(event) => {
+                  startGate(event)
+                  startPaint(event, stepIndex)
+                }}
+                onPointerMove={continuePaint}
+                onPointerUp={(event) => {
+                  stopGateSource(event.pointerId)
+                  endPaint()
+                }}
+                onPointerCancel={(event) => {
+                  stopGateSource(event.pointerId)
+                  endPaint()
+                }}
                 onClick={(event) => fillAndAudition(event, on, stepIndex)}
                 aria-label={sampleLabel ? `step ${stepIndex + 1} for pad ${padIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for pad ${padIndex + 1}: ${traceLabel}` : `step ${stepIndex + 1} for pad ${padIndex + 1}`}
                 title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace: ${traceLabel}` : `Step ${stepIndex + 1}`}

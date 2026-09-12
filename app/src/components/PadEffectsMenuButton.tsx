@@ -1,9 +1,31 @@
 import { useEffect, useState } from 'react'
-import { EFFECT_IDS, EFFECT_PRESETS, NEUTRAL_EFFECT_VALUE, type EffectPreset } from '../state/constants'
+import {
+  EFFECT_IDS,
+  EFFECT_MAX,
+  EFFECT_MIN,
+  EFFECT_PRESETS,
+  EFFECT_STEP,
+  NEUTRAL_EFFECT_VALUE,
+  type EffectPreset,
+} from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import type { EffectId } from '../state/types'
+import { EffectsSwitch } from './EffectsSwitch'
 
 const CUSTOM_PRESETS_KEY = 'mini-mixer.custom-effect-presets'
+const CHARACTER_EFFECT_IDS = ['filter', 'grit', 'echo', 'reverb'] as const
+const CHARACTER_EFFECT_LABELS: Record<(typeof CHARACTER_EFFECT_IDS)[number], string> = {
+  filter: 'Filter',
+  grit: 'Grit',
+  echo: 'Echo',
+  reverb: 'Reverb',
+}
+
+function formatDialValue(value: number): string {
+  if (value === 0) return '0'
+  return value > 0 ? `+${value}` : String(value)
+}
 
 function readCustomPresets(): EffectPreset[] {
   try {
@@ -64,6 +86,21 @@ export function PadEffectsMenuButton() {
     }])
   }
 
+  // The first visible pad stands in for "the grid's current value" — same
+  // representative-pad approach saveCurrentPreset already uses. All visible
+  // pads always carry the same character-dial values here (every write path
+  // — presets, this live dial, an applied instrument's own remembered combo
+  // — sets them identically across the grid), so any pad would do.
+  const currentCharacterValue = (effectId: (typeof CHARACTER_EFFECT_IDS)[number]): number =>
+    visiblePads[0]?.effects.find((effect) => effect.id === effectId)?.value ?? 0
+
+  const handleDialChange = (effectId: EffectId, value: number) => {
+    dispatch({ type: 'SET_ALL_PADS_EFFECT', effectId, value })
+    for (const pad of visiblePads) {
+      if (engine.isPadLooping(pad.id)) engine.updateLoopingPadEffect(pad.id, effectId, value)
+    }
+  }
+
   const toggleBypassAll = () => {
     const bypassed = !anyBypassed
     dispatch({ type: 'SET_ALL_PADS_EFFECTS_BYPASSED', bypassed })
@@ -100,8 +137,11 @@ export function PadEffectsMenuButton() {
       {open && (
         <div className="fx-floating-panel" role="dialog" aria-label="Quick pad effects">
           <div className="fx-floating-heading">
-            <span>Pad effects</span>
-            <span className="muted">{visiblePads.length} pads</span>
+            <div className="fx-floating-heading-text">
+              <span>Pad effects</span>
+              <span className="muted">{visiblePads.length} pads</span>
+            </div>
+            <EffectsSwitch bypassed={anyBypassed} onToggle={toggleBypassAll} />
           </div>
           <div className="fx-quick-presets">
             {allPresets.map((preset) => (
@@ -116,12 +156,35 @@ export function PadEffectsMenuButton() {
               </button>
             ))}
           </div>
+          <div className="fx-custom-dials">
+            {CHARACTER_EFFECT_IDS.map((effectId) => {
+              const value = currentCharacterValue(effectId)
+              return (
+                <div className="dial-row fx-custom-dial-row" key={effectId}>
+                  <div className="dial-label-row">
+                    <label htmlFor={`fx-dial-${effectId}`} className="dial-label-text">
+                      {CHARACTER_EFFECT_LABELS[effectId]}
+                    </label>
+                    <span className="dial-value">{formatDialValue(value)}</span>
+                  </div>
+                  <input
+                    id={`fx-dial-${effectId}`}
+                    type="range"
+                    className="dial-slider"
+                    min={EFFECT_MIN}
+                    max={EFFECT_MAX}
+                    step={EFFECT_STEP}
+                    value={value}
+                    disabled={visiblePads.length === 0}
+                    onChange={(event) => handleDialChange(effectId, Number(event.target.value))}
+                  />
+                </div>
+              )
+            })}
+          </div>
           <div className="fx-floating-actions">
             <button type="button" className="btn btn-secondary" onClick={saveCurrentPreset} disabled={visiblePads.length === 0}>
               Save preset
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={toggleBypassAll}>
-              {anyBypassed ? 'Effects on' : 'Effects off'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={resetAll}>
               Reset

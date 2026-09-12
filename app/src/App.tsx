@@ -13,6 +13,7 @@ import { Sequencer } from './components/Sequencer'
 import { SettingsOverlay } from './components/SettingsOverlay'
 import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
+import { useIsLandscapeLayout } from './hooks/useIsLandscapeLayout'
 import { useIsWideScreen } from './hooks/useIsWideScreen'
 import { AppStateProvider, useAppState } from './state/AppStateContext'
 import { EngineProvider, useEngine } from './state/EngineContext'
@@ -31,6 +32,16 @@ function EngineBridge({ children }: { children: ReactNode }) {
  * Library, which stays a full-width page even when wide since it's more of
  * an occasional-visit browsing screen. The nav tabs still work as before;
  * on a wide screen, switching to either "Pads" or "Sequencer" shows both.
+ *
+ * A landscape phone or an ultra-wide/short desktop window (see
+ * useIsLandscapeLayout) gets a different combined arrangement instead of
+ * the side-by-side split: Sequencer on top, Pads below, both stretched to
+ * the window's full width — a side-by-side column pair would otherwise
+ * squeeze both down to an unhelpful sliver on a very wide-but-short window,
+ * where the useful direction to spend the extra space is width within each
+ * section, not another column. Landscape wins over the plain wide split
+ * whenever both conditions happen to be true (an ultra-wide desktop window
+ * is wide by either measure).
  */
 interface CurrentPageProps {
   onBounced: (recording: PendingRecording) => void
@@ -39,14 +50,25 @@ interface CurrentPageProps {
 function CurrentPage({ onBounced }: CurrentPageProps) {
   const { page } = useNavigation()
   const isWide = useIsWideScreen()
+  const isLandscape = useIsLandscapeLayout()
 
-  if (isWide && (page === 'pads' || page === 'sequencer')) {
-    return (
-      <div className="wide-split">
-        <PadsPage />
-        <Sequencer onBounced={onBounced} />
-      </div>
-    )
+  if (page === 'pads' || page === 'sequencer') {
+    if (isLandscape) {
+      return (
+        <div className="landscape-stack">
+          <Sequencer onBounced={onBounced} />
+          <PadsPage />
+        </div>
+      )
+    }
+    if (isWide) {
+      return (
+        <div className="wide-split">
+          <PadsPage />
+          <Sequencer onBounced={onBounced} />
+        </div>
+      )
+    }
   }
 
   switch (page) {
@@ -82,21 +104,28 @@ function Shell() {
   }, [dispatch, state.transport.autoInstrumentId, state.transport.padInstrumentModeEnabled])
 
   const isWide = useIsWideScreen()
+  const isLandscape = useIsLandscapeLayout()
+  // Either combined-view arrangement (side-by-side wide split, or the
+  // landscape/ultra-wide stack) shows Pads and Sequencer together, so both
+  // share the same "already showing both, no page to swipe to" treatment
+  // below — only the mutually-exclusive layout choice itself (see
+  // CurrentPage) actually distinguishes them.
+  const combinedView = isWide || isLandscape
   // Play/pause, BPM, and loop-mode are all specifically about sequencer pattern
   // playback — meaningless while just tapping/looping pads by hand — so the play
   // bar is a real transport bar that only shows when the Sequencer is actually
-  // visible, not a global bit of chrome. On a wide screen the Sequencer is also
-  // visible while the "Pads" tab is selected (see CurrentPage's side-by-side
-  // layout), so the bar needs to show there too. It keeps playing in the
-  // background if you navigate away on a narrow screen; pausing just requires
-  // coming back to Sequencer. --playbar-height drives both the app-shell's
-  // reserved bottom padding and the FAB cluster's vertical offset, so collapsing
-  // it to 0 here (rather than only hiding <PlayBar/>) makes both close the gap
-  // automatically instead of leaving dead space behind.
-  const showPlayBar = isWide ? page === 'pads' || page === 'sequencer' : page === 'sequencer'
+  // visible, not a global bit of chrome. In a combined view the Sequencer is also
+  // visible while the "Pads" tab is selected (see CurrentPage), so the bar needs
+  // to show there too. It keeps playing in the background if you navigate away
+  // on a narrow screen; pausing just requires coming back to Sequencer.
+  // --playbar-height drives both the app-shell's reserved bottom padding and the
+  // FAB cluster's vertical offset, so collapsing it to 0 here (rather than only
+  // hiding <PlayBar/>) makes both close the gap automatically instead of leaving
+  // dead space behind.
+  const showPlayBar = combinedView ? page === 'pads' || page === 'sequencer' : page === 'sequencer'
 
   const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
-    if (isWide || (page !== 'pads' && page !== 'sequencer')) return
+    if (combinedView || (page !== 'pads' && page !== 'sequencer')) return
     // The pads, sequencer grid, and every control are performance/input
     // surfaces—not page-navigation handles. Their touches may bubble to this
     // shell, but they must never arm a page swipe.
@@ -116,7 +145,7 @@ function Shell() {
   const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
     const start = swipeStart.current
     swipeStart.current = null
-    if (!start || isWide || (page !== 'pads' && page !== 'sequencer') || event.touches.length !== 0) return
+    if (!start || combinedView || (page !== 'pads' && page !== 'sequencer') || event.touches.length !== 0) return
     const touch = Array.from(event.changedTouches).find((candidate) => candidate.identifier === start.identifier)
     if (!touch) return
     const horizontalDistance = touch.clientX - start.x
@@ -139,7 +168,13 @@ function Shell() {
     <div style={{ '--playbar-height': showPlayBar ? '76px' : '0px' } as React.CSSProperties}>
       <Nav onOpenSettings={() => setSettingsOpen(true)} />
       <main
-        className={page === 'library' ? 'app-shell library-shell' : 'app-shell'}
+        className={[
+          'app-shell',
+          page === 'library' ? 'library-shell' : '',
+          isLandscape && (page === 'pads' || page === 'sequencer') ? 'app-shell-landscape' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >

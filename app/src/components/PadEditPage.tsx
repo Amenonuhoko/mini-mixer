@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { usePadPlaying } from '../hooks/usePadPlaying'
 import { EFFECT_IDS, EFFECT_MAX, EFFECT_MIN, EFFECT_PRESETS, EFFECT_STEP } from '../state/constants'
@@ -8,6 +8,7 @@ import { useNavigation } from '../state/NavigationContext'
 import { contrastingTextColor } from '../utils/color'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { EffectId, Pad } from '../state/types'
+import { EffectsSwitch } from './EffectsSwitch'
 import { InfoTip } from './InfoTip'
 import { WaveformTrimEditor } from './WaveformTrimEditor'
 
@@ -70,6 +71,22 @@ export function PadEditPage() {
   useEffect(() => {
     if (!pad) goBackFromEdit()
   }, [pad, goBackFromEdit])
+
+  // Looping a pad here is for auditioning it while dialing things in, not a
+  // performance you meant to leave running — closing the editor (the X, the
+  // backdrop, or switching to a different pad's edit view) always stops it,
+  // regardless of which of those closed it. A ref keeps the cleanup reading
+  // the latest pad/looping state rather than whatever it was at mount.
+  const stopOnCloseRef = useRef({ engine, padId: editingPadId, looping })
+  useEffect(() => {
+    stopOnCloseRef.current = { engine, padId: editingPadId, looping }
+  }, [engine, editingPadId, looping])
+  useEffect(() => {
+    return () => {
+      const { engine: currentEngine, padId, looping: wasLooping } = stopOnCloseRef.current
+      if (wasLooping && padId) currentEngine.stopPad(padId)
+    }
+  }, [])
 
   const handleToggleLoop = () => {
     if (!pad?.sampleId || !sample) return
@@ -169,15 +186,7 @@ export function PadEditPage() {
 
       <div className="panel">
         <div className="effects-panel-header">
-          <span className="dial-label-text">Effects</span>
-          <button
-            type="button"
-            className={pad.effectsBypassed ? 'btn btn-secondary effects-bypass-toggle off' : 'btn btn-secondary effects-bypass-toggle'}
-            onClick={handleToggleEffects}
-            aria-pressed={!pad.effectsBypassed}
-          >
-            {pad.effectsBypassed ? 'Effects off' : 'Effects on'}
-          </button>
+          <EffectsSwitch bypassed={pad.effectsBypassed} onToggle={handleToggleEffects} />
         </div>
         <div className="dial-label-row">
           <span className="dial-label-text">Presets</span>

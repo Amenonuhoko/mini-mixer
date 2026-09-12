@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEngine } from '../state/EngineContext'
 import { useAppState } from '../state/AppStateContext'
-import { useNavigation } from '../state/NavigationContext'
 import { getLibrarySamples } from '../state/librarySamples'
 import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
 import { ConfirmDialog } from './ConfirmDialog'
+import { LoadSequenceButton } from './LoadSequenceButton'
 import { PadAssignPrompt } from './PadAssignPrompt'
 import { StaticWaveform } from './Waveform'
 
@@ -28,7 +28,6 @@ import { StaticWaveform } from './Waveform'
 export function Library() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const { goToSequencer } = useNavigation()
   const [assigningSampleId, setAssigningSampleId] = useState<string | null>(null)
   const [renamingSampleId, setRenamingSampleId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -184,24 +183,7 @@ export function Library() {
                     >
                       Assign…
                     </button>
-                    {sample.kind === 'sequence' && sample.sequenceTrace && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => {
-                          dispatch({
-                            type: 'LOAD_SEQUENCE_TRACE',
-                            patternId: state.activePatternId,
-                            trace: sample.sequenceTrace!,
-                            markerSampleId: sample.id,
-                          })
-                          goToSequencer()
-                        }}
-                        title="Open this bounced sequence as a visual trace"
-                      >
-                        Trace
-                      </button>
-                    )}
+                    {sample.kind === 'sequence' && sample.sequenceTrace && <LoadSequenceButton sample={sample} />}
                     <button
                       type="button"
                       className="btn btn-secondary btn-icon-only"

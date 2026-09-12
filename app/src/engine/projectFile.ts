@@ -188,11 +188,11 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
 }
 
 /**
- * isPlaying/currentStep/autoInstrumentId/autoInstrumentPadSnapshot are transient session state, not
- * project data — always reset. autoInstrumentId in particular: once a
- * project has been explicitly saved, any instrument it contains is project
- * data now, not something still owed InstrumentModeButton's silent
- * auto-delete-on-off (see Transport.autoInstrumentId).
+ * isPlaying/currentStep/autoInstrumentId/autoInstrumentPadSnapshot/currentInstrumentId
+ * are transient session state, not project data — always reset. autoInstrumentId
+ * in particular: once a project has been explicitly saved, any instrument it
+ * contains is project data now, not something still owed InstrumentModeButton's
+ * silent auto-delete-on-off (see Transport.autoInstrumentId).
  */
 export function buildTransport(meta: ProjectMeta['transport']): Transport {
   return {
@@ -207,6 +207,7 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
     currentStep: 0,
     autoInstrumentId: null,
     autoInstrumentPadSnapshot: null,
+    currentInstrumentId: null,
   }
 }
 

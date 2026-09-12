@@ -13,6 +13,7 @@ import {
   MIX_LEVEL_MIN,
 } from './constants'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
+import { resolveSequenceTraceCell } from '../utils/sequenceTraceLoad'
 import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, PadPlaybackMode, Pattern, Sample, SequenceTrace } from './types'
 
 export type Action =
@@ -44,8 +45,14 @@ export type Action =
       echo: number
       reverb: number
     }
+  | { type: 'SET_ALL_PADS_EFFECT'; effectId: EffectId; value: number }
   | { type: 'SET_ALL_PADS_EFFECTS_BYPASSED'; bypassed: boolean }
   | { type: 'RESET_ALL_PADS_EFFECTS' }
+  | {
+      type: 'SET_INSTRUMENT_EFFECTS_PRESET'
+      instrumentId: string
+      preset: { filter: number; grit: number; echo: number; reverb: number } | null
+    }
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
@@ -58,6 +65,7 @@ export type Action =
   | { type: 'CLEAR_PATTERN_TRACE'; patternId: string }
   | { type: 'LOAD_SEQUENCE_TRACE'; patternId: string; trace: SequenceTrace; markerSampleId: string }
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
+  | { type: 'REMOVE_PAD'; padId: string }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
@@ -86,6 +94,47 @@ function updatePad(
     ...state,
     pads: state.pads.map((pad) => (pad.id === padId ? update(pad) : pad)),
   }
+}
+
+/**
+ * Lays an instrument's saved character preset (see Instrument.effectsPreset)
+ * across one of its pads, or resets those same four dials to neutral if it
+ * never had one — applying an instrument always fully decides its pads'
+ * Filter/Grit/Echo/Reverb, so a previous instrument's dialed-in character
+ * can never leak onto a different instrument sharing the same pad slot.
+ * Pitch/Speed/Volume/Pan are left untouched, same scope APPLY_EFFECT_PRESET_TO_ALL_PADS uses.
+ */
+function withCharacterEffects(
+  pad: AppState['pads'][number],
+  preset: { filter: number; grit: number; echo: number; reverb: number } | null | undefined,
+): AppState['pads'][number] {
+  const values = preset ?? { filter: 0, grit: 0, echo: 0, reverb: 0 }
+  return {
+    ...pad,
+    effects: pad.effects.map((effect) =>
+      effect.id === 'filter' || effect.id === 'grit' || effect.id === 'echo' || effect.id === 'reverb'
+        ? { ...effect, value: values[effect.id] }
+        : effect,
+    ),
+  }
+}
+
+/**
+ * Keeps whichever instrument currently occupies the pads (Transport.
+ * currentInstrumentId) in sync with the whole-grid Filter/Grit/Echo/Reverb
+ * state as it changes, so switching away and back to that instrument later
+ * recalls this same combo (see Instrument.effectsPreset). A no-op unless an
+ * instrument is actually applied right now — manually dialing effects with
+ * no instrument selected has nothing to remember them for.
+ */
+function syncCurrentInstrumentEffectsPreset(
+  state: AppState,
+  preset: { filter: number; grit: number; echo: number; reverb: number } | null,
+): AppState['instruments'] {
+  const instrumentId = state.transport.currentInstrumentId
+  const instrument = instrumentId ? state.instruments[instrumentId] : undefined
+  if (!instrumentId || !instrument) return state.instruments
+  return { ...state.instruments, [instrumentId]: { ...instrument, effectsPreset: preset } }
 }
 
 function updatePattern(
@@ -252,10 +301,15 @@ export function reducer(state: AppState, action: Action): AppState {
           if (snapshot) return { ...pad, ...snapshot }
           return pad.sampleId && keyIds.has(pad.sampleId) ? { ...pad, sampleId: null } : pad
         }),
-        transport:
-          state.transport.autoInstrumentId === action.instrumentId
-            ? { ...state.transport, autoInstrumentId: null, autoInstrumentPadSnapshot: null }
-            : state.transport,
+        transport: {
+          ...state.transport,
+          ...(state.transport.autoInstrumentId === action.instrumentId
+            ? { autoInstrumentId: null, autoInstrumentPadSnapshot: null }
+            : null),
+          ...(state.transport.currentInstrumentId === action.instrumentId
+            ? { currentInstrumentId: null }
+            : null),
+        },
       }
     }
 
@@ -276,7 +330,8 @@ export function reducer(state: AppState, action: Action): AppState {
       const pads = [...state.pads, ...newPads].map((pad, index) => {
         if (index >= targetCount) return pad
         const keySampleId = instrument.keySampleIds[index]
-        return keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
+        const withKey = keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
+        return withCharacterEffects(withKey, instrument.effectsPreset)
       })
       return {
         ...state,
@@ -294,6 +349,7 @@ export function reducer(state: AppState, action: Action): AppState {
                   ),
                 },
               })),
+        transport: { ...state.transport, currentInstrumentId: instrument.id },
       }
     }
 
@@ -312,7 +368,8 @@ export function reducer(state: AppState, action: Action): AppState {
       const pads = [...state.pads, ...newPads].map((pad, index) => {
         if (index >= targetCount) return pad
         const keySampleId = instrument.keySampleIds[index]
-        return keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
+        const withKey = keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
+        return withCharacterEffects(withKey, instrument.effectsPreset)
       })
       const keySamplesById = Object.fromEntries(action.keySamples.map((s) => [s.id, s]))
       const patterns = state.patterns.map((pattern) => {
@@ -369,6 +426,7 @@ export function reducer(state: AppState, action: Action): AppState {
         pads,
         visiblePadCount: targetCount,
         patterns,
+        transport: { ...state.transport, currentInstrumentId: instrument.id },
       }
     }
 
@@ -421,7 +479,51 @@ export function reducer(state: AppState, action: Action): AppState {
             ),
           }
         }),
+        instruments: syncCurrentInstrumentEffectsPreset(state, {
+          filter: action.filter,
+          grit: action.grit,
+          echo: action.echo,
+          reverb: action.reverb,
+        }),
       }
+
+    case 'SET_ALL_PADS_EFFECT': {
+      const pads = state.pads.map((pad, index) => {
+        if (index >= state.visiblePadCount) return pad
+        return {
+          ...pad,
+          effects: pad.effects.map((effect) =>
+            effect.id === action.effectId
+              ? { ...effect, value: clamp(action.value, EFFECT_MIN, EFFECT_MAX) }
+              : effect,
+          ),
+        }
+      })
+      const representative = pads.find((_, index) => index < state.visiblePadCount)
+      const currentValue = (id: EffectId) => representative?.effects.find((effect) => effect.id === id)?.value ?? 0
+      return {
+        ...state,
+        pads,
+        instruments: syncCurrentInstrumentEffectsPreset(state, {
+          filter: currentValue('filter'),
+          grit: currentValue('grit'),
+          echo: currentValue('echo'),
+          reverb: currentValue('reverb'),
+        }),
+      }
+    }
+
+    case 'SET_INSTRUMENT_EFFECTS_PRESET': {
+      const instrument = state.instruments[action.instrumentId]
+      if (!instrument) return state
+      return {
+        ...state,
+        instruments: {
+          ...state.instruments,
+          [action.instrumentId]: { ...instrument, effectsPreset: action.preset },
+        },
+      }
+    }
 
     case 'SET_ALL_PADS_EFFECTS_BYPASSED':
       return {
@@ -437,6 +539,7 @@ export function reducer(state: AppState, action: Action): AppState {
         pads: state.pads.map((pad, index) =>
           index >= state.visiblePadCount ? pad : { ...pad, effects: createNeutralEffects() },
         ),
+        instruments: syncCurrentInstrumentEffectsPreset(state, null),
       }
 
     case 'SET_PAD_TRIM': {
@@ -565,25 +668,39 @@ export function reducer(state: AppState, action: Action): AppState {
               },
             }
           }
+          // A real load: every cell whose sample still exists becomes a
+          // live, playable step, replacing whatever the pattern held before
+          // (this is loading a saved sequence, not overlaying one). A cell
+          // whose sample has since been deleted can't play, so it falls
+          // back to a visual-only ghost marker instead of silently
+          // vanishing — see SequenceTrace.rows and resolveSequenceTraceCell.
           const stepCount = Math.min(MAX_STEP_COUNT, Math.max(pattern.stepCount, action.trace.stepCount))
+          const steps: Record<string, Array<string | null>> = {}
+          const traceSteps: Record<string, Array<string | null>> = {}
+          let hasMissingSample = false
+          for (const [rowIndex, pad] of pads.entries()) {
+            const stepsRow: Array<string | null> = []
+            const traceRow: Array<string | null> = []
+            for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
+              const sourceSampleId = action.trace.rows[rowIndex]?.[stepIndex] ?? null
+              const cell = resolveSequenceTraceCell(sourceSampleId, state.samples)
+              stepsRow.push(cell.sampleId)
+              if (cell.missing) {
+                hasMissingSample = true
+                traceRow.push(action.markerSampleId)
+              } else {
+                traceRow.push(null)
+              }
+            }
+            steps[pad.id] = stepsRow
+            traceSteps[pad.id] = traceRow
+          }
           return {
             ...pattern,
             stepCount,
-            steps: Object.fromEntries(
-              pads.map((pad) => [
-                pad.id,
-                Array.from({ length: stepCount }, (_, index) => pattern.steps[pad.id]?.[index] ?? null),
-              ]),
-            ),
-            traceSteps: Object.fromEntries(
-              pads.map((pad, rowIndex) => [
-                pad.id,
-                Array.from({ length: stepCount }, (_, stepIndex) =>
-                  action.trace.rows[rowIndex]?.[stepIndex] ? action.markerSampleId : null,
-                ),
-              ]),
-            ),
-            traceSource: 'reference',
+            steps,
+            traceSteps: hasMissingSample ? traceSteps : null,
+            traceSource: hasMissingSample ? 'reference' : null,
           }
         }),
       }
@@ -630,6 +747,43 @@ export function reducer(state: AppState, action: Action): AppState {
             ),
           },
         })),
+      }
+    }
+
+    case 'REMOVE_PAD': {
+      // A real deletion, not a display-only shrink like SET_VISIBLE_PAD_COUNT:
+      // the pad slot itself is spliced out and every later pad shifts up to
+      // fill the gap, so a specific mid-grid row can be dropped without
+      // touching the ones around it. Each pad's own color/identity travels
+      // with its own object regardless of position — only future index-based
+      // operations (the next instrument/drum-kit application) see the new
+      // order. Steps are keyed by pad id, not array position, so no other
+      // pad's row is affected; only the removed pad's own row goes with it.
+      if (state.pads.length <= MIN_PAD_COUNT) return state
+      const index = state.pads.findIndex((pad) => pad.id === action.padId)
+      if (index < 0) return state
+      const pads = state.pads.filter((pad) => pad.id !== action.padId)
+      const visiblePadCount =
+        index < state.visiblePadCount
+          ? state.visiblePadCount - 1
+          : Math.min(state.visiblePadCount, pads.length)
+      const patterns = state.patterns.map((pattern) => {
+        const { [action.padId]: _removedSteps, ...steps } = pattern.steps
+        let traceSteps = pattern.traceSteps
+        if (traceSteps && action.padId in traceSteps) {
+          const { [action.padId]: _removedTrace, ...rest } = traceSteps
+          traceSteps = rest
+        }
+        return { ...pattern, steps, traceSteps }
+      })
+      return {
+        ...state,
+        pads,
+        visiblePadCount,
+        patterns,
+        // The instrument-to-pad-count correspondence this tracks no longer
+        // holds exactly once a row's been hand-removed from underneath it.
+        transport: { ...state.transport, currentInstrumentId: null },
       }
     }
 

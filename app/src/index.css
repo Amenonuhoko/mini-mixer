@@ -677,6 +677,24 @@ h2 {
   color: var(--accent);
 }
 
+.sequence-load-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.sequence-load-picker-item .static-waveform {
+  flex-shrink: 0;
+}
+
+.sequence-load-picker-item span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .reorder-btn:disabled {
   opacity: 0.35;
 }
@@ -1510,6 +1528,21 @@ h2 {
   font-weight: 600;
 }
 
+.effects-panel-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.effects-switch {
+  padding: 0;
+}
+
+.effects-switch-label {
+  font-size: 0.9em;
+  font-weight: 700;
+}
+
 .dial-value {
   margin-left: auto;
   font-size: 0.9em;
@@ -1717,6 +1750,7 @@ input[type='range']::-moz-range-thumb {
 }
 
 .sequencer-bounce,
+.sequencer-load,
 .sequencer-trace,
 .sequencer-clear {
   flex: 0 0 auto;
@@ -1775,9 +1809,22 @@ input[type='range']::-moz-range-thumb {
   padding-bottom: 2px;
 }
 
-.sequencer-row-label {
+/* The X and the swatch move together as one sticky unit while the timeline
+   pans horizontally underneath — previously .sequencer-row-label alone was
+   sticky; now the wrapper is, so a second fixed column (the remove button)
+   can sit to its left without a separate sticky offset to keep in sync. */
+.sequencer-row-fixed {
   position: sticky;
   left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+.sequencer-row-label {
   width: 46px;
   height: 34px;
   border-radius: 50%;
@@ -1794,6 +1841,37 @@ input[type='range']::-moz-range-thumb {
 
 .sequencer-row-label-spacer {
   background: transparent;
+}
+
+/* Deliberately small and muted at rest (not red until hover) and set apart
+   from the swatch by a real gap, not touching it — a specific ask that this
+   destructive action not be easy to hit by accident reaching for the pad
+   swatch beside it. Still gated behind a confirm dialog on top of that. */
+.sequencer-row-remove {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--muted);
+  font-size: 0.6rem;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sequencer-row-remove:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.sequencer-row-remove:disabled {
+  opacity: 0.35;
+}
+
+.sequencer-row-remove-spacer {
+  background: transparent;
+  border-color: transparent;
 }
 
 .sequencer-row-load {
@@ -2146,6 +2224,33 @@ input[type='range']::-moz-range-thumb {
   .wide-split > * { min-width: 0; }
 }
 
+/* Landscape/ultra-wide layout — see useIsLandscapeLayout.ts / App.tsx's
+   CurrentPage. A wide-and-short window (a landscape phone, or an ultra-wide
+   desktop monitor) stacks Sequencer above Pads instead of the side-by-side
+   wide-split, both stretched to the window's full width — a column split
+   would otherwise squeeze each section into an unhelpfully narrow sliver at
+   this aspect ratio, where the extra space is better spent widening each
+   section than adding another column. Scoped to .app-shell-landscape (set
+   only while actually viewing Pads/Sequencer, see App.tsx) rather than the
+   bare aspect-ratio query, so an ultra-wide window doesn't also stretch the
+   unrelated Library page's card grid needlessly wide. */
+.landscape-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (min-aspect-ratio: 2/1) {
+  .app-shell-landscape {
+    width: calc(100% - 32px);
+    max-width: none;
+  }
+
+  .landscape-stack .pad-grid-cells {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  }
+}
+
 /* Compact anchored whole-grid effect controls. */
 .fx-popover-anchor { position: relative; }
 .fx-floating-panel {
@@ -2160,7 +2265,10 @@ input[type='range']::-moz-range-thumb {
   background: var(--panel-bg);
   box-shadow: 0 12px 28px rgba(0,0,0,.22);
 }
-.fx-floating-heading { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:.78rem; font-weight:700; }
+.fx-floating-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; font-size:.78rem; font-weight:700; }
+.fx-floating-heading-text { display:flex; align-items:baseline; gap:6px; min-width:0; }
+.fx-floating-heading .effects-switch { flex-shrink:0; }
+.fx-floating-heading .effects-switch-label { font-size:.72rem; }
 .fx-quick-presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .fx-preset-button { display:flex; align-items:center; gap:7px; min-height:38px; padding:5px 7px; border:1px solid var(--border); border-radius:7px; background:transparent; color:var(--text); font-size:.7rem; font-weight:700; }
 .effect-preview { display:flex; align-items:flex-end; gap:2px; width:26px; height:18px; }
@@ -2168,12 +2276,18 @@ input[type='range']::-moz-range-thumb {
 .fx-floating-actions { display:flex; gap:6px; margin-top:8px; }
 .fx-floating-actions .btn { flex:1; min-height:32px; padding:4px 7px; font-size:.7rem; }
 
+.fx-custom-dials { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+.fx-custom-dial-row { margin-bottom:8px; }
+.fx-custom-dial-row:last-child { margin-bottom:0; }
+.fx-custom-dial-row .dial-label-text { font-size:.75rem; }
+.fx-custom-dial-row .dial-value { font-size:.75rem; }
+
 .pad-playback-switch { display:flex; padding:3px; border:1px solid var(--border); border-radius:999px; background:var(--bg); color:var(--muted); font-size:.72rem; font-weight:700; }
 .pad-playback-switch span { padding:5px 9px; border-radius:999px; }
 .pad-playback-switch.gate span:first-child, .pad-playback-switch.oneshot span:last-child { background:var(--accent); color:#fff; }
 
 .sequencer-floating-actions { position:sticky; left:0; z-index:6; display:flex; justify-content:flex-start; gap:4px; width:max-content; margin:0 0 8px; padding:5px; border:1px solid var(--border); border-radius:999px; background:color-mix(in srgb, var(--panel-bg) 94%, transparent); box-shadow:0 4px 14px color-mix(in srgb, #000 12%, transparent); }
-.sequencer-floating-actions .sequencer-bounce, .sequencer-floating-actions .sequencer-trace, .sequencer-floating-actions .sequencer-clear, .sequencer-floating-actions .sequencer-gate-toggle { min-height:28px; padding:3px 7px; font-size:.68rem; }
+.sequencer-floating-actions .sequencer-bounce, .sequencer-floating-actions .sequencer-load, .sequencer-floating-actions .sequencer-trace, .sequencer-floating-actions .sequencer-clear, .sequencer-floating-actions .sequencer-gate-toggle { min-height:28px; padding:3px 7px; font-size:.68rem; }
 .sequencer-row-label { width:34px; height:34px; border-radius:7px; flex-direction:column; gap:0; }
 .sequencer-row-change { font-size:.58rem; line-height:1; opacity:.8; }
 
@@ -2194,16 +2308,21 @@ input[type='range']::-moz-range-thumb {
 }
 
 
-/* Gate is deliberately separate from the sequence action rail: it is a live
-   input mode, so it stays at the fixed left controls while the rail pans. */
+/* Gate and Preview are deliberately separate from the sequence action rail:
+   they are live input-behavior toggles, so they stay at the fixed left
+   controls while the rail pans. */
 .sequencer-gate-control {
   position: sticky;
   left: 0;
   z-index: 5;
+  display: flex;
+  gap: 6px;
   width: max-content;
   margin: 0 0 8px;
 }
-.sequencer-gate-control .sequencer-gate-toggle { min-height: 30px; padding: 4px 9px; font-size: .7rem; }
+.sequencer-gate-control .sequencer-gate-toggle,
+.sequencer-gate-control .sequencer-preview-toggle { min-height: 30px; padding: 4px 9px; font-size: .7rem; }
+.sequencer-preview-toggle.off { opacity: 0.6; }
 
 /* Loop preset menu — bundled one-bar loops offered from the Sequencer's
    header, see LoopPresetMenuButton.tsx. Compact by design: a preset's card

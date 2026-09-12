@@ -740,4 +740,63 @@ describe('reducer', () => {
     expect(loaded.transport.padPlaybackMode).toBe('gate')
   })
 
+  it('loading a saved sequence restores real, playable steps and replaces the pattern', () => {
+    const state = createInitialState(2)
+    const patternId = state.activePatternId
+    const [padA, padB] = state.pads
+    const kept = makeSample('kept')
+    let next = reducer(state, { type: 'ADD_SAMPLE', sample: kept })
+    // Give the active pattern some pre-existing content the load should replace.
+    next = reducer(next, {
+      type: 'TOGGLE_STEP',
+      patternId,
+      padId: padA!.id,
+      stepIndex: 3,
+      sampleId: 'stale',
+    })
+
+    const loaded = reducer(next, {
+      type: 'LOAD_SEQUENCE_TRACE',
+      patternId,
+      trace: {
+        stepCount: 4,
+        rows: [
+          [kept.id, null, 'deleted_sample', null],
+          [null, null, null, null],
+        ],
+      },
+      markerSampleId: 'bounce_1',
+    })
+
+    const pattern = loaded.patterns.find((p) => p.id === patternId)!
+    expect(pattern.stepCount).toBe(16)
+    expect(pattern.steps[padA!.id]!.slice(0, 4)).toEqual([kept.id, null, null, null])
+    expect(pattern.steps[padB!.id]!.slice(0, 4)).toEqual([null, null, null, null])
+    // The stale pre-existing step is gone — a load replaces the pattern, it doesn't merge.
+    expect(pattern.steps[padA!.id]![3]).toBeNull()
+    // The deleted sample can't play, so it surfaces only as a ghost trace marker.
+    expect(pattern.traceSteps?.[padA!.id]!.slice(0, 4)).toEqual([null, null, 'bounce_1', null])
+    expect(pattern.traceSource).toBe('reference')
+  })
+
+  it('loading a sequence with every sample still present skips the ghost trace entirely', () => {
+    const state = createInitialState(1)
+    const patternId = state.activePatternId
+    const padId = state.pads[0]!.id
+    const kept = makeSample('kept')
+    const next = reducer(state, { type: 'ADD_SAMPLE', sample: kept })
+
+    const loaded = reducer(next, {
+      type: 'LOAD_SEQUENCE_TRACE',
+      patternId,
+      trace: { stepCount: 4, rows: [[kept.id, null, null, null]] },
+      markerSampleId: 'bounce_1',
+    })
+
+    const pattern = loaded.patterns.find((p) => p.id === patternId)!
+    expect(pattern.steps[padId]!.slice(0, 4)).toEqual([kept.id, null, null, null])
+    expect(pattern.traceSteps).toBeNull()
+    expect(pattern.traceSource).toBeNull()
+  })
+
 })

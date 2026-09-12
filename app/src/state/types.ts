@@ -19,8 +19,14 @@ export type SampleKind = 'recording' | 'note' | 'sequence'
 export interface SequenceTrace {
   /** Source timeline length, retained independently of the current active pattern. */
   stepCount: number
-  /** One boolean occupancy row per source pad; portable across projects and sample ids. */
-  rows: boolean[][]
+  /**
+   * One row per source pad, each cell holding the exact Sample id placed
+   * there (or null) — the same shape a Pattern's own `steps` uses. Loading
+   * this trace restores real, playable steps wherever a cell's sample id
+   * still exists in the library; a cell whose sample has since been deleted
+   * falls back to a visual-only marker instead (see LOAD_SEQUENCE_TRACE).
+   */
+  rows: Array<Array<string | null>>
 }
 
 export interface Sample {
@@ -88,6 +94,16 @@ export interface Instrument {
    * instead (see engine/drumSynth.ts's DRUM_KIT_VOICES).
    */
   keySampleIds: string[]
+  /**
+   * The whole-grid Filter/Grit/Echo/Reverb "character" combo last dialed in
+   * or picked while this instrument was the one laid across the pads (see
+   * PadEffectsMenuButton) — null until customized at least once. Re-applying
+   * this instrument later (APPLY_INSTRUMENT_TO_PADS/APPLY_LOOP_PRESET) always
+   * writes these four dials onto its pads: this preset if set, neutral (0)
+   * otherwise, so one instrument's dialed-in character never leaks onto a
+   * different instrument's pads just because they happened to share a pad.
+   */
+  effectsPreset?: { filter: number; grit: number; echo: number; reverb: number } | null
 }
 
 export interface Pattern {
@@ -176,6 +192,14 @@ export interface Transport {
   autoInstrumentId: string | null
   /** Pre-instrument assignments for a quick Instrument Mode preset; transient and never persisted. */
   autoInstrumentPadSnapshot: Record<string, InstrumentPadSnapshot> | null
+  /**
+   * Which instrument's keys currently occupy the pads, if any — set whenever
+   * APPLY_INSTRUMENT_TO_PADS/APPLY_LOOP_PRESET lays one across the grid,
+   * cleared if that instrument is removed. Lets the whole-grid effects menu
+   * know which Instrument.effectsPreset to read from and write back to.
+   * Transient bookkeeping like autoInstrumentId, not persisted.
+   */
+  currentInstrumentId: string | null
 }
 
 export interface AppState {
