@@ -14,6 +14,7 @@ import { useEngine } from '../state/EngineContext'
 import { useIsWideScreen } from '../hooks/useIsWideScreen'
 import type { EffectId } from '../state/types'
 import { EffectsSwitch } from './EffectsSwitch'
+import { CloseIcon, FxIcon } from './icons'
 
 const FLOAT_MARGIN = 8
 
@@ -88,7 +89,7 @@ interface PadEffectsMenuButtonProps {
  * fixed`, which per spec always opens its own stacking context, so a panel
  * left as its DOM descendant would have its z-index trapped inside that
  * context and could end up visually underneath a fixed sibling of
- * `.app-shell` (the top nav, the FAB cluster) no matter how high its own
+ * `.app-shell` (the transport strip, the tab bar) no matter how high its own
  * z-index reads. On mobile, the open panel floats next to whichever pad was
  * last played (see `followPadId`) instead of staying anchored under the
  * header button — the pad grid can be much taller than the header, so an
@@ -231,13 +232,8 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
           // own toggle button (a pad near the header, or a tall panel
           // flipped upward) — a guaranteed close affordance inside the panel
           // itself means that never traps you unable to close it.
-          <button
-            type="button"
-            className="fx-floating-close"
-            onClick={() => setOpen(false)}
-            aria-label="Close pad effects"
-          >
-            ✕
+          <button type="button" className="icon-btn icon-btn-sm" onClick={() => setOpen(false)} aria-label="Close pad effects">
+            <CloseIcon size={14} />
           </button>
         )}
       </div>
@@ -268,7 +264,8 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
               <input
                 id={`fx-dial-${effectId}`}
                 type="range"
-                className="dial-slider"
+                className="slider bipolar"
+                style={{ '--fill': `${(value - EFFECT_MIN) / (EFFECT_MAX - EFFECT_MIN)}` } as React.CSSProperties}
                 min={EFFECT_MIN}
                 max={EFFECT_MAX}
                 step={EFFECT_STEP}
@@ -281,10 +278,10 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
         })}
       </div>
       <div className="fx-floating-actions">
-        <button type="button" className="btn btn-secondary" onClick={saveCurrentPreset} disabled={visiblePads.length === 0}>
+        <button type="button" className="btn btn-sm" onClick={saveCurrentPreset} disabled={visiblePads.length === 0}>
           Save preset
         </button>
-        <button type="button" className="btn btn-secondary" onClick={resetAll}>
+        <button type="button" className="btn btn-sm" onClick={resetAll}>
           Reset
         </button>
       </div>
@@ -296,7 +293,7 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
       <button
         ref={buttonRef}
         type="button"
-        className={anyBypassed || anyCustomized ? 'fx-menu-btn on' : 'fx-menu-btn'}
+        className={open || anyBypassed || anyCustomized ? 'icon-btn on' : 'icon-btn'}
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-label="Pad effects"
@@ -320,14 +317,3 @@ function EffectPreview({ preset }: { preset: EffectPreset }) {
   )
 }
 
-function FxIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <circle cx="7" cy="8" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M7 3v2M7 11v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="17" cy="16" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M17 11v2M17 19v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M3 16h6M15 8h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
-}

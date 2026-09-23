@@ -4,9 +4,9 @@ import { useEngine } from '../state/EngineContext'
 import { createId, timestampNow } from '../state/defaults'
 import { MAX_PAD_COUNT } from '../state/constants'
 import { useNavigation } from '../state/NavigationContext'
-import { contrastingTextColor } from '../utils/color'
 import type { SampleKind, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
+import { PauseIcon, PlayIcon, PlusIcon, TrashIcon } from './icons'
 import { StaticWaveform } from './Waveform'
 
 export interface PendingRecording {
@@ -131,46 +131,47 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
   }
 
   return (
-    <div className="panel assign-prompt" role="dialog" aria-label="Review the recording">
-      <div className="review-preview-row">
-        <StaticWaveform peaks={recording.peaks} color="#6c5ce7" />
+    <div className="review">
+      <div className="review-preview">
         <button
           type="button"
-          className="btn btn-secondary btn-icon-only preview-toggle-btn"
+          className={previewPlaying ? 'icon-btn icon-btn-lg on' : 'icon-btn icon-btn-lg'}
           onClick={() => setPreviewPlaying((playing) => !playing)}
           aria-label={previewPlaying ? 'Pause preview loop' : 'Play preview loop'}
         >
-          {previewPlaying ? <PauseGlyph /> : <PlayGlyph />}
+          {previewPlaying ? <PauseIcon /> : <PlayIcon />}
         </button>
+        <span className="review-wave">
+          <StaticWaveform peaks={recording.peaks} />
+        </span>
       </div>
       {assignedPadId ? (
-        <div className="assigned-next-step">
-          <p>
-            Assigned to Pad {state.pads.findIndex((pad) => pad.id === assignedPadId) + 1}. Want to
-            dial it in now?
+        <div className="review-done">
+          <p className="review-done-text">
+            On pad <span className="readout">{String(state.pads.findIndex((pad) => pad.id === assignedPadId) + 1).padStart(2, '0')}</span>. Dial it in now?
           </p>
           <div className="review-actions">
-            <button type="button" className="btn btn-primary" onClick={editAssignedPad}>
-              Edit this pad
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={onDone}>
+            <button type="button" className="btn" onClick={onDone}>
               Done
+            </button>
+            <button type="button" className="btn btn-primary" onClick={editAssignedPad}>
+              Edit pad
             </button>
           </div>
         </div>
       ) : (
         <>
-          <label className="assign-prompt-name-label" htmlFor="recording-review-name">
-            Name it
+          <label className="label" htmlFor="recording-review-name">
+            Name
           </label>
           <input
             id="recording-review-name"
             type="text"
-            className="assign-prompt-name"
+            className="text-input"
             value={label}
             onChange={(event) => setLabel(event.target.value)}
           />
-          <p>Assign to a pad:</p>
+          <span className="label">Put it on a pad</span>
           <div className="pad-picker">
             {visiblePads.map((pad, index) => {
               const occupied = pad.sampleId !== null
@@ -178,13 +179,12 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
                 <button
                   key={pad.id}
                   type="button"
-                  className="pad-swatch"
-                  style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
+                  className={occupied ? 'pad-swatch filled' : 'pad-swatch'}
                   onClick={() => handlePadClick(pad.id, occupied)}
                   title={occupied ? 'Already has a sound — tap to replace' : 'Empty'}
+                  aria-label={`Pad ${index + 1}${occupied ? ' (has a sound)' : ''}`}
                 >
-                  {index + 1}
-                  {occupied ? ' •' : ''}
+                  {String(index + 1).padStart(2, '0')}
                 </button>
               )
             })}
@@ -196,7 +196,7 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
                 title="Add a new pad for this sequence"
                 aria-label="Add new pad"
               >
-                + New
+                <PlusIcon size={14} />
               </button>
             )}
           </div>
@@ -209,11 +209,12 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
             />
           )}
           <div className="review-actions">
-            <button type="button" className="btn btn-secondary" onClick={handleKeepInLibrary}>
-              Keep in library only
-            </button>
             <button type="button" className="btn btn-ghost-danger" onClick={onDone}>
-              Discard recording
+              <TrashIcon size={16} />
+              Discard
+            </button>
+            <button type="button" className="btn" onClick={handleKeepInLibrary}>
+              Library only
             </button>
           </div>
         </>
@@ -222,19 +223,3 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
   )
 }
 
-function PlayGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path d="M6 4l14 8-14 8V4z" fill="currentColor" />
-    </svg>
-  )
-}
-
-function PauseGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <rect x="6" y="4" width="4" height="16" fill="currentColor" />
-      <rect x="14" y="4" width="4" height="16" fill="currentColor" />
-    </svg>
-  )
-}

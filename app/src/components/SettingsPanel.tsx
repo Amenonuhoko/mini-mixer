@@ -2,10 +2,10 @@ import { useRef, useState } from 'react'
 import { clearAutosave } from '../state/autosave'
 import { deserializeProject, isSerializedProject, serializeProject } from '../engine/projectFile'
 import type { SerializedProject } from '../engine/projectFile'
-import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { ConfirmDialog } from './ConfirmDialog'
+import { OpenIcon, SaveIcon, TrashIcon } from './icons'
 
 function downloadJson(filename: string, data: unknown): void {
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
@@ -17,7 +17,7 @@ function downloadJson(filename: string, data: unknown): void {
   URL.revokeObjectURL(url)
 }
 
-/** Less-frequently-touched controls — pad count, save/load, and Clear All — kept out of the sticky PlayBar. */
+/** Rarely-touched project controls — save/load a project file and Clear All. The one place those live (pad count lives on the pad module itself). */
 export function SettingsPanel() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
@@ -35,8 +35,6 @@ export function SettingsPanel() {
     setConfirmClear(false)
     void clearAutosave()
   }
-
-  const setPadCount = (count: number) => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count })
 
   const handleSaveProject = () => {
     const project = serializeProject(state, Date.now())
@@ -76,51 +74,19 @@ export function SettingsPanel() {
   }
 
   return (
-    <section className="panel settings" aria-label="settings">
-      <h2>Settings</h2>
-      <p className="muted">
-        Your session autosaves to this browser. Save a project file to back it up or move it to
-        another device.
-      </p>
-
+    <div className="settings">
       <div className="settings-row">
-        <span className="settings-label">Pad count</span>
-        <div className="stepper">
-          <button
-            type="button"
-            className="stepper-btn"
-            onClick={() => setPadCount(state.visiblePadCount - 1)}
-            disabled={state.visiblePadCount <= MIN_PAD_COUNT}
-            aria-label="Fewer pads"
-          >
-            −
-          </button>
-          <span className="stepper-value">{state.visiblePadCount}</span>
-          <button
-            type="button"
-            className="stepper-btn"
-            onClick={() => setPadCount(state.visiblePadCount + 1)}
-            disabled={state.visiblePadCount >= MAX_PAD_COUNT}
-            aria-label="More pads"
-          >
-            +
-          </button>
+        <div className="settings-row-text">
+          <span className="label">Project file</span>
+          <span className="settings-hint">Back up your project or move it to another device.</span>
         </div>
-      </div>
-
-      <div className="settings-divider" />
-
-      <div className="settings-row">
-        <span className="settings-label">Project file</span>
-        <div className="settings-file-actions">
-          <button type="button" className="btn btn-secondary" onClick={handleSaveProject}>
+        <div className="settings-actions">
+          <button type="button" className="btn" onClick={handleSaveProject}>
+            <SaveIcon size={16} />
             Save
           </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <button type="button" className="btn" onClick={() => fileInputRef.current?.click()}>
+            <OpenIcon size={16} />
             Load
           </button>
           <input
@@ -134,9 +100,7 @@ export function SettingsPanel() {
       </div>
 
       {loadStatus === 'error' && (
-        <p className="muted settings-error">
-          Couldn't read that file — it may not be a Beat Maker project file.
-        </p>
+        <p className="settings-error">Couldn't read that file — it may not be a Beat Maker project file.</p>
       )}
 
       {pendingLoad && (
@@ -150,20 +114,24 @@ export function SettingsPanel() {
         />
       )}
 
-      <div className="settings-divider" />
-
-      {confirmClear ? (
+      <div className="settings-row">
+        <div className="settings-row-text">
+          <span className="label">Start over</span>
+          <span className="settings-hint">Clears recordings, pads and patterns.</span>
+        </div>
+        <button type="button" className="btn btn-danger" onClick={() => setConfirmClear(true)}>
+          <TrashIcon size={16} />
+          Clear all
+        </button>
+      </div>
+      {confirmClear && (
         <ConfirmDialog
           message="Clear everything — recordings, pads, pattern?"
           confirmLabel="Yes, clear all"
           onConfirm={handleClearAll}
           onCancel={() => setConfirmClear(false)}
         />
-      ) : (
-        <button type="button" className="btn btn-secondary" onClick={() => setConfirmClear(true)}>
-          Clear All
-        </button>
       )}
-    </section>
+    </div>
   )
 }

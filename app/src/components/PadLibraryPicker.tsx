@@ -38,26 +38,31 @@ export function PadLibraryPicker({ padId, onClose }: PadLibraryPickerProps) {
     }
   }
 
+  const padNumber = pad ? state.pads.indexOf(pad) + 1 : null
+
   return (
-    <Overlay onClose={onClose}>
-      <h2>Choose from Library</h2>
+    <Overlay
+      onClose={onClose}
+      title={padNumber ? `Load pad ${String(padNumber).padStart(2, '0')}` : 'Load a sound'}
+      subtitle="Pick a sound from your library."
+    >
       {samples.length === 0 ? (
-        <p className="muted">Nothing in the library yet — hit Record to add something.</p>
+        <p className="empty-state">Nothing in the library yet — hold Record to capture a sound.</p>
       ) : (
-        <ul className="library-picker-list">
+        <ul className="list">
           {samples.map((sample) => (
             <li key={sample.id}>
               <button
                 type="button"
-                className={
-                  pad?.sampleId === sample.id
-                    ? 'btn btn-secondary library-picker-btn current'
-                    : 'btn btn-secondary library-picker-btn'
-                }
+                className={pad?.sampleId === sample.id ? 'list-item current' : 'list-item'}
                 onClick={() => handlePick(sample.id)}
+                aria-current={pad?.sampleId === sample.id ? 'true' : undefined}
               >
-                <StaticWaveform peaks={sample.peaks} color="#6c5ce7" />
-                <span>{sample.label}</span>
+                <span className="list-wave">
+                  <StaticWaveform peaks={sample.peaks} />
+                </span>
+                <span className="list-name">{sample.label}</span>
+                {pad?.sampleId === sample.id && <span className="chip">On pad</span>}
               </button>
             </li>
           ))}
@@ -71,9 +76,6 @@ export function PadLibraryPicker({ padId, onClose }: PadLibraryPickerProps) {
           onCancel={() => setConfirmSampleId(null)}
         />
       )}
-      <button type="button" className="btn btn-secondary overlay-close" onClick={onClose}>
-        Cancel
-      </button>
     </Overlay>
   )
 }

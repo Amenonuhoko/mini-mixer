@@ -13,6 +13,7 @@ import { captureAutoInstrumentPadSnapshot } from '../utils/autoInstrumentSnapsho
 import { buildKeySamples } from '../utils/buildInstrumentSamples'
 import type { Instrument } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
+import { SparkIcon } from './icons'
 import { Overlay } from './Overlay'
 
 const CATEGORIES: LoopCategory[] = ['Drums', 'Bass', 'Melody']
@@ -121,23 +122,19 @@ export function LoopPresetMenuButton() {
     <>
       <button
         type="button"
-        className="loop-preset-menu-btn"
+        className="icon-btn"
         onClick={() => setMenuOpen(true)}
         aria-label="Loop presets"
         title="Bundled loops — pick one to build its instrument and program it onto the grid"
       >
-        <LoopIcon />
+        <SparkIcon />
       </button>
 
       {menuOpen && (
-        <Overlay onClose={closeAll}>
-          <h2>Loop presets</h2>
-          <p className="muted">
-            Builds the instrument it needs and writes its pattern onto the grid — edit freely after.
-          </p>
+        <Overlay onClose={closeAll} title="Loops" subtitle="Builds the instrument it needs and writes its pattern onto the grid — edit freely after.">
           {CATEGORIES.map((category) => (
-            <div className="loopers-category" key={category}>
-              <h3 className="loopers-category-title">{category}</h3>
+            <section className="sheet-section" key={category} aria-label={category}>
+              <h3 className="label">{category}</h3>
               <div className="loopers-grid">
                 {LOOP_PRESETS.filter((preset) => preset.category === category).map((preset) => (
                   <button
@@ -162,7 +159,7 @@ export function LoopPresetMenuButton() {
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
           ))}
 
           {pendingPreset && (
@@ -173,27 +170,9 @@ export function LoopPresetMenuButton() {
               onCancel={() => setPendingPreset(null)}
             />
           )}
-
-          <button type="button" className="btn btn-secondary overlay-close" onClick={closeAll}>
-            Cancel
-          </button>
         </Overlay>
       )}
     </>
   )
 }
 
-function LoopIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path
-        d="M4 12a8 8 0 0 1 8-8h5M17 4l-3-3M17 4l-3 3M20 12a8 8 0 0 1-8 8H7M7 20l3 3M7 20l3-3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}

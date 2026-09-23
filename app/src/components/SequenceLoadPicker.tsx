@@ -19,24 +19,22 @@ export function SequenceLoadPicker({ onClose }: SequenceLoadPickerProps) {
   const sequences = getLibrarySamples(state).filter((sample) => sample.kind === 'sequence' && sample.sequenceTrace)
 
   return (
-    <Overlay onClose={onClose}>
-      <h2>Load a saved sequence</h2>
+    <Overlay onClose={onClose} title="Load a sequence" subtitle="Brings a saved sequence back into this pattern.">
       {sequences.length === 0 ? (
-        <p className="muted">No saved sequences yet — use "Save sequence" to bounce one first.</p>
+        <p className="empty-state">No saved sequences yet — tap Save in the sequencer to keep one.</p>
       ) : (
-        <ul className="library-picker-list">
+        <ul className="list">
           {sequences.map((sample) => (
-            <li key={sample.id} className="sequence-load-picker-item">
-              <StaticWaveform peaks={sample.peaks} color="#6c5ce7" />
-              <span>{sample.label}</span>
+            <li key={sample.id} className="list-item static">
+              <span className="list-wave">
+                <StaticWaveform peaks={sample.peaks} />
+              </span>
+              <span className="list-name">{sample.label}</span>
               <LoadSequenceButton sample={sample} onLoaded={onClose} />
             </li>
           ))}
         </ul>
       )}
-      <button type="button" className="btn btn-secondary overlay-close" onClick={onClose}>
-        Cancel
-      </button>
     </Overlay>
   )
 }

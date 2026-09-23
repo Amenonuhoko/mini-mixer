@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
-import { MetronomeButton } from './components/MetronomeButton'
-import { MasterVolumeButton } from './components/MasterVolumeButton'
-import { Nav } from './components/Nav'
+import { LightShow } from './components/LightShow'
 import { PadEditOverlay } from './components/PadEditOverlay'
 import { PadsPage } from './components/PadsPage'
-import { PlayBar } from './components/PlayBar'
-import { RecordFAB } from './components/RecordFAB'
 import { RecordingReviewOverlay } from './components/RecordingReviewOverlay'
 import type { PendingRecording } from './components/RecordingReview'
 import { Sequencer } from './components/Sequencer'
 import { SettingsOverlay } from './components/SettingsOverlay'
+import { TabBar } from './components/TabBar'
+import { TransportStrip } from './components/TransportStrip'
 import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
 import { useIsLandscapeLayout } from './hooks/useIsLandscapeLayout'
@@ -111,18 +109,6 @@ function Shell() {
   // below — only the mutually-exclusive layout choice itself (see
   // CurrentPage) actually distinguishes them.
   const combinedView = isWide || isLandscape
-  // Play/pause, BPM, and loop-mode are all specifically about sequencer pattern
-  // playback — meaningless while just tapping/looping pads by hand — so the play
-  // bar is a real transport bar that only shows when the Sequencer is actually
-  // visible, not a global bit of chrome. In a combined view the Sequencer is also
-  // visible while the "Pads" tab is selected (see CurrentPage), so the bar needs
-  // to show there too. It keeps playing in the background if you navigate away
-  // on a narrow screen; pausing just requires coming back to Sequencer.
-  // --playbar-height drives both the app-shell's reserved bottom padding and the
-  // FAB cluster's vertical offset, so collapsing it to 0 here (rather than only
-  // hiding <PlayBar/>) makes both close the gap automatically instead of leaving
-  // dead space behind.
-  const showPlayBar = combinedView ? page === 'pads' || page === 'sequencer' : page === 'sequencer'
 
   const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
     if (combinedView || (page !== 'pads' && page !== 'sequencer')) return
@@ -165,8 +151,9 @@ function Shell() {
   }
 
   return (
-    <div style={{ '--playbar-height': showPlayBar ? '76px' : '0px' } as React.CSSProperties}>
-      <Nav onOpenSettings={() => setSettingsOpen(true)} />
+    <div className="device">
+      <LightShow />
+      <TransportStrip onOpenSettings={() => setSettingsOpen(true)} />
       <main
         className={[
           'app-shell',
@@ -180,15 +167,11 @@ function Shell() {
       >
         <CurrentPage onBounced={setPendingRecording} />
       </main>
-      {showPlayBar && <PlayBar />}
-      <div className="fab-cluster">
-        <MasterVolumeButton />
-        <MetronomeButton />
-        <RecordFAB
-          sampleCount={Object.keys(state.samples).length}
-          onRecorded={setPendingRecording}
-        />
-      </div>
+      <TabBar
+        combinedView={combinedView}
+        sampleCount={Object.keys(state.samples).length}
+        onRecorded={setPendingRecording}
+      />
       {editingPadId !== null && <PadEditOverlay onClose={goBackFromEdit} />}
       {pendingRecording && (
         <RecordingReviewOverlay

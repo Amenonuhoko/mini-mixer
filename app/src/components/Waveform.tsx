@@ -2,11 +2,12 @@ import { useEffect, useRef, type RefObject } from 'react'
 
 interface StaticWaveformProps {
   peaks: number[]
-  color: string
+  /** Defaults to currentColor, so the surrounding CSS decides the color. */
+  color?: string | undefined
 }
 
 /** Small bar-chart thumbnail from precomputed peaks — used in the library and the assign prompt. */
-export function StaticWaveform({ peaks, color }: StaticWaveformProps) {
+export function StaticWaveform({ peaks, color = 'currentColor' }: StaticWaveformProps) {
   if (peaks.length === 0) return null
   return (
     <svg
@@ -46,6 +47,7 @@ export function LiveWaveform({ analyserRef, active }: LiveWaveformProps) {
     if (!ctx) return
 
     const data = new Uint8Array(analyser.frequencyBinCount)
+    const strokeColor = getComputedStyle(canvas).color
     let rafId: number
 
     const draw = () => {
@@ -62,7 +64,9 @@ export function LiveWaveform({ analyserRef, active }: LiveWaveformProps) {
         else ctx.lineTo(x, y)
         x += sliceWidth
       }
-      ctx.strokeStyle = '#e0555a'
+      // Canvas can't read a CSS variable directly, but it can take the
+      // canvas element's own computed `color`, which the stylesheet sets.
+      ctx.strokeStyle = strokeColor
       ctx.lineWidth = 2
       ctx.stroke()
       rafId = requestAnimationFrame(draw)

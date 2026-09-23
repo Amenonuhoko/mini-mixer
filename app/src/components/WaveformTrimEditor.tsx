@@ -5,7 +5,8 @@ interface WaveformTrimEditorProps {
   peaks: number[]
   trimStart: number
   trimEnd: number
-  color: string
+  /** Defaults to currentColor, so the surrounding CSS decides the color. */
+  color?: string
   onChange: (trimStart: number, trimEnd: number) => void
 }
 

@@ -33,6 +33,24 @@ function effectiveEffects(pad: Pad): EffectSetting[] {
 /** A short param ramp time (seconds) so live dial changes don't click/zipper. */
 const PARAM_RAMP_SECONDS = 0.015
 
+/** Samples per meter read — ~5ms at 48kHz, short enough to track a drum transient frame to frame. */
+const METER_FFT_SIZE = 256
+
+/** Called when a pad instance is scheduled to sound; `when` is on the AudioContext clock (may be slightly in the future for sequencer steps). */
+export type PadHitListener = (padId: string, when: number) => void
+
+export interface BeatPhase {
+  /** 0 at the downbeat of the current beat, rising toward 1 just before the next. */
+  phase: number
+  /** True when locked to something actually playing (sequencer/metronome clock or layered loops), false when free-running at the BPM. */
+  locked: boolean
+}
+
+/** Wraps into [0, 1), including negative inputs (an anchor slightly in the future). */
+function fract(value: number): number {
+  return value - Math.floor(value)
+}
+
 interface PlayingNodes {
   source: AudioBufferSourceNode
   filter: BiquadFilterNode
@@ -88,6 +106,19 @@ export class AudioEngine {
   private playthroughChunks: Blob[] = []
   /** The Library can audition one sound at a time without assigning it to a pad. */
   private libraryPreview: AudioBufferSourceNode | null = null
+
+  // Light-show taps. Pure observers: each analyser hangs off the signal via a
+  // parallel connection into a zero-gain sink, so nothing about what's heard
+  // (or what a playthrough recording captures) changes. The sink exists only
+  // so the analysers are pulled by the graph even though they're otherwise
+  // dead ends.
+  private readonly padMeters = new Map<string, AnalyserNode>()
+  private masterMeter: AnalyserNode | null = null
+  private meterSink: GainNode | null = null
+  private readonly meterScratch = new Float32Array(METER_FFT_SIZE)
+  private readonly hitListeners = new Set<PadHitListener>()
+  /** Audio-clock time of the most recent beat the scheduler reported — see markBeat(). */
+  private lastBeatTime: number | null = null
 
   /**
    * Subscribe to changes in engine-side playback state (which pads are looping,
@@ -157,8 +188,93 @@ export class AudioEngine {
       this.masterOutput = ctx.createGain()
       this.masterBus.connect(this.masterOutput)
       this.masterOutput.connect(ctx.destination)
+      this.masterMeter = this.createMeter(ctx)
+      this.masterBus.connect(this.masterMeter)
     }
     return this.masterBus
+  }
+
+  private createMeter(ctx: AudioContext): AnalyserNode {
+    if (!this.meterSink) {
+      this.meterSink = ctx.createGain()
+      this.meterSink.gain.value = 0
+      this.meterSink.connect(ctx.destination)
+    }
+    const meter = ctx.createAnalyser()
+    meter.fftSize = METER_FFT_SIZE
+    meter.connect(this.meterSink)
+    return meter
+  }
+
+  private getPadMeter(padId: string): AnalyserNode {
+    let meter = this.padMeters.get(padId)
+    if (!meter) {
+      meter = this.createMeter(this.getContext())
+      this.padMeters.set(padId, meter)
+    }
+    return meter
+  }
+
+  /** Peak amplitude over the analyser's current window, shaped to a 0-1 brightness. */
+  private readMeter(meter: AnalyserNode | null | undefined): number {
+    if (!meter) return 0
+    meter.getFloatTimeDomainData(this.meterScratch)
+    let peak = 0
+    for (const sample of this.meterScratch) {
+      const magnitude = Math.abs(sample)
+      if (magnitude > peak) peak = magnitude
+    }
+    // A square-root curve lifts quiet material so it still visibly glows,
+    // while loud hits still saturate at full brightness.
+    return Math.min(1, Math.sqrt(peak) * 1.15)
+  }
+
+  /** How loud this pad is right now (0-1), echo/reverb tails included. Never creates an AudioContext. */
+  getPadLevel(padId: string): number {
+    if (!this.ctx) return 0
+    return this.readMeter(this.padMeters.get(padId))
+  }
+
+  /** How loud the whole project mix is right now (0-1). Never creates an AudioContext. */
+  getMasterLevel(): number {
+    if (!this.ctx) return 0
+    return this.readMeter(this.masterMeter)
+  }
+
+  /** Subscribe to every pad hit (manual, loop start, or sequencer step). Returns an unsubscribe function. */
+  onPadHit(listener: PadHitListener): () => void {
+    this.hitListeners.add(listener)
+    return () => this.hitListeners.delete(listener)
+  }
+
+  /** Current time on the audio clock, or null before audio has ever started (so the UI never creates a context on its own). */
+  getAudioTime(): number | null {
+    return this.ctx ? this.ctx.currentTime : null
+  }
+
+  /** Called by the lookahead scheduler on every quarter-note step, with that beat's scheduled audio time. */
+  markBeat(time: number): void {
+    this.lastBeatTime = time
+  }
+
+  /**
+   * Where we are within the current beat. Locks to the scheduler's clock while
+   * it's running (sequencer or metronome), otherwise to the layered-loop
+   * epoch if any loops are going; with nothing playing it free-runs at the
+   * BPM so the idle screen still breathes in tempo.
+   */
+  getBeatPhase(): BeatPhase {
+    const beatSeconds = 60 / this.bpm
+    const now = this.ctx?.currentTime
+    if (now !== undefined) {
+      if (this.lastBeatTime !== null && Math.abs(now - this.lastBeatTime) < beatSeconds * 2) {
+        return { phase: fract((now - this.lastBeatTime) / beatSeconds), locked: true }
+      }
+      if (this.loopingNodes.size > 0 && this.loopEpoch !== null) {
+        return { phase: fract((now - this.loopEpoch) / beatSeconds), locked: true }
+      }
+    }
+    return { phase: fract(performance.now() / 1000 / beatSeconds), locked: false }
   }
 
   /** Changes the final listening level without disturbing individual pad faders. */
@@ -292,6 +408,7 @@ export class AudioEngine {
     reverbWet.connect(mixGain)
     mixGain.connect(panner)
     panner.connect(masterBus)
+    panner.connect(this.getPadMeter(padId))
 
     this.markStarted(padId)
     this.activeSources.add(source)
@@ -309,6 +426,7 @@ export class AudioEngine {
     } else {
       source.start(startTime, window.offset, window.duration)
     }
+    for (const listener of this.hitListeners) listener(padId, startTime)
     return { source, filter, shaper, gain, delay, feedback, wet, convolver, reverbWet, mixGain, panner }
   }
 

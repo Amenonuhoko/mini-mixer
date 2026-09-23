@@ -1,22 +1,32 @@
 import { useAppState } from '../state/AppStateContext'
 
-/** A two-sided switch makes the currently selected pad-trigger duration visible at a glance. */
+/** Gate vs. one-shot as a two-sided switch, so the current pad-trigger duration is visible at a glance. */
 export function PadPlaybackModeButton() {
   const { state, dispatch } = useAppState()
   const mode = state.transport.padPlaybackMode
 
   return (
-    <button
-      type="button"
-      className={mode === 'oneshot' ? 'pad-playback-switch oneshot' : 'pad-playback-switch gate'}
-      onClick={() =>
-        dispatch({ type: 'SET_PAD_PLAYBACK_MODE', mode: mode === 'gate' ? 'oneshot' : 'gate' })
-      }
-      aria-label={mode === 'gate' ? 'Gate mode — tap to switch to one-shot' : 'One-shot mode — tap to switch to gate'}
-      title={mode === 'gate' ? 'Gate: release stops sound' : 'One-shot: full sample plays'}
-    >
-      <span className={mode === 'gate' ? 'active' : ''}>Gate</span>
-      <span className={mode === 'oneshot' ? 'active' : ''}>1-shot</span>
-    </button>
+    <div className="segmented segmented-sm" role="radiogroup" aria-label="Pad trigger">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'gate'}
+        className={mode === 'gate' ? 'segment on' : 'segment'}
+        onClick={() => dispatch({ type: 'SET_PAD_PLAYBACK_MODE', mode: 'gate' })}
+        title="Gate — the sound stops when you let go"
+      >
+        Gate
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'oneshot'}
+        className={mode === 'oneshot' ? 'segment on' : 'segment'}
+        onClick={() => dispatch({ type: 'SET_PAD_PLAYBACK_MODE', mode: 'oneshot' })}
+        title="One-shot — the whole sample plays"
+      >
+        1-shot
+      </button>
+    </div>
   )
 }

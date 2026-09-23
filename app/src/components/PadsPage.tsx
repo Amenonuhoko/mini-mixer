@@ -3,25 +3,17 @@ import { usePadLooping } from '../hooks/usePadLooping'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
+import { EditIcon, FxIcon, MuteIcon, SwapIcon } from './icons'
 import { PadGrid } from './PadGrid'
 import { PadLibraryPicker } from './PadLibraryPicker'
 
 /**
- * Home page: pads are the hero content, full width, nothing else competing
- * for space. Selecting a pad (tap, which also plays it) surfaces a summary
- * bar below the grid with four generously-sized actions — Mute, Effects,
- * Edit, and Library (see .selected-pad-actions, a plain 2x2 grid). Loop used
- * to live here too, but it's now driven by the global loop-mode toggle (see
- * LoopModeSwitch) — tapping a pad directly toggles its loop while that mode
- * is on, so a separate button for it here would be redundant. Effects is a
- * reversible bypass, not the Edit popup's "Reset dials": it plays the pad as
- * if every dial were neutral without touching the stored values, so turning
- * it back off restores exactly what was dialed in. Library opens a popup to
- * pull an existing sample onto this pad without leaving the page — the
- * reverse direction of the Library page's own "Assign…" action. The pad
- * itself stays a single undivided tap target either way; every other
- * per-pad action lives down here, where there's room to make it easy to hit
- * reliably.
+ * Home page: the pad module. Tapping a pad selects it (and plays it), and its
+ * actions appear in a strip directly under the grid — inside the same module,
+ * right where your hand already is — rather than in a separate panel below
+ * the fold: Mute, a one-tap effects bypass (reversible; the dials are kept),
+ * Edit (dials + trim), and Swap (pull another sound from the library onto
+ * this pad without leaving the grid).
  */
 export function PadsPage() {
   const { state, dispatch } = useAppState()
@@ -45,119 +37,65 @@ export function PadsPage() {
 
   const selectedIndex = visiblePads.findIndex((pad) => pad.id === selectedPadId)
   const selectedPad = selectedIndex >= 0 ? visiblePads[selectedIndex] : undefined
+  const selectedSample = selectedPad?.sampleId ? state.samples[selectedPad.sampleId] : undefined
 
   const handleToggleMute = () => {
     if (!selectedPad) return
     dispatch({ type: 'SET_PAD_MUTED', padId: selectedPad.id, muted: !selectedPad.muted })
   }
 
+  const handleToggleEffects = () => {
+    if (!selectedPad) return
+    const bypassed = !selectedPad.effectsBypassed
+    dispatch({ type: 'SET_PAD_EFFECTS_BYPASSED', padId: selectedPad.id, bypassed })
+    if (looping) engine.updateLoopingPadEffectsBypass(selectedPad.id, { ...selectedPad, effectsBypassed: bypassed })
+  }
+
+  const contextStrip = selectedPad && (
+    <div className="pad-context">
+      <div className="pad-context-id">
+        <span className="pad-context-num readout">{String(selectedIndex + 1).padStart(2, '0')}</span>
+        <span className="pad-context-name">{selectedSample?.label ?? 'Empty pad'}</span>
+        {looping && <span className="chip chip-live">Loop</span>}
+      </div>
+      <div className="pad-context-actions">
+        <button
+          type="button"
+          className={selectedPad.muted ? 'action on-warn' : 'action'}
+          onClick={handleToggleMute}
+          aria-pressed={selectedPad.muted}
+        >
+          <MuteIcon muted={selectedPad.muted} size={16} />
+          <span>{selectedPad.muted ? 'Muted' : 'Mute'}</span>
+        </button>
+        <button
+          type="button"
+          className={selectedPad.effectsBypassed ? 'action on-warn' : 'action'}
+          onClick={handleToggleEffects}
+          aria-pressed={selectedPad.effectsBypassed}
+          title={selectedPad.effectsBypassed ? 'Effects bypassed — tap to turn back on' : 'Bypass this pad’s effects'}
+        >
+          <FxIcon size={16} />
+          <span>{selectedPad.effectsBypassed ? 'FX off' : 'FX'}</span>
+        </button>
+        <button type="button" className="action" onClick={() => goToEditPad(selectedPad.id)}>
+          <EditIcon size={16} />
+          <span>Edit</span>
+        </button>
+        <button type="button" className="action" onClick={() => setPickingLibrary(true)}>
+          <SwapIcon size={16} />
+          <span>Swap</span>
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="page pads-page">
-      <PadGrid selectedPadId={selectedPadId} onSelectPad={setSelectedPadId} />
-      {selectedPad && (
-        <div className="panel selected-pad-bar">
-          <div className="selected-pad-tags">
-            <span className="tag" style={{ background: selectedPad.color }}>
-              Pad {selectedIndex + 1}
-            </span>
-            {looping && <span className="tag tag-live">looping</span>}
-            {selectedPad.muted && <span className="tag tag-muted">muted</span>}
-            {selectedPad.effectsBypassed && <span className="tag tag-fx-off">fx off</span>}
-          </div>
-          <div className="selected-pad-actions">
-            <button
-              type="button"
-              className={selectedPad.muted ? 'action-btn action-mute on' : 'action-btn action-mute'}
-              onClick={handleToggleMute}
-              aria-pressed={selectedPad.muted}
-            >
-              {selectedPad.muted ? <MutedGlyph /> : <UnmutedGlyph />}
-              Mute
-            </button>
-            <button
-              type="button"
-              className="action-btn action-effects"
-              onClick={() => goToEditPad(selectedPad.id)}
-            >
-              <EffectsOnGlyph />
-              Effects
-            </button>
-            <button
-              type="button"
-              className="action-btn action-library"
-              onClick={() => setPickingLibrary(true)}
-            >
-              <LibraryGlyph />
-              Load sound
-            </button>
-          </div>
-        </div>
-      )}
+      <PadGrid selectedPadId={selectedPadId} onSelectPad={setSelectedPadId} footer={contextStrip} />
       {pickingLibrary && selectedPad && (
         <PadLibraryPicker padId={selectedPad.id} onClose={() => setPickingLibrary(false)} />
       )}
     </div>
   )
 }
-
-function LibraryGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path
-        d="M5 4v16M9 4l9 3v13l-9-3M9 4v13"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function UnmutedGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
-      <path
-        d="M17 9a4.5 4.5 0 0 1 0 6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function MutedGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
-      <path
-        d="M16 9l5 6M21 9l-5 6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function EffectsOnGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path
-        d="M5 19V13M5 9V5M12 19V11M12 7V5M19 19V15M19 11V5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <circle cx="5" cy="11" r="2" fill="currentColor" />
-      <circle cx="12" cy="9" r="2" fill="currentColor" />
-      <circle cx="19" cy="13" r="2" fill="currentColor" />
-    </svg>
-  )
-}
-

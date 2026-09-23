@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
-import { contrastingTextColor } from '../utils/color'
 import { ConfirmDialog } from './ConfirmDialog'
+import { Overlay } from './Overlay'
 import { StaticWaveform } from './Waveform'
 
 interface PadAssignPromptProps {
@@ -50,49 +50,51 @@ export function PadAssignPrompt({ sampleId, sampleLabel, onDone }: PadAssignProm
   }
 
   return (
-    <div className="panel assign-prompt" role="dialog" aria-label="Name and assign the recording">
-      {sample && sample.peaks.length > 0 && <StaticWaveform peaks={sample.peaks} color="#6c5ce7" />}
-      <label className="assign-prompt-name-label" htmlFor="assign-prompt-name">
-        Name it
-      </label>
-      <input
-        id="assign-prompt-name"
-        type="text"
-        className="assign-prompt-name"
-        value={label}
-        onChange={(event) => setLabel(event.target.value)}
-        onBlur={commitLabel}
-      />
-      <p>Assign to a pad:</p>
-      <div className="pad-picker">
-        {visiblePads.map((pad, index) => {
-          const occupied = pad.sampleId !== null
-          return (
-            <button
-              key={pad.id}
-              type="button"
-              className="pad-swatch"
-              style={{ background: pad.color, color: contrastingTextColor(pad.color) }}
-              onClick={() => handlePadClick(pad.id, occupied)}
-              title={occupied ? 'Already has a sound — tap to replace' : 'Empty'}
-            >
-              {index + 1}
-              {occupied ? ' •' : ''}
-            </button>
-          )
-        })}
-      </div>
-      {confirmPadId && (
-        <ConfirmDialog
-          message="That pad already has a sound. Replace it?"
-          confirmLabel="Replace"
-          onConfirm={() => assign(confirmPadId)}
-          onCancel={() => setConfirmPadId(null)}
+    <Overlay onClose={handleSkip} title="Put on a pad" subtitle="Name it, then pick a pad. It stays in the library either way.">
+      <div className="review">
+        {sample && sample.peaks.length > 0 && (
+          <span className="review-wave">
+            <StaticWaveform peaks={sample.peaks} />
+          </span>
+        )}
+        <label className="label" htmlFor="assign-prompt-name">
+          Name
+        </label>
+        <input
+          id="assign-prompt-name"
+          type="text"
+          className="text-input"
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          onBlur={commitLabel}
         />
-      )}
-      <button type="button" className="skip-assign" onClick={handleSkip}>
-        Skip — keep it in the library only
-      </button>
-    </div>
+        <span className="label">Pad</span>
+        <div className="pad-picker">
+          {visiblePads.map((pad, index) => {
+            const occupied = pad.sampleId !== null
+            return (
+              <button
+                key={pad.id}
+                type="button"
+                className={occupied ? 'pad-swatch filled' : 'pad-swatch'}
+                onClick={() => handlePadClick(pad.id, occupied)}
+                title={occupied ? 'Already has a sound — tap to replace' : 'Empty'}
+                aria-label={`Pad ${index + 1}${occupied ? ' (has a sound)' : ''}`}
+              >
+                {String(index + 1).padStart(2, '0')}
+              </button>
+            )
+          })}
+        </div>
+        {confirmPadId && (
+          <ConfirmDialog
+            message="That pad already has a sound. Replace it?"
+            confirmLabel="Replace"
+            onConfirm={() => assign(confirmPadId)}
+            onCancel={() => setConfirmPadId(null)}
+          />
+        )}
+      </div>
+    </Overlay>
   )
 }

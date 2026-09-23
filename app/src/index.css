@@ -1,1557 +1,2339 @@
+/* ==========================================================================
+   Beat Maker — design system
+   Two-tone neon on black: cyan is the light the UI is made of, orange marks
+   anything active, armed, or recording. Pads are the light show; everything
+   else stays quiet so they can be loud.
+   ========================================================================== */
+
 :root {
-  color-scheme: light dark;
-  --font-body: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --bg: #faf9fc;
-  --panel-bg: #ffffff;
-  --border: #e3e2e8;
-  --text: #17161c;
-  --muted: #6c6b76;
-  --accent: #6c5ce7;
-  --accent-strong: #5741d9;
-  --danger: #e0555a;
-  --danger-strong: #c8393f;
-  --radius-lg: 16px;
-  --radius-md: 10px;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: dark;
+
+  /* Palette */
+  --void: #020407;
+  --deck: rgb(5 10 14 / 0.9);
+  --deck-solid: #050a0e;
+  --deck-raised: #08121a;
+  --cyan-rgb: 0 229 255;
+  --orange-rgb: 255 138 31;
+  --cyan: rgb(var(--cyan-rgb));
+  --cyan-dim: #0f8494;
+  --orange: rgb(var(--orange-rgb));
+  --danger: #ff5145;
+  --line: rgb(var(--cyan-rgb) / 0.14);
+  --line-strong: rgb(var(--cyan-rgb) / 0.3);
+  --text: #d6f6ff;
+  --text-dim: #7c9ea8;
+  --text-faint: #45606a;
+
+  /* Glow */
+  --glow-cyan: 0 0 10px rgb(var(--cyan-rgb) / 0.45);
+  --glow-orange: 0 0 10px rgb(var(--orange-rgb) / 0.5);
+  --text-glow-cyan: 0 0 8px rgb(var(--cyan-rgb) / 0.6);
+  --text-glow-orange: 0 0 8px rgb(var(--orange-rgb) / 0.6);
+
+  /* Type */
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fs-xs: 0.625rem;
+  --fs-sm: 0.75rem;
+  --fs-md: 0.875rem;
+  --fs-lg: 1.0625rem;
+
+  /* Space (4px grid), radius, control heights */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --r-sm: 4px;
+  --r-md: 7px;
+  --r-lg: 12px;
+  --control-sm: 28px;
+  --control: 34px;
+  --control-lg: 44px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --fast: 110ms;
+  --med: 200ms;
+
+  /* Chrome */
+  --strip-h: 52px;
+  --tabbar-h: 62px;
   --safe-top: env(safe-area-inset-top, 0px);
-  --playbar-height: 76px;
-  --topnav-height: 52px;
-  --fab-height: 60px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f0f14;
-    --panel-bg: #1a1a21;
-    --border: #2c2b34;
-    --text: #f3f2f6;
-    --muted: #a2a0ac;
-  }
-}
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html {
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--void);
   color: var(--text);
-  font: 16px/1.5 var(--font-body);
+  font: 14px/1.45 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
 }
 
 #root {
   min-height: 100svh;
 }
 
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
 button {
   font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-button:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--accent);
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 1px solid var(--cyan);
   outline-offset: 2px;
 }
 
-h1,
-h2 {
-  font-family: var(--font-heading, var(--font-body));
+::selection {
+  background: rgb(var(--cyan-rgb) / 0.3);
 }
 
-/* Layout */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cyan-dim) transparent;
+}
 
-/*
- * A previous version of this rule let the whole document scroll, reserving
- * clearance for the fixed nav/FABs/PlayBar via oversized padding at the top
- * and bottom of the content instead of a real boundary. That worked only
- * once you'd scrolled all the way to the true end of a page much taller than
- * one screen — for a page whose content happens to be roughly one screen
- * tall (e.g. the Pads page with a 3x3 grid), the default unscrolled view
- * showed content ending right where the fixed FAB cluster floats, since the
- * reserved padding sat entirely below the fold, never actually seen. Pinning
- * app-shell itself between the nav and the FAB/PlayBar band — its own
- * scroll region, not the document's — makes that overlap structurally
- * impossible: content can never render into space the box itself doesn't
- * occupy, regardless of how tall it is or how far it's scrolled.
- */
+/* --------------------------------------------------------------------------
+   Type helpers
+   -------------------------------------------------------------------------- */
+
+.label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.label-dim {
+  color: var(--text-faint);
+}
+
+.readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--cyan);
+}
+
+.hint {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.empty-state {
+  padding: var(--s4);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+  font-size: var(--fs-md);
+  text-align: center;
+}
+
+.static-waveform {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   Light field — the background layer LightShow drives (--beat, --scene)
+   -------------------------------------------------------------------------- */
+
+.light-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.light-field::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background-image:
+    linear-gradient(rgb(var(--cyan-rgb) / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--cyan-rgb) / 0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 90% 75% at 50% 45%, #000 30%, transparent 100%);
+  opacity: calc(0.45 + var(--beat, 0) * 0.4 + var(--scene, 0) * 0.3);
+  will-change: opacity;
+}
+
+.light-field::after {
+  content: '';
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -30%;
+  height: 70%;
+  background: radial-gradient(ellipse at 50% 100%, rgb(var(--cyan-rgb) / 0.22), transparent 65%);
+  opacity: calc(0.25 + var(--scene, 0) * 0.75 + var(--beat, 0) * 0.25);
+  will-change: opacity;
+}
+
+/* --------------------------------------------------------------------------
+   Layout shell
+   The transport strip and tab bar are fixed chrome; .app-shell is pinned
+   between them and scrolls within itself, so content can never render
+   underneath either band. Every popup portals to document.body because
+   .app-shell (position: fixed) is its own stacking context — see Overlay.tsx.
+   -------------------------------------------------------------------------- */
+
 .app-shell {
   position: fixed;
-  top: calc(var(--topnav-height) + var(--safe-top));
+  z-index: 1;
+  top: calc(var(--strip-h) + var(--safe-top));
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom));
   left: 0;
   right: 0;
-  bottom: calc(var(--playbar-height) + var(--fab-height) + var(--safe-bottom) + 16px);
   max-width: 560px;
   margin: 0 auto;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 16px;
+  padding: var(--s3);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--s3);
 }
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--s3);
 }
 
-.muted {
-  color: var(--muted);
-  font-size: 0.9em;
+/* --------------------------------------------------------------------------
+   Module — the compartment every section lives in
+   -------------------------------------------------------------------------- */
+
+.module {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--s3);
+  background: var(--deck);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
 }
 
-.error-text {
-  color: var(--danger);
-  font-size: 0.9em;
+/* Corner ticks: a small lit bracket on two corners gives every module the same "device panel" edge. */
+.module::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--cyan), var(--cyan)) top left / 14px 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) top left / 1px 14px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / 14px 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / 1px 14px no-repeat;
+  opacity: 0.55;
 }
 
-.panel {
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
+.module-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  min-height: var(--control-sm);
 }
 
-.panel h2 {
-  margin: 0 0 12px;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
+.module-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
   font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
 }
 
-/* Buttons */
+.module-sub {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.module-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Primitives: buttons
+   -------------------------------------------------------------------------- */
 
 .btn {
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control);
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: rgb(var(--cyan-rgb) / 0.04);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text);
-  font-weight: 600;
-  min-height: 40px;
+  white-space: nowrap;
+  transition:
+    border-color var(--fast),
+    color var(--fast),
+    background var(--fast),
+    box-shadow var(--fast),
+    transform var(--fast);
 }
 
-.btn-secondary {
-  background: transparent;
+.btn:hover:not(:disabled) {
+  border-color: var(--cyan);
+  color: var(--cyan);
 }
 
-.btn-danger {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
-.btn-danger:active {
-  background: var(--danger-strong);
+.btn:disabled {
+  opacity: 0.35;
+}
+
+.btn-sm {
+  height: var(--control-sm);
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+}
+
+.btn-block {
+  width: 100%;
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+  border-color: var(--cyan);
+  background: var(--cyan);
+  color: var(--void);
+  font-weight: 700;
+  box-shadow: var(--glow-cyan);
 }
 
-/* Recording */
-
-.record-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--danger);
-  animation: dot-pulse 1s ease-in-out infinite;
+.btn-primary:hover:not(:disabled) {
+  color: var(--void);
+  background: #5ff0ff;
 }
 
-@keyframes dot-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-
-.recorder-elapsed {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.live-waveform {
-  margin-top: 12px;
-  width: 100%;
-  height: 56px;
-  display: block;
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-
-/* FAB cluster — floating, reachable from every page: metronome + record */
-
-.fab-cluster {
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--playbar-height) + var(--safe-bottom) + 16px);
-  z-index: 15;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  /* The wrapper itself shouldn't swallow taps in its gap/whitespace — only
-     the two round buttons inside it should be tappable. */
-  pointer-events: none;
-}
-
-.fab-cluster > * {
-  pointer-events: auto;
-}
-
-.record-fab {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  border: none;
-  background: var(--danger);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-  touch-action: none;
-}
-
-.master-volume-control {
-  position: relative;
-}
-
-.master-volume-fab,
-.metronome-fab {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
-}
-
-.master-volume-fab.muted {
+.btn-danger {
+  border-color: rgb(255 81 69 / 0.6);
   color: var(--danger);
+  background: rgb(255 81 69 / 0.08);
+}
+
+.btn-danger:hover:not(:disabled) {
   border-color: var(--danger);
-}
-
-.master-volume-panel {
-  position: absolute;
-  right: 0;
-  bottom: 58px;
-  width: 210px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--panel-bg);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
-}
-
-.master-volume-panel label {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.master-volume-panel input {
-  --dial-color: var(--accent);
-}
-
-.metronome-fab.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.pad-playback-mode-btn {
-  min-width: 54px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--muted);
-  padding: 0 8px;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-}
-
-.pad-playback-mode-btn.oneshot {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
-}
-
-.mixer-mode-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--muted);
-}
-
-.mixer-mode-btn.on {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-/* Colored with the "record" red always, not just once on, so it visually
-   reads as part of the recording family (like the mic record button) at a
-   glance, distinct from the accent-blue pad-grid mode toggles beside it. */
-.playthrough-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--danger);
-  background: none;
-  color: var(--danger);
-}
-
-.playthrough-btn.on {
-  background: var(--danger);
-  color: #fff;
-}
-
-.header-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
-.mode-menu-list {
-  list-style: none;
-  margin: 8px 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.mode-menu-btn {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  text-align: left;
-}
-
-.mode-menu-btn:disabled {
-  opacity: 0.5;
-}
-
-.mode-menu-btn.current {
-  border-color: var(--accent);
-}
-
-.mode-menu-title {
-  font-weight: 700;
-}
-
-.record-fab.active {
-  background: var(--danger-strong);
-  animation: fab-pulse 1s ease-in-out infinite;
-}
-
-@keyframes fab-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 4px 14px rgba(0, 0, 0, 0.3),
-      0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 4px 14px rgba(0, 0, 0, 0.3),
-      0 0 0 10px transparent;
-  }
-}
-
-.record-live-panel {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: calc(var(--playbar-height) + var(--safe-bottom) + 88px);
-  z-index: 15;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: var(--radius-lg);
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-}
-
-.record-live-panel .live-waveform {
-  margin-top: 0;
-  flex: 1;
-  height: 36px;
-  min-width: 0;
-}
-
-.record-error-toast {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: calc(var(--playbar-height) + var(--safe-bottom) + 88px);
-  z-index: 15;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  background: var(--danger);
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-/* Library — a grid of cards, waveform-forward (see Library.tsx) rather than a
-   plain list, so recognizing a sound by its shape (not just its name) is the
-   primary way to scan the arsenal. */
-
-.static-waveform {
-  flex-shrink: 0;
-  width: 64px;
-  height: 24px;
-}
-
-.library-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
-  gap: 12px;
-  padding: 2px;
-}
-
-/* Library scrolls with the page, not inside a short, second scroll region. */
-.app-shell.library-shell {
-  max-width: none;
-}
-
-.library-card {
-  min-height: 180px;
-}
-
-.library-preview-btn.playing {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.library-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.library-card-waveform {
-  width: 100%;
-}
-
-.library-card-waveform .static-waveform {
-  width: 100%;
-  height: 44px;
-}
-
-.library-card-facts {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 0.72rem;
-}
-
-.library-kind-badge {
-  background: var(--accent);
-  gap: 4px;
-}
-
-.library-card-fact {
-  font-size: 0.72rem;
-}
-
-.library-item-label {
-  align-self: flex-start;
-  background: none;
-  border: none;
-  padding: 2px 0;
-  font: inherit;
-  font-weight: 600;
-  color: var(--text);
-  text-align: left;
-  min-height: 28px;
-}
-
-.library-rename-input {
-  font: inherit;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  background: var(--panel-bg);
-  color: var(--text);
-  min-height: 32px;
-}
-
-.library-item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.library-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.reorder-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.reorder-btn {
-  width: 28px;
-  height: 20px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--muted);
-  font-size: 0.6rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-/* Instrument library */
-
-.instrument-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.instrument-row {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.instrument-row-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.instrument-name {
-  font-weight: 600;
-}
-
-.tag-instrument-source {
-  background: var(--accent);
-}
-
-.instrument-row-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.instrument-build-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-
-.instrument-preset-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.instrument-root-picker {
-  margin-top: 10px;
-}
-
-.instrument-root-picker-list {
-  list-style: none;
-  margin: 8px 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.instrument-root-picker-list button {
-  width: 100%;
-  text-align: left;
-}
-
-.instrument-picker-list {
-  list-style: none;
-  margin: 8px 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-.instrument-picker-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-}
-
-.library-picker-list {
-  list-style: none;
-  margin: 8px 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-.library-picker-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-}
-
-.library-picker-btn .static-waveform {
-  flex-shrink: 0;
-}
-
-.library-picker-btn.current {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.sequence-load-picker-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.sequence-load-picker-item .static-waveform {
-  flex-shrink: 0;
-}
-
-.sequence-load-picker-item span {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.reorder-btn:disabled {
-  opacity: 0.35;
-}
-
-.btn-icon-only {
-  padding: 8px 10px;
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.tag-unassigned {
-  background: var(--border);
-  color: var(--muted);
-}
-
-/* Pad assign prompt */
-
-.assign-prompt {
-  margin-top: 12px;
-  background: var(--bg);
-}
-
-.assign-prompt .static-waveform {
-  width: 100%;
-  height: 32px;
-  margin-bottom: 8px;
-}
-
-.review-preview-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.review-preview-row .static-waveform {
-  flex: 1;
-  margin-bottom: 0;
-}
-
-.preview-toggle-btn {
-  flex-shrink: 0;
-  margin-bottom: 8px;
-}
-
-.assign-prompt-name-label {
-  display: block;
-  font-size: 0.8em;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-
-.assign-prompt-name {
-  width: 100%;
-  font: inherit;
-  font-weight: 600;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--text);
-  min-height: 40px;
-  margin-bottom: 10px;
-}
-
-.pad-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 8px 0;
-}
-
-.pad-swatch {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  border: none;
-  font-weight: 700;
-}
-
-/* Confirm dialog — a small centered modal layer, see ConfirmDialog.tsx.
-   Deliberately its own backdrop (not a styled block dropped into whatever
-   panel raised it) and a higher z-index than .overlay-backdrop, since it's
-   frequently raised from inside an already-open Overlay and needs to read
-   as a distinct decision stacked above that sheet. */
-.confirm-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.confirm-dialog {
-  width: 100%;
-  max-width: 340px;
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.confirm-dialog-message {
-  margin: 0;
-  color: var(--text);
-  font-size: 0.95rem;
-  line-height: 1.45;
-}
-
-.confirm-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.confirm-dialog-actions .btn {
-  min-width: 84px;
-}
-
-.skip-assign {
-  background: none;
-  border: none;
-  color: var(--muted);
-  text-decoration: underline;
-  padding: 8px 0;
-  min-height: 40px;
-}
-
-.review-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-
-.assigned-next-step p {
-  margin: 4px 0 0;
+  color: #ff7b72;
 }
 
 .btn-ghost-danger {
+  border-color: transparent;
   background: none;
-  border: none;
   color: var(--danger);
-  font-weight: 600;
-  padding: 8px 4px;
-  min-height: 40px;
 }
 
-/* Modal overlays — recording review, settings */
+.btn-ghost-danger:hover:not(:disabled) {
+  border-color: rgb(255 81 69 / 0.5);
+  color: var(--danger);
+}
 
-.overlay-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
+/* Active/warn state for toggles like Mute, FX-off, Stop loop. */
+.btn.on-warn,
+.action.on-warn {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgb(var(--orange-rgb) / 0.1);
+  box-shadow: var(--glow-orange);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  padding: 0;
+  flex: none;
+  width: var(--control);
+  height: var(--control);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--text-dim);
+  transition:
+    border-color var(--fast),
+    color var(--fast),
+    background var(--fast),
+    box-shadow var(--fast),
+    transform var(--fast);
 }
 
-.overlay-sheet {
-  width: 100%;
-  max-width: 560px;
-  max-height: 85svh;
-  overflow-y: auto;
-  background: var(--bg);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: 16px 16px calc(16px + var(--safe-bottom));
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--cyan);
 }
 
-.overlay-sheet .assign-prompt {
-  margin-top: 0;
-  border: none;
-  background: transparent;
-  padding: 0;
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
-.overlay-close {
-  width: 100%;
-  margin-top: 12px;
+.icon-btn:disabled {
+  opacity: 0.3;
 }
 
-/* Pad grid */
-
-/* This is a performance surface, not a scroll/zoom gesture area. Explicitly
-   opting out of browser touch gestures lets every active finger keep its own
-   PointerEvent stream, so chord-like multi-pad presses do not cancel each other. */
-.pad-grid-cells {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  /* Pads retain independent Pointer Events for multi-touch, but vertical
-     panning stays native so a drag from the grid can still scroll the page.
-     Horizontal browser gestures remain out of the performance surface. */
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-  overscroll-behavior-x: contain;
+.icon-btn.on {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.1);
+  box-shadow: var(--glow-cyan);
 }
 
-/* A clear but non-intrusive signal that tapping a pad right now toggles its
-   loop instead of playing it — the mode itself is controlled by the global
-   GridModeButton, not anything here, so this is purely informational. */
-.pad-grid-cells.loop-mode,
-.pad-grid-cells.instrument-mode,
-.pad-grid-cells.mixer-mode {
-  outline: 2px dashed var(--accent);
-  outline-offset: 8px;
-  border-radius: var(--radius-lg);
+.icon-btn.armed {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgb(var(--orange-rgb) / 0.12);
+  box-shadow: var(--glow-orange);
+  animation: armed-pulse 1.1s ease-in-out infinite;
 }
 
+.icon-btn.danger:hover:not(:disabled) {
+  border-color: rgb(255 81 69 / 0.6);
+  color: var(--danger);
+}
 
-/* Arm real-time pattern entry from the Pads surface. It deliberately lives in
-   the header so it remains visible while playing the grid, not buried in a
-   recording menu. */
-.sequencer-record-toggle {
+.icon-btn-sm {
+  width: 26px;
+  height: 26px;
+}
+
+.icon-btn-lg {
+  width: var(--control-lg);
+  height: var(--control-lg);
+}
+
+@keyframes armed-pulse {
+  50% {
+    box-shadow: 0 0 2px rgb(var(--orange-rgb) / 0.3);
+  }
+}
+
+/* Small uppercase toggle/action chips (sequencer toolbar, presets). */
+.chip-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 32px;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 700;
+  height: var(--control-sm);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+  transition:
+    border-color var(--fast),
+    color var(--fast),
+    background var(--fast),
+    box-shadow var(--fast);
+}
+
+.chip-btn:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--cyan);
+}
+
+.chip-btn.on {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.1);
+  box-shadow: var(--glow-cyan);
+}
+
+.chip-btn.danger:hover:not(:disabled) {
+  border-color: rgb(255 81 69 / 0.6);
+  color: var(--danger);
+}
+
+.chip-btn:disabled {
+  opacity: 0.3;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Static label chips. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
   white-space: nowrap;
 }
 
-.sequencer-record-toggle span {
-  color: var(--danger);
-  font-size: 0.8rem;
+.chip-on {
+  border-color: var(--cyan-dim);
+  color: var(--cyan);
 }
 
-.sequencer-record-toggle.armed {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
+.chip-dim {
+  color: var(--text-faint);
+  border-style: dashed;
+}
+
+.chip-live {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+/* --------------------------------------------------------------------------
+   Primitives: segmented, stepper, switch, slider, inputs, popover
+   -------------------------------------------------------------------------- */
+
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(0 0 0 / 0.35);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: calc(var(--r-md) - 2px);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+  transition:
+    color var(--fast),
+    background var(--fast),
+    box-shadow var(--fast);
+}
+
+.segment:hover {
   color: var(--text);
 }
 
-.sequencer-record-toggle.armed span {
-  animation: dot-pulse 1s ease-in-out infinite;
+.segment.on {
+  color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.13);
+  box-shadow: inset 0 0 0 1px var(--cyan-dim), var(--glow-cyan);
+  text-shadow: var(--text-glow-cyan);
 }
 
-.pad-grid-header {
+.segmented-sm .segment {
+  height: 24px;
+  padding: 0 7px;
+}
+
+.mode-switch {
   display: flex;
+  width: 100%;
+}
+
+.stepper {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 8px;
+  height: var(--control-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 
-.pads-title-controls {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.pad-grid-header h2 {
-  margin: 0;
-}
-
-.pad-count-symbol {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.pad-count-symbol:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.pad-count-symbol:disabled {
-  opacity: 0.35;
-}
-
-.pad-grid-mode-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 0 0 14px;
-}
-
-.pad-grid-playback-control {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-}
-
-.fx-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--muted);
-}
-
-.fx-menu-btn.on {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.instrument-mode-btn {
+.stepper-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--muted);
-  font-weight: 700;
-  font-size: 0.72rem;
+  width: 26px;
+  height: 100%;
+  color: var(--text-dim);
+  transition: color var(--fast);
 }
 
-.instrument-mode-label {
-  white-space: nowrap;
+.stepper-btn:hover:not(:disabled) {
+  color: var(--cyan);
 }
 
-.instrument-mode-btn.on {
-  border-color: var(--accent);
-  color: var(--accent);
+.stepper-btn:disabled {
+  opacity: 0.3;
 }
 
-/* A real switch look — track + sliding thumb — not just a colored button,
-   per the explicit ask for Loop Mode's control to read as a switch. */
-.loop-switch {
-  display: flex;
+.stepper-value {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  min-width: 30px;
+  font-size: var(--fs-sm);
+}
+
+.stepper-unit {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.switch {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  padding: 4px 0;
-  color: var(--muted);
+  gap: var(--s2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 
-.loop-switch.on {
-  color: var(--accent);
-}
-
-.loop-switch-track {
+.switch-track {
   position: relative;
-  width: 40px;
-  height: 22px;
+  width: 34px;
+  height: 18px;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: var(--border);
-  transition: background 0.15s ease;
-  flex-shrink: 0;
+  background: var(--void);
+  transition:
+    border-color var(--fast),
+    background var(--fast);
 }
 
-.loop-switch.on .loop-switch-track {
-  background: var(--accent);
-}
-
-.loop-switch-thumb {
+.switch-thumb {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s ease;
+  background: var(--text-faint);
+  transition:
+    transform var(--med) var(--ease),
+    background var(--fast),
+    box-shadow var(--fast);
 }
 
-.loop-switch.on .loop-switch-thumb {
-  transform: translateX(18px);
+.switch.on {
+  color: var(--cyan);
 }
 
-/* Mixer Mode fader tiles — same footprint as a normal pad, different content */
-.mixer-fader {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: var(--radius-lg);
-  border: 3px solid var(--border);
-  background: var(--bg);
-  overflow: hidden;
-  touch-action: none;
+.switch.on .switch-track {
+  border-color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.15);
 }
 
-.mixer-fader.looping {
-  animation: pulse 1s ease-in-out infinite;
+.switch.on .switch-thumb {
+  transform: translateX(16px);
+  background: var(--cyan);
+  box-shadow: var(--glow-cyan);
 }
 
-.mixer-fader-fill {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  opacity: 0.35;
-  transition: height 0.05s linear;
+/* Range slider. --fill (0-1) lights the track; .bipolar lights it outward from the centre. */
+.slider {
+  --fill-from: 0;
+  --fill-to: var(--fill, 0);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
 }
 
-.mixer-fader-label {
-  position: absolute;
-  top: 8px;
-  left: 10px;
-  font-weight: 700;
-  font-size: 0.9rem;
+.slider.bipolar {
+  --fill-from: min(0.5, var(--fill, 0.5));
+  --fill-to: max(0.5, var(--fill, 0.5));
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--line-strong) calc(var(--fill-from) * 100%),
+    var(--cyan) calc(var(--fill-from) * 100%),
+    var(--cyan) calc(var(--fill-to) * 100%),
+    var(--line-strong) calc(var(--fill-to) * 100%)
+  );
+}
+
+.slider::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--line-strong) calc(var(--fill-from) * 100%),
+    var(--cyan) calc(var(--fill-from) * 100%),
+    var(--cyan) calc(var(--fill-to) * 100%),
+    var(--line-strong) calc(var(--fill-to) * 100%)
+  );
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6.5px;
+  border: 2px solid var(--cyan);
+  border-radius: 50%;
+  background: var(--void);
+  box-shadow: var(--glow-cyan);
+  transition: transform var(--fast);
+}
+
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--cyan);
+  border-radius: 50%;
+  background: var(--void);
+  box-shadow: var(--glow-cyan);
+}
+
+.slider:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.text-input {
+  width: 100%;
+  height: var(--control);
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--void);
   color: var(--text);
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS from zooming the page on focus. */
 }
 
-.mixer-fader-level {
+.text-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.popover-anchor {
+  position: relative;
+}
+
+.popover {
   position: absolute;
-  bottom: 8px;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  min-width: 210px;
+  padding: var(--s3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--deck-raised);
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 0.6),
+    0 0 18px rgb(var(--cyan-rgb) / 0.1);
+  animation: pop-in var(--med) var(--ease);
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s2);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Transport strip
+   -------------------------------------------------------------------------- */
+
+.transport {
+  position: fixed;
+  top: 0;
   left: 0;
   right: 0;
-  text-align: center;
-  font-size: 0.72rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  height: calc(var(--strip-h) + var(--safe-top));
+  padding: var(--safe-top) 10px 0;
+  background: rgb(2 4 7 / 0.88);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgb(var(--cyan-rgb) / 0.05), 0 6px 18px rgb(0 0 0 / 0.4);
+}
+
+.transport-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--cyan);
+  border-radius: var(--r-md);
+  background: rgb(var(--cyan-rgb) / 0.08);
+  color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+  transition:
+    transform var(--fast),
+    background var(--fast),
+    border-color var(--fast),
+    color var(--fast);
+}
+
+.transport-play:active {
+  transform: scale(0.94);
+}
+
+.transport-play.on {
+  border-color: var(--orange);
+  background: rgb(var(--orange-rgb) / 0.14);
+  color: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.beat-led {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cyan);
+  opacity: calc(0.15 + var(--beat, 0) * 0.85);
+  box-shadow: 0 0 calc(2px + var(--beat, 0) * 10px) var(--cyan);
+}
+
+.bpm-control {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.bpm-nudge {
+  width: 24px;
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-dim);
+  transition: color var(--fast);
+}
+
+.bpm-nudge:hover:not(:disabled) {
+  color: var(--cyan);
+}
+
+.bpm-nudge:disabled {
+  opacity: 0.3;
+}
+
+.bpm-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  height: 100%;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bpm-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--text);
+  line-height: 1;
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
+
+.bpm-unit {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  color: var(--text-faint);
+}
+
+.transport-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.volume-popover .slider {
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Tab bar + record
+   -------------------------------------------------------------------------- */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 104px));
+  justify-content: center;
+  align-items: center;
+  height: calc(var(--tabbar-h) + var(--safe-bottom));
+  padding: 0 var(--s2) var(--safe-bottom);
+  background: rgb(2 4 7 / 0.9);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+  color: var(--text-faint);
+  transition: color var(--fast);
+}
+
+.tab:hover {
+  color: var(--text-dim);
+}
+
+.tab-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tab.on {
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
+
+.tab.on::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 28%;
+  right: 28%;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.rec-source.on {
+  color: var(--orange);
+  text-shadow: var(--text-glow-orange);
+}
+
+.rec-source.on::before {
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.tab-record {
+  display: flex;
+  justify-content: center;
+}
+
+.record-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 58px;
+  height: 58px;
+  margin-top: -18px;
+  border: 2px solid var(--orange);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #1a0f06, var(--void) 70%);
+  color: var(--orange);
+  box-shadow:
+    var(--glow-orange),
+    inset 0 0 12px rgb(var(--orange-rgb) / 0.25);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition:
+    transform var(--fast),
+    background var(--fast);
+}
+
+.record-btn:active {
+  transform: scale(0.93);
+}
+
+.record-btn-caption {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.record-btn.on {
+  background: var(--orange);
+  color: var(--void);
+  animation: rec-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  50% {
+    box-shadow:
+      0 0 26px rgb(var(--orange-rgb) / 0.9),
+      inset 0 0 12px rgb(0 0 0 / 0.3);
+  }
+}
+
+.record-live,
+.toast {
+  position: fixed;
+  left: var(--s3);
+  right: var(--s3);
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 18px);
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 10px 14px;
+  border: 1px solid var(--orange);
+  border-radius: var(--r-lg);
+  background: var(--deck-raised);
+  box-shadow: var(--glow-orange), 0 10px 30px rgb(0 0 0 / 0.6);
+  animation: pop-in var(--med) var(--ease);
+}
+
+.record-live .readout {
+  color: var(--orange);
+}
+
+.record-live-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+  animation: rec-blink 1s steps(2, start) infinite;
+}
+
+@keyframes rec-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.record-live-hint {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.live-waveform {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  color: var(--orange);
+}
+
+.toast-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: 0 0 10px rgb(255 81 69 / 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   Pads module
+   -------------------------------------------------------------------------- */
+
+.pad-grid-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: var(--s2);
+  /* Vertical page scroll still works from a pad; horizontal browser gestures don't steal presses. */
+  touch-action: pan-y;
 }
 
 .pad {
   position: relative;
   aspect-ratio: 1;
-  border-radius: var(--radius-lg);
-  border: 3px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1.6rem;
-  color: #fff;
+  border: 1px solid rgb(var(--cyan-rgb) / 0.2);
+  border-radius: var(--r-md);
+  background: linear-gradient(160deg, rgb(var(--cyan-rgb) / 0.05), rgb(0 0 0 / 0.5) 70%);
+  color: var(--text-dim);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   transition:
-    transform 80ms ease,
-    filter 80ms ease;
+    transform 70ms ease-out,
+    border-color var(--fast);
 }
 
 .pad:active {
-  transform: scale(0.96);
+  transform: scale(0.965);
 }
 
-.pad.playing {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
+.pad.filled {
+  border-color: rgb(var(--cyan-rgb) / 0.45);
+  box-shadow: inset 0 0 14px rgb(var(--cyan-rgb) / 0.08);
 }
 
 .pad.empty {
-  color: var(--muted);
-}
-
-/* An inline empty tile keeps pad growth discoverable at the current grid edge,
-   including immediately after pad 16. */
-.pad-add-slot {
-  flex-direction: column;
-  gap: 2px;
   border-style: dashed;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
+  border-color: rgb(var(--cyan-rgb) / 0.16);
 }
 
-.pad-add-slot:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.pad-add-slot small {
-  font-size: 0.65rem;
-  font-weight: 700;
-}
-
-.pad.muted {
-  opacity: 0.45;
-  filter: grayscale(0.6);
-}
-
-/* A faint waveform silhouette behind the pad number/badge — a quick "which
-   sound is this" visual cue at a glance, using the same peaks data the
-   Library's thumbnails draw from. Deliberately subtle (low opacity) so it
-   never competes with the number/badge sitting on top of it. */
-.pad-waveform-backdrop {
+/* Audio-reactive layer: LightShow writes --level (0-1) straight onto the pad. */
+.pad-glow {
   position: absolute;
-  inset: 10% 6%;
+  inset: -1px;
+  border: 1px solid var(--cyan);
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 55%, rgb(var(--cyan-rgb) / 0.3), rgb(var(--cyan-rgb) / 0.06) 72%);
+  box-shadow:
+    0 0 30px 4px rgb(var(--cyan-rgb) / 0.6),
+    inset 0 0 22px rgb(var(--cyan-rgb) / 0.5);
+  opacity: var(--level, 0);
+  pointer-events: none;
+  will-change: opacity;
+}
+
+/* Hit bloom: animated by LightShow through the Web Animations API. */
+.pad-flash {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgb(215 252 255 / 0.9), rgb(var(--cyan-rgb) / 0.4) 45%, transparent 75%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pad-bloom {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--cyan);
+  border-radius: inherit;
+  box-shadow: 0 0 16px rgb(var(--cyan-rgb) / 0.8);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pad-wave {
+  position: absolute;
+  inset: 26% 10% 30%;
+  color: var(--cyan);
   opacity: 0.3;
   pointer-events: none;
 }
 
-.pad-waveform-backdrop .static-waveform {
-  width: 100%;
-  height: 100%;
-}
-
-/* A small pill with the key's 1-based position (low to high) — showing the
-   number, not a repeated icon, is what makes the grid actually read as an
-   ordered keyboard once an instrument is applied. */
-.pad-instrument-badge {
+.pad-num {
   position: absolute;
   top: 6px;
-  right: 6px;
-  min-width: 18px;
-  padding: 1px 5px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.28);
-  color: #fff;
-  font-size: 0.65rem;
+  left: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
-  line-height: 1.4;
-  text-align: center;
-  display: flex;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.pad.filled .pad-num {
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
+
+.pad-key {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  display: inline-flex;
   align-items: center;
   gap: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
 }
 
-.pad-instrument-icon {
-  font-size: 0.85rem;
-  line-height: 1;
+.pad-key-icon {
+  font-size: 11px;
 }
 
-.pad-empty-hint {
+.pad-name {
   position: absolute;
-  bottom: 10px;
-  font-size: 1.5rem;
-  font-weight: 300;
-  line-height: 1;
-  color: var(--muted);
-  opacity: 0.7;
-}
-
-.pad-muted-hint {
-  position: absolute;
-  bottom: 10px;
-  font-size: 0.62rem;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: inherit;
-  opacity: 0.8;
+  text-align: left;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* "Now playing" equalizer bars — the readily-visible sign a pad is making sound */
-
-.pad-eq {
-  position: absolute;
-  bottom: 8px;
+.pad.empty .pad-name {
+  inset: 0;
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 12px;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 300;
+  color: var(--text-faint);
 }
 
-.pad-eq span {
-  width: 3px;
-  border-radius: 1px;
-  background: currentColor;
-  animation: eq-bounce 0.6s ease-in-out infinite;
+/* Selected: a lit bracket on each corner — "target locked". */
+.pad.selected::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: calc(var(--r-md) + 4px);
+  pointer-events: none;
+  background:
+    linear-gradient(var(--cyan), var(--cyan)) top left / 10px 2px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) top left / 2px 10px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) top right / 10px 2px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) top right / 2px 10px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom left / 10px 2px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom left / 2px 10px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / 10px 2px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / 2px 10px no-repeat;
+  filter: drop-shadow(0 0 3px rgb(var(--cyan-rgb) / 0.8));
 }
 
-.pad-eq span:nth-child(1) {
-  animation-delay: -0.4s;
-}
-.pad-eq span:nth-child(2) {
-  animation-delay: -0.2s;
-}
-.pad-eq span:nth-child(3) {
-  animation-delay: 0s;
-}
-
-@keyframes eq-bounce {
-  0%,
-  100% {
-    height: 4px;
-  }
-  50% {
-    height: 12px;
-  }
-}
-
-.pad.selected {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
-
+/* Looping: orange, breathing with the beat on top of its own level. */
 .pad.looping {
-  animation: pulse 1s ease-in-out infinite;
+  border-color: rgb(var(--orange-rgb) / 0.7);
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-  50% {
-    filter: brightness(1.35);
-  }
+.pad.looping .pad-glow {
+  border-color: var(--orange);
+  background: radial-gradient(circle at 50% 55%, rgb(var(--orange-rgb) / 0.26), rgb(var(--orange-rgb) / 0.05) 72%);
+  box-shadow:
+    0 0 30px 4px rgb(var(--orange-rgb) / 0.55),
+    inset 0 0 22px rgb(var(--orange-rgb) / 0.45);
+  opacity: min(1, calc(0.2 + var(--beat, 0) * 0.55 + var(--level, 0) * 0.5));
 }
 
-/* Pads page: selected-pad summary bar */
+.pad.looping .pad-num {
+  color: var(--orange);
+  text-shadow: var(--text-glow-orange);
+}
 
-.selected-pad-bar {
+.pad.muted {
+  opacity: 0.5;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(var(--orange-rgb) / 0.06) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.pad.muted .pad-name {
+  color: var(--orange);
+}
+
+/* Loop mode hint: filled pads pick up an orange edge so the grid reads as "tap to loop". */
+.loop-mode .pad.filled:not(.looping) {
+  border-color: rgb(var(--orange-rgb) / 0.35);
+}
+
+/* Mixer mode: pads become faders. */
+.mixer-fader {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.mixer-fader-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-top: 2px solid var(--cyan);
+  background: linear-gradient(to top, rgb(var(--cyan-rgb) / 0.4), rgb(var(--cyan-rgb) / 0.08));
+  box-shadow: 0 -4px 14px rgb(var(--cyan-rgb) / 0.35);
+  pointer-events: none;
+  transition: height 60ms linear;
+}
+
+.mixer-fader-level {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  text-shadow: var(--text-glow-cyan);
+  pointer-events: none;
+}
+
+.mixer-fader .pad-num {
+  color: var(--cyan);
+}
+
+/* Selected pad's action strip, directly under the grid. */
+.pad-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.pad-context-id {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pad-context-num {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  text-shadow: var(--text-glow-cyan);
+}
+
+.pad-context-name {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pad-context-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  flex: 1 1 100%;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control);
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  transition:
+    border-color var(--fast),
+    color var(--fast),
+    background var(--fast),
+    transform var(--fast);
+}
+
+.action:hover {
+  border-color: var(--line-strong);
+  color: var(--cyan);
+}
+
+.action:active {
+  transform: scale(0.96);
+}
+
+/* --------------------------------------------------------------------------
+   Sequencer module
+   -------------------------------------------------------------------------- */
+
+.sequencer {
+  --step: 26px;
+  --step-gap: 3px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sequencer-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  margin: 0 calc(-1 * var(--s1));
+  padding-left: var(--s1);
+  padding-right: var(--s1);
+}
+
+.sequencer-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 5px;
+  min-width: max-content;
 }
 
-.selected-pad-tags {
+.sequencer-row,
+.sequencer-add-row-slot {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.tag-muted {
-  background: var(--danger);
-}
-
-.tag-fx-off {
-  background: var(--accent);
-}
-
-/* Plain 2x2 grid, four equal-sized actions in reading order: Mute, Effects
-   (row 1) then Edit, Library (row 2). */
-.selected-pad-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
-.action-btn {
+.sequencer-row-fixed {
+  position: sticky;
+  left: calc(-1 * var(--s1));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  width: 66px;
+  padding-right: 4px;
+  background: var(--deck-solid);
+  box-shadow: 6px 0 8px -6px rgb(0 0 0 / 0.9);
+}
+
+.sequencer-header-row .sequencer-row-fixed {
+  box-shadow: none;
+}
+
+.sequencer-row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-faint);
+  transition:
+    color var(--fast),
+    border-color var(--fast);
+}
+
+.sequencer-row-remove:hover:not(:disabled) {
+  border-color: rgb(255 81 69 / 0.5);
+  color: var(--danger);
+}
+
+.sequencer-row-remove:disabled {
+  opacity: 0.25;
+}
+
+.sequencer-row-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--void);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: border-color var(--fast);
+}
+
+.sequencer-row-label:hover {
+  border-color: var(--cyan);
+}
+
+/* The row's number chip lights up with its pad's live level. */
+.sequencer-row-label::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid var(--cyan);
+  border-radius: inherit;
+  box-shadow: 0 0 12px rgb(var(--cyan-rgb) / 0.7);
+  opacity: var(--level, 0);
+  pointer-events: none;
+}
+
+.row-looping .sequencer-row-label {
+  border-color: var(--orange);
+}
+
+.row-looping .sequencer-row-label .readout {
+  color: var(--orange);
+}
+
+.row-loop-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.step-group {
+  display: flex;
+  gap: var(--step-gap);
+}
+
+.sequencer-header-row .step-group {
+  width: calc(4 * var(--step) + 3 * var(--step-gap));
+}
+
+.step-group-number {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+  padding-left: 2px;
+}
+
+.step {
+  flex: none;
+  width: var(--step);
+  height: 30px;
+  border: 1px solid rgb(var(--cyan-rgb) / 0.16);
+  border-radius: var(--r-sm);
+  background: rgb(var(--cyan-rgb) / 0.025);
+  touch-action: pan-x;
+  transition:
+    background 80ms,
+    border-color 80ms,
+    box-shadow 80ms;
+}
+
+/* Downbeat of each group reads slightly brighter, so the bar's shape is visible at a glance. Only while empty — a lit or traced step keeps its own look. */
+.step-group .step:first-child:not(.on):not(.trace) {
+  background: rgb(var(--cyan-rgb) / 0.065);
+}
+
+@media (hover: hover) {
+  .step:hover {
+    border-color: var(--cyan-dim);
+  }
+}
+
+.step.on {
+  border-color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.85);
+  box-shadow: 0 0 9px rgb(var(--cyan-rgb) / 0.55);
+}
+
+.step.trace {
+  border: 1px dashed rgb(var(--orange-rgb) / 0.65);
+  background: transparent;
+}
+
+.step.current {
+  border-color: var(--orange);
+  box-shadow: inset 0 0 8px rgb(var(--orange-rgb) / 0.45), 0 0 6px rgb(var(--orange-rgb) / 0.4);
+}
+
+/* The playhead crossing a lit step flashes it white-hot. */
+.step.on.current {
+  border-color: #fff;
+  background: #e6feff;
+  box-shadow:
+    0 0 16px 2px rgb(var(--cyan-rgb) / 0.9),
+    0 0 4px #fff;
+}
+
+.sequencer-add-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-sm);
+  padding: 0 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.sequencer-add-row:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+/* --------------------------------------------------------------------------
+   Library
+   -------------------------------------------------------------------------- */
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: var(--s2);
+}
+
+.library-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(0 0 0 / 0.3);
+  transition:
+    border-color var(--fast),
+    box-shadow var(--fast);
+}
+
+.library-card.playing {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.library-card-wave {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 56px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--void);
+  color: var(--cyan-dim);
+  transition: color var(--fast);
+}
+
+.library-card-wave:hover,
+.library-card.playing .library-card-wave {
+  color: var(--cyan);
+}
+
+.library-card-play {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--deck-solid);
+  color: var(--cyan);
+}
+
+.library-card-name {
+  width: 100%;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: left;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-card-name:hover {
+  color: var(--cyan);
+}
+
+.library-card-facts,
+.library-card-pads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.library-card-facts .readout {
+  font-size: var(--fs-xs);
+}
+
+.library-card-loudness {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.library-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.library-card-spacer {
+  flex: 1;
+}
+
+.library-rename-input {
+  height: var(--control-sm);
+  font-size: var(--fs-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Sheets (Overlay) and confirm dialog
+   -------------------------------------------------------------------------- */
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 3 6 / 0.72);
+  backdrop-filter: blur(3px);
+  animation: fade-in var(--med) ease-out;
+}
+
+.sheet {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 88svh;
+  overflow-y: auto;
+  padding: 0 var(--s4) calc(var(--s4) + var(--safe-bottom));
+  border-top: 1px solid var(--cyan-dim);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--deck-raised);
+  box-shadow: 0 -12px 40px rgb(var(--cyan-rgb) / 0.08);
+  animation: sheet-up var(--med) var(--ease);
+}
+
+.sheet-tall {
+  max-height: 94svh;
+}
+
+.sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  margin: 0 calc(-1 * var(--s4)) var(--s3);
+  padding: 14px var(--s4) 10px;
+  background: var(--deck-raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
+
+.sheet-subtitle {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.sheet-section + .sheet-section {
+  margin-top: var(--s3);
+}
+
+.sheet-section > .label {
+  margin-bottom: 6px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s4);
+  background: rgb(0 3 6 / 0.7);
+  animation: fade-in var(--fast) ease-out;
+}
+
+.confirm-dialog {
+  width: min(360px, 100%);
+  padding: var(--s4);
+  border: 1px solid rgb(var(--orange-rgb) / 0.55);
+  border-radius: var(--r-lg);
+  background: var(--deck-raised);
+  box-shadow:
+    0 0 24px rgb(var(--orange-rgb) / 0.15),
+    0 20px 50px rgb(0 0 0 / 0.7);
+  animation: pop-in var(--med) var(--ease);
+}
+
+.confirm-dialog-message {
+  margin-bottom: var(--s4);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s2);
+}
+
+/* Choice grid (instrument picker). */
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choice {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 56px;
-  padding: 8px 4px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font-size: 0.8rem;
-  font-weight: 600;
+  width: 100%;
+  height: 60px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(var(--cyan-rgb) / 0.03);
+  transition:
+    border-color var(--fast),
+    box-shadow var(--fast),
+    transform var(--fast);
 }
 
-.action-btn:disabled {
+.choice:hover:not(:disabled) {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.choice:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.choice:disabled {
   opacity: 0.4;
 }
 
-.action-loop.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+.choice-icon {
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
-/* Mute/Effects are the most-reached-for actions here (see project.md), so
-   they carry an accent outline even at rest — Edit/Library are quieter,
-   plain-bordered navigational actions used less often. This is a deliberate
-   flip from an earlier version where Edit/Library were the colored ones. */
-.action-mute,
-.action-effects {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.action-mute.on {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.action-effects.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.action-edit,
-.action-library {
+.choice-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text);
-  border-color: var(--border);
 }
 
-/* Pad edit popup (see PadEditOverlay) */
-
-.edit-pad-page {
+/* Lists (library picker, saved sequences). */
+.list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: left;
+  transition:
+    border-color var(--fast),
+    background var(--fast);
+}
+
+button.list-item:hover {
+  border-color: var(--cyan);
+}
+
+.list-item.current {
+  border-color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.07);
+}
+
+.list-wave {
+  flex: none;
+  width: 72px;
+  height: 28px;
+  color: var(--cyan-dim);
+}
+
+.list-item.current .list-wave,
+button.list-item:hover .list-wave {
+  color: var(--cyan);
+}
+
+.list-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Loop presets. */
+.loopers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.loop-preset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: left;
+  transition:
+    border-color var(--fast),
+    box-shadow var(--fast),
+    transform var(--fast);
+}
+
+.loop-preset-card:hover:not(:disabled) {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.loop-preset-card:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.loop-preset-card:disabled {
+  opacity: 0.4;
+}
+
+.loop-preset-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.loop-preset-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.loop-preview-row {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 1px;
+}
+
+.loop-preview-cell {
+  height: 4px;
+  border-radius: 1px;
+  background: rgb(var(--cyan-rgb) / 0.1);
+}
+
+.loop-preview-cell.on {
+  background: var(--cyan);
+  box-shadow: 0 0 4px rgb(var(--cyan-rgb) / 0.7);
+}
+
+/* --------------------------------------------------------------------------
+   Settings
+   -------------------------------------------------------------------------- */
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-row:last-of-type {
+  border-bottom: 0;
+}
+
+.settings-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.settings-hint {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-error {
+  padding: var(--s2) 0;
+  font-size: var(--fs-sm);
+  color: var(--danger);
+}
+
+/* --------------------------------------------------------------------------
+   Recording review / pad assign
+   -------------------------------------------------------------------------- */
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.review-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.review-wave {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--void);
+  color: var(--cyan);
+}
+
+.review .label {
+  margin-top: 4px;
+}
+
+.pad-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 6px;
+}
+
+.pad-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--void);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  transition:
+    border-color var(--fast),
+    box-shadow var(--fast),
+    color var(--fast);
+}
+
+.pad-swatch.filled {
+  border-color: var(--cyan-dim);
+  color: var(--cyan);
+}
+
+.pad-swatch:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.pad-swatch-add {
+  border-style: dashed;
+}
+
+.review-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.review-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.review-done-text {
+  font-size: var(--fs-md);
+}
+
+/* --------------------------------------------------------------------------
+   Pad editor
+   -------------------------------------------------------------------------- */
+
+.edit-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .pad-switcher-strip {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 2px;
-  scrollbar-width: none;
-}
-
-.pad-switcher-strip::-webkit-scrollbar {
-  display: none;
+  padding: 4px 2px 6px;
 }
 
 .pad-switcher-swatch {
   position: relative;
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  border: 2px solid var(--border);
+  flex: none;
+  width: 38px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--void);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--text-dim);
+  transition:
+    border-color var(--fast),
+    color var(--fast);
 }
 
 .pad-switcher-swatch.empty {
-  color: var(--muted);
+  border-style: dashed;
+  color: var(--text-faint);
 }
 
 .pad-switcher-swatch.current {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: var(--glow-cyan);
 }
 
 .pad-switcher-loop-dot {
   position: absolute;
   top: -3px;
   right: -3px;
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--danger);
-  animation: dot-pulse 1s ease-in-out infinite;
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
 }
 
-.edit-pad-loop-btn {
-  width: 100%;
-}
-
-.effect-presets {
+.edit-section {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(0 0 0 / 0.25);
 }
 
-.preset-btn {
-  padding: 8px 14px;
-}
-
-.edit-pad-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 8px;
-}
-
-.edit-pad-heading {
-  justify-self: center;
-}
-
-.edit-pad-header-tags {
+.edit-section-head,
+.edit-section-sub {
   display: flex;
   align-items: center;
   gap: 6px;
-  justify-self: start;
 }
 
-.overlay-close-x {
-  background: none;
-  border: none;
-  color: var(--text);
-  font-weight: 700;
-  font-size: 1.1rem;
-  padding: 8px;
-  min-height: 40px;
-  min-width: 40px;
-  justify-self: end;
+.edit-section-head .switch,
+.edit-section-readout {
+  margin-left: auto;
 }
 
-.tag-live,
-.tag-playing {
-  animation: dot-pulse 1s ease-in-out infinite;
+.edit-section-readout {
+  font-size: var(--fs-sm);
 }
 
-.tag-live {
-  background: var(--danger);
+.edit-section-reset {
+  align-self: flex-end;
 }
 
-.tag-playing {
-  background: var(--accent);
+.dials {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: opacity var(--med);
 }
 
-.dial-panel-hint {
-  margin: -4px 0 12px;
+.dials.bypassed {
+  opacity: 0.4;
 }
 
 .dial-row {
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .dial-label-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
 }
 
 .dial-label-text {
-  font-size: 0.9em;
-  font-weight: 600;
-}
-
-.effects-panel-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.effects-switch {
-  padding: 0;
-}
-
-.effects-switch-label {
-  font-size: 0.9em;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
 }
 
 .dial-value {
   margin-left: auto;
-  font-size: 0.9em;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--text-faint);
 }
 
-/* Info tip */
+.dial-value.active {
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
 
 .info-tip {
   position: relative;
@@ -1559,63 +2341,60 @@ h2 {
 }
 
 .info-tip-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-style: italic;
-  font-family: serif;
-  padding: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.info-tip-btn:hover,
+.info-tip-btn[aria-expanded='true'] {
+  border-color: var(--cyan);
+  color: var(--cyan);
 }
 
 .info-tip-bubble {
   position: absolute;
-  z-index: 5;
-  top: 26px;
-  left: 0;
-  width: 220px;
-  max-width: 60vw;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-size: 0.78rem;
-  font-weight: 500;
-  line-height: 1.4;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  top: 22px;
+  left: -8px;
+  z-index: 6;
+  width: min(250px, 70vw);
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--deck-solid);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.6);
+  animation: pop-in var(--fast) var(--ease);
 }
 
-/* Trim editor */
-
-.trim-section {
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-}
-
+/* Trim editor. */
 .trim-editor {
   position: relative;
-  height: 48px;
-  margin-top: 4px;
+  height: 64px;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--void);
+  color: var(--cyan);
   touch-action: none;
-}
-
-.trim-editor .static-waveform {
-  width: 100%;
-  height: 100%;
 }
 
 .trim-dim {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  background: rgb(2 4 7 / 0.75);
   pointer-events: none;
 }
 
@@ -1629,789 +2408,304 @@ h2 {
 
 .trim-handle {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 16px;
-  margin-left: -8px;
-  border: none;
-  border-radius: 4px;
-  background: var(--accent);
-  padding: 0;
+  top: -5px;
+  bottom: -5px;
+  width: 22px;
+  margin-left: -11px;
+  cursor: ew-resize;
+  touch-action: none;
 }
 
 .trim-handle::before {
   content: '';
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 3px;
-  height: 16px;
-  border-radius: 2px;
-  background: #fff;
-}
-
-.trim-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-/* Range sliders — restyled for touch: bigger thumb, colored track fill */
-
-input[type='range'] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 28px;
-  background: transparent;
-  margin: 0;
-}
-
-input[type='range']::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--border);
-}
-
-input[type='range']::-moz-range-track {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--border);
-}
-
-input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--dial-color, var(--accent));
-  border: 3px solid var(--panel-bg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-  margin-top: -10px;
-}
-
-input[type='range']::-moz-range-thumb {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--dial-color, var(--accent));
-  border: 3px solid var(--panel-bg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-}
-
-/* Sequencer */
-
-.sequencer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.sequencer-header h2 {
-  margin: 0;
-}
-
-.loop-preset-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--muted);
-  flex-shrink: 0;
-}
-
-.sequencer-hint {
-  margin: -4px 0 10px;
-}
-
-/* Lives inside the horizontal timeline and sticks to its visible edge, so
-   arranging a longer pattern never strands the actions off-screen. */
-.sequencer-footer-actions {
-  position: sticky;
-  left: 16px;
-  z-index: 2;
-  display: flex;
-  width: max-content;
-  gap: 5px;
-  margin: 10px 0 2px;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
-  box-shadow: 0 4px 14px color-mix(in srgb, #000 12%, transparent);
-}
-
-.sequencer-bounce,
-.sequencer-load,
-.sequencer-trace,
-.sequencer-clear {
-  flex: 0 0 auto;
-  min-width: 0;
-  min-height: 28px;
-  padding: 3px 8px;
-  font-size: 0.7rem;
-  white-space: nowrap;
-}
-
-.sequencer-scroll {
-  overflow-x: auto;
-  margin: 0 -16px;
-  padding: 0 16px;
-  scroll-behavior: smooth;
-}
-
-.sequencer-add-row-slot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-}
-
-.sequencer-add-row {
-  min-width: 140px;
-  min-height: 34px;
-  border: 1px dashed var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.sequencer-add-row:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.sequencer-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: max-content;
-  min-width: 100%;
-}
-
-.sequencer-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sequencer-header-row {
-  padding-bottom: 2px;
-}
-
-/* The X and the swatch move together as one sticky unit while the timeline
-   pans horizontally underneath — previously .sequencer-row-label alone was
-   sticky; now the wrapper is, so a second fixed column (the remove button)
-   can sit to its left without a separate sticky offset to keep in sync. */
-.sequencer-row-fixed {
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  background: var(--bg);
-}
-
-.sequencer-row-label {
-  width: 46px;
-  height: 34px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  background: var(--bg);
-}
-
-.sequencer-row-label-spacer {
-  background: transparent;
-}
-
-/* Deliberately small and muted at rest (not red until hover) and set apart
-   from the swatch by a real gap, not touching it — a specific ask that this
-   destructive action not be easy to hit by accident reaching for the pad
-   swatch beside it. Still gated behind a confirm dialog on top of that. */
-.sequencer-row-remove {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--muted);
-  font-size: 0.6rem;
-  line-height: 1;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.sequencer-row-remove:hover {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.sequencer-row-remove:disabled {
-  opacity: 0.35;
-}
-
-.sequencer-row-remove-spacer {
-  background: transparent;
-  border-color: transparent;
-}
-
-.sequencer-row-load {
-  font-size: 0.52rem;
-  line-height: 1;
-  opacity: 0.82;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.row-looping .sequencer-row-label {
-  box-shadow: 0 0 0 2px var(--accent);
-}
-
-.row-loop-badge {
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--panel-bg);
-  animation: dot-pulse 1s ease-in-out infinite;
-}
-
-/* A continuous timeline/bar-strip look, not an isolated checkbox grid: steps
-   within a beat sit close together (a "cell" feel), each beat group is set
-   off from the next by a real border (a bar line), not just a background
-   tint, and the currently-playing step glows rather than just outlining. */
-.step-group {
-  display: flex;
-  gap: 2px;
-  padding: 3px 3px 3px 7px;
-  border-left: 2px solid var(--border);
-}
-
-.step-group:first-of-type {
-  border-left: none;
-  padding-left: 3px;
-}
-
-.step-group:nth-of-type(even) {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  border-radius: 0 8px 8px 0;
-}
-
-.step-length-controls {
-  display: flex;
-  gap: 4px;
-  width: max-content;
-  margin: 0 0 8px;
-  padding: 3px;
-  border-radius: 8px;
-  background: var(--panel-bg);
-  box-shadow: 0 3px 10px color-mix(in srgb, #000 12%, transparent);
-}
-
-.step-length-controls-left {
-  position: sticky;
-  left: 0;
-  z-index: 4;
-}
-
-.step-add-right {
-  min-width: 36px;
-  min-height: 28px;
-  border: 1px dashed var(--border);
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.step-add-right:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.step-add-right:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.step-group-number {
-  display: block;
-  width: 34px;
-  text-align: left;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.step {
-  width: 34px;
-  height: 34px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  padding: 0;
-}
-
-/* A captured Trace is only a composition guide: outlined/dim and never an active hit. */
-.step.trace {
-  background: color-mix(in srgb, var(--panel-bg) 72%, transparent);
-  border-style: dashed;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
-  opacity: 0.55;
-}
-
-.step.current {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent) inset,
-    0 0 8px 1px color-mix(in srgb, var(--accent) 60%, transparent);
-}
-
-/* Settings */
-
-.settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.settings-label {
-  font-size: 0.9em;
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.stepper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.stepper-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--text);
-  font-size: 1.2rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.settings-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 14px 0;
-}
-
-.settings-file-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.settings-error {
-  color: var(--danger);
-  margin: -6px 0 10px;
-}
-
-.stepper-btn:disabled {
-  opacity: 0.35;
-}
-
-.stepper-value {
-  min-width: 1.5em;
-  text-align: center;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Sticky play bar */
-
-.play-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
+  top: 0;
   bottom: 0;
-  z-index: 10;
+  left: 10px;
+  width: 2px;
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.trim-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 5px;
+  width: 12px;
+  height: 20px;
+  margin-top: -10px;
+  border-radius: 3px;
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+/* --------------------------------------------------------------------------
+   Whole-grid FX panel (portaled; positioned by JS — see PadEffectsMenuButton)
+   -------------------------------------------------------------------------- */
+
+.fx-popover-anchor {
+  position: relative;
+}
+
+.fx-floating-panel {
+  position: fixed;
+  z-index: 25;
+  width: min(300px, calc(100vw - 24px));
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--deck-raised);
+  box-shadow:
+    0 14px 36px rgb(0 0 0 / 0.65),
+    0 0 20px rgb(var(--cyan-rgb) / 0.12);
+  animation: pop-in var(--med) var(--ease);
+}
+
+.fx-floating-heading {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px calc(12px + var(--safe-bottom));
-  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid var(--border);
+  gap: var(--s2);
+  margin-bottom: var(--s2);
 }
 
-.play-toggle {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent);
-  color: #fff;
+.fx-floating-heading-text {
   display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.play-toggle.playing {
-  background: var(--accent-strong);
-}
-
-.play-bar-bpm {
+  align-items: baseline;
+  gap: 6px;
   flex: 1;
   min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.fx-floating-heading-text > span:first-child {
+  font-weight: 700;
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
+
+.fx-floating-heading-text .muted {
+  color: var(--text-faint);
+}
+
+.fx-quick-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.fx-preset-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text);
+  transition:
+    border-color var(--fast),
+    color var(--fast);
+}
+
+.fx-preset-button:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.effect-preview {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+  width: 24px;
+  height: 16px;
+}
+
+.effect-preview i {
+  display: block;
+  width: 4px;
+  border-radius: 1px;
+  background: var(--cyan);
+  box-shadow: 0 0 4px rgb(var(--cyan-rgb) / 0.6);
+}
+
+.fx-custom-dials {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.play-bar-bpm label {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.loop-mode-btn {
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.loop-mode-btn.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-/* Top nav — page switching plus utility actions reachable from every page */
-
-.top-nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  height: calc(var(--topnav-height) + var(--safe-top));
-  padding: var(--safe-top) 12px 0;
-  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-}
-
-.top-nav-tabs {
-  display: flex;
   gap: 4px;
-  overflow-x: auto;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 
-.nav-tab {
-  background: none;
-  border: none;
-  padding: 8px 10px;
-  min-height: 36px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.nav-tab.active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.top-nav-actions {
+.fx-floating-actions {
   display: flex;
   gap: 6px;
-  flex-shrink: 0;
+  margin-top: 10px;
 }
 
-.nav-project-btn {
-  min-height: 36px;
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  font-size: 0.72rem;
-  font-weight: 700;
+.fx-floating-actions .btn {
+  flex: 1;
 }
 
-.nav-icon-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* --------------------------------------------------------------------------
+   Responsive: wide screens, landscape / ultra-wide, small phones
+   -------------------------------------------------------------------------- */
 
-.nav-stop-all {
-  color: var(--danger);
-  border-color: var(--danger);
-}
+@media (min-width: 700px) {
+  .overlay-backdrop {
+    align-items: center;
+    padding: var(--s4);
+  }
 
-/* Small phones: tighten the pad grid a touch */
-@media (max-width: 360px) {
-  .app-shell {
-    padding-left: 12px;
-    padding-right: 12px;
+  .sheet {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-lg);
+    padding-bottom: var(--s4);
+    box-shadow:
+      0 20px 60px rgb(0 0 0 / 0.7),
+      0 0 30px rgb(var(--cyan-rgb) / 0.08);
+  }
+
+  .pad-context-actions {
+    flex: none;
+    display: flex;
   }
 }
 
-/* Wide-screen responsive layout — see useIsWideScreen.ts / App.tsx's
-   CurrentPage. Above this breakpoint, Pads and Sequencer show side by side
-   (the two screens you actually go back and forth between while playing),
-   so .app-shell gets room to hold both instead of staying phone-width and
-   centered with empty margins on either side. */
+/* Above this width, Pads and Sequencer sit side by side (see App.tsx). */
 @media (min-width: 900px) {
   .app-shell {
-    width: calc(100% - 32px);
-    max-width: 1440px;
+    max-width: 1320px;
+    padding: var(--s4);
+  }
+
+  .app-shell.library-shell {
+    max-width: 1100px;
   }
 
   .wide-split {
     display: grid;
-    grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+    grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+    gap: var(--s3);
     align-items: start;
-    gap: 20px;
   }
 
-  .wide-split > * { min-width: 0; }
+  .sequencer {
+    --step: 30px;
+  }
+
+  /* A pattern that fits (≤ 16 steps) stretches to fill the column instead of scrolling. */
+  .sequencer-fits-desktop .sequencer-grid {
+    min-width: 0;
+  }
+
+  .sequencer-fits-desktop .step-group,
+  .sequencer-fits-desktop .sequencer-header-row .step-group {
+    flex: 1;
+    width: auto;
+  }
+
+  .sequencer-fits-desktop .step {
+    flex: 1;
+    width: auto;
+    min-width: 22px;
+  }
 }
 
-/* Landscape/ultra-wide layout — see useIsLandscapeLayout.ts / App.tsx's
-   CurrentPage. A wide-and-short window (a landscape phone, or an ultra-wide
-   desktop monitor) stacks Sequencer above Pads instead of the side-by-side
-   wide-split, both stretched to the window's full width — a column split
-   would otherwise squeeze each section into an unhelpfully narrow sliver at
-   this aspect ratio, where the extra space is better spent widening each
-   section than adding another column. Scoped to .app-shell-landscape (set
-   only while actually viewing Pads/Sequencer, see App.tsx) rather than the
-   bare aspect-ratio query, so an ultra-wide window doesn't also stretch the
-   unrelated Library page's card grid needlessly wide. */
+/* A landscape phone or ultra-wide/short window stacks Sequencer over Pads at full width (see useIsLandscapeLayout). */
 .landscape-stack {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--s3);
 }
 
 @media (min-aspect-ratio: 2/1) {
-  .app-shell-landscape {
-    width: calc(100% - 32px);
+  .app-shell.app-shell-landscape {
     max-width: none;
   }
 
   .landscape-stack .pad-grid-cells {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  }
+
+  .landscape-stack .pad {
+    aspect-ratio: 1.6;
   }
 }
 
-/* Compact whole-grid effect controls — portaled to document.body (see
-   PadEffectsMenuButton's own doc comment for why), so its position is always
-   driven by JS (computeAnchoredPosition) rather than CSS anchoring: fixed,
-   with top/left supplied inline once measured against either the header
-   button (wide desktop layout) or the last-played pad (mobile — see
-   `followPadId`, which is what makes it "follow" as you move around the
-   grid). Capped height/scroll guards against landing near a screen edge
-   with too little room to show the whole panel. */
-.fx-popover-anchor { position: relative; }
-.fx-floating-panel {
-  position: fixed;
-  z-index: 20;
-  width: min(300px, calc(100vw - 48px));
-  max-height: min(70vh, 480px);
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--panel-bg);
-  box-shadow: 0 12px 28px rgba(0,0,0,.22);
-}
-.fx-floating-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; font-size:.78rem; font-weight:700; }
-.fx-floating-close {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--muted);
-  font-size: 0.62rem;
-  line-height: 1;
-  padding: 0;
-}
-.fx-floating-heading-text { display:flex; align-items:baseline; gap:6px; min-width:0; }
-.fx-floating-heading .effects-switch { flex-shrink:0; }
-.fx-floating-heading .effects-switch-label { font-size:.72rem; }
-.fx-quick-presets { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-.fx-preset-button { display:flex; align-items:center; gap:7px; min-height:38px; padding:5px 7px; border:1px solid var(--border); border-radius:7px; background:transparent; color:var(--text); font-size:.7rem; font-weight:700; }
-.effect-preview { display:flex; align-items:flex-end; gap:2px; width:26px; height:18px; }
-.effect-preview i { display:block; width:5px; border-radius:2px 2px 0 0; background:var(--accent); }
-.fx-floating-actions { display:flex; gap:6px; margin-top:8px; }
-.fx-floating-actions .btn { flex:1; min-height:32px; padding:4px 7px; font-size:.7rem; }
+/* A landscape phone is short: slim the chrome so the device surface keeps most of the height. */
+@media (min-aspect-ratio: 2/1) and (max-height: 500px) {
+  :root {
+    --strip-h: 44px;
+    --tabbar-h: 44px;
+  }
 
-.fx-custom-dials { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
-.fx-custom-dial-row { margin-bottom:8px; }
-.fx-custom-dial-row:last-child { margin-bottom:0; }
-.fx-custom-dial-row .dial-label-text { font-size:.75rem; }
-.fx-custom-dial-row .dial-value { font-size:.75rem; }
+  .transport-play,
+  .bpm-control {
+    height: 34px;
+  }
 
-.pad-playback-switch { display:flex; padding:3px; border:1px solid var(--border); border-radius:999px; background:var(--bg); color:var(--muted); font-size:.72rem; font-weight:700; }
-.pad-playback-switch span { padding:5px 9px; border-radius:999px; }
-.pad-playback-switch.gate span:first-child, .pad-playback-switch.oneshot span:last-child { background:var(--accent); color:#fff; }
+  .transport-play {
+    width: 34px;
+  }
 
-.sequencer-floating-actions { position:sticky; left:0; z-index:6; display:flex; justify-content:flex-start; gap:4px; width:max-content; margin:0 0 8px; padding:5px; border:1px solid var(--border); border-radius:999px; background:color-mix(in srgb, var(--panel-bg) 94%, transparent); box-shadow:0 4px 14px color-mix(in srgb, #000 12%, transparent); }
-.sequencer-floating-actions .sequencer-bounce, .sequencer-floating-actions .sequencer-load, .sequencer-floating-actions .sequencer-trace, .sequencer-floating-actions .sequencer-clear, .sequencer-floating-actions .sequencer-gate-toggle { min-height:28px; padding:3px 7px; font-size:.68rem; }
-.sequencer-row-label { width:34px; height:34px; border-radius:7px; flex-direction:column; gap:0; }
-.sequencer-row-change { font-size:.58rem; line-height:1; opacity:.8; }
+  .tab {
+    flex-direction: row;
+    gap: 6px;
+  }
 
-/* Sequencer auditions: normal clicks play a newly-filled cell immediately; Gate
-   holds its audition source only for the active mouse/finger press. */
-.sequencer-gate-toggle.armed { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .record-btn {
+    width: 40px;
+    height: 40px;
+    margin-top: 0;
+  }
 
-/* Desktop normal-length patterns are an instrument, not a spreadsheet: make
-   all 4–16 steps available at once. Longer arrangements retain the timeline
-   scroller and Shift+wheel pans it horizontally. */
-@media (min-width: 1100px) {
-  .sequencer-fits-desktop .sequencer-scroll { overflow-x: visible; }
-  .sequencer-fits-desktop .sequencer-grid,
-  .sequencer-fits-desktop .sequencer-row { width:100%; min-width:0; }
-  .sequencer-fits-desktop .step-group { flex:1 1 0; min-width:0; }
-  .sequencer-fits-desktop .step { flex:1 1 0; width:auto; min-width:18px; }
-  .sequencer-fits-desktop .step-group-number { width:auto; }
+  .record-btn-caption {
+    display: none;
+  }
 }
 
+@media (max-width: 380px) {
+  .transport {
+    gap: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
 
-/* Gate and Preview are deliberately separate from the sequence action rail:
-   they are live input-behavior toggles, so they stay at the fixed left
-   controls while the rail pans. */
-.sequencer-gate-control {
-  position: sticky;
-  left: 0;
-  z-index: 5;
-  display: flex;
-  gap: 6px;
-  width: max-content;
-  margin: 0 0 8px;
-}
-.sequencer-gate-control .sequencer-gate-toggle,
-.sequencer-gate-control .sequencer-preview-toggle { min-height: 30px; padding: 4px 9px; font-size: .7rem; }
-.sequencer-preview-toggle.off { opacity: 0.6; }
+  .transport-tools {
+    gap: 2px;
+  }
 
-/* Loop preset menu — bundled one-bar loops offered from the Sequencer's
-   header, see LoopPresetMenuButton.tsx. Compact by design: a preset's card
-   is just its name plus a tiny multi-row step grid (same rows-of-16-steps
-   shape as the real sequencer, shrunk down), sized to sit several-per-row
-   even at phone width. */
+  .transport-tools .icon-btn {
+    width: 30px;
+    height: 30px;
+  }
 
-.loopers-category {
-  margin-top: 16px;
+  .segment {
+    gap: 4px;
+    padding: 0 4px;
+  }
 }
 
-.loopers-category-title {
-  margin: 0 0 8px;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.loopers-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.loop-preset-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  color: var(--text);
-  text-align: left;
-}
-
-.loop-preset-card:disabled {
-  opacity: 0.6;
-}
-
-.loop-preset-name {
-  font-weight: 700;
-  font-size: 0.85rem;
-}
-
-.loop-preset-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-}
-
-.loop-preview-row {
-  display: flex;
-  gap: 1px;
-}
-
-.loop-preview-cell {
-  flex: 1;
-  height: 6px;
-  min-width: 4px;
-  border-radius: 1px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.loop-preview-cell.on {
-  background: var(--accent);
-  border-color: var(--accent);
+/* Motion is decoration here, never information — drop it for anyone who asked. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

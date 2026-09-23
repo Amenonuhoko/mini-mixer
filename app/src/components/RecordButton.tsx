@@ -4,29 +4,28 @@ import { useRecorder } from '../hooks/useRecorder'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { computePeaks } from '../utils/waveform'
+import { LiveIcon, MicIcon } from './icons'
 import type { PendingRecording } from './RecordingReview'
 import { LiveWaveform } from './Waveform'
 
 const WAVEFORM_BUCKETS = 80
 
-interface RecordFABProps {
+interface RecordButtonProps {
   sampleCount: number
   onRecorded: (recording: PendingRecording) => void
 }
 
 /**
- * Floating, hold-to-record button, reachable from every page — recording isn't
- * tied to any one screen. Holding down is the recording gesture itself (like a
- * voice memo app): press starts, release stops, however long that is. No
- * separate tap-to-start/tap-to-stop mode to remember.
+ * Hold-to-record, centered in the tab bar where a thumb already rests —
+ * holding down is the recording gesture itself (press starts, release stops,
+ * however long that is), so there's no separate start/stop state to remember.
  *
- * While the Playthrough toggle (see PlaythroughToggle) is on, holding this
- * button captures a live mix of whatever the app is actually playing —
- * looping pads plus manual taps/gates — instead of recording from the
- * microphone. Same review step either way (onRecorded), since both end up as
- * a plain AudioBuffer + peaks.
+ * What it records depends on the source switch beside it (see
+ * RecordSourceToggle): the microphone, or a live mix of whatever the app is
+ * playing right now (every looping pad plus every manual tap/gate). Same
+ * review step either way, since both end up as a plain AudioBuffer + peaks.
  */
-export function RecordFAB({ sampleCount, onRecorded }: RecordFABProps) {
+export function RecordButton({ sampleCount, onRecorded }: RecordButtonProps) {
   const { state } = useAppState()
   const engine = useEngine()
   const { isRecording, error, analyserRef, start, stop } = useRecorder()
@@ -34,6 +33,7 @@ export function RecordFAB({ sampleCount, onRecorded }: RecordFABProps) {
   const elapsed = useElapsedSeconds(isRecording || capturingPlaythrough)
   const holdingRef = useRef(false)
   const playthroughEnabled = state.transport.playthroughRecordingEnabled
+  const recording = isRecording || capturingPlaythrough
 
   const beginHold = (event: React.PointerEvent) => {
     event.preventDefault()
@@ -70,47 +70,55 @@ export function RecordFAB({ sampleCount, onRecorded }: RecordFABProps) {
 
   return (
     <>
-      {(isRecording || capturingPlaythrough) && (
-        <div className="record-live-panel">
-          <span className="record-dot" aria-hidden="true" />
-          <span className="recorder-elapsed">{formatElapsed(elapsed)}</span>
+      {recording && (
+        <div className="record-live" role="status">
+          <span className="record-live-dot" aria-hidden="true" />
+          <span className="readout">{formatElapsed(elapsed)}</span>
           {capturingPlaythrough ? (
-            <span className="muted">Recording everything playing — release to finish</span>
+            <span className="record-live-hint">Capturing the live mix · release to finish</span>
           ) : (
             <>
               <LiveWaveform analyserRef={analyserRef} active={isRecording} />
-              <span className="muted">Release to stop</span>
+              <span className="record-live-hint">Release to stop</span>
             </>
           )}
         </div>
       )}
-      {error && <div className="record-error-toast">{error}</div>}
+      {error && <div className="toast toast-danger">{error}</div>}
       <button
         type="button"
-        className={isRecording || capturingPlaythrough ? 'record-fab active' : 'record-fab'}
+        className={recording ? 'record-btn on' : 'record-btn'}
         onPointerDown={beginHold}
         onPointerUp={endHold}
         onPointerLeave={endHold}
         onPointerCancel={endHold}
-        aria-label={playthroughEnabled ? 'Hold to record a playthrough' : 'Hold to record'}
+        onContextMenu={(event) => event.preventDefault()}
+        aria-label={playthroughEnabled ? 'Hold to record the live mix' : 'Hold to record from the microphone'}
+        title={playthroughEnabled ? 'Hold to record the live mix' : 'Hold to record'}
       >
-        <MicIcon />
+        {playthroughEnabled ? <LiveIcon size={24} /> : <MicIcon size={24} />}
+        <span className="record-btn-caption">HOLD</span>
       </button>
     </>
   )
 }
 
-function MicIcon() {
+/** Picks what the record button captures: the microphone, or the app's own live mix. */
+export function RecordSourceToggle() {
+  const { state, dispatch } = useAppState()
+  const live = state.transport.playthroughRecordingEnabled
+
   return (
-    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-      <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" />
-      <path
-        d="M5 11a7 7 0 0 0 14 0M12 18v3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
+    <button
+      type="button"
+      className={live ? 'tab rec-source on' : 'tab rec-source'}
+      onClick={() => dispatch({ type: 'SET_PLAYTHROUGH_RECORDING_ENABLED', enabled: !live })}
+      aria-pressed={live}
+      aria-label={live ? 'Record source: live mix (tap for microphone)' : 'Record source: microphone (tap for live mix)'}
+      title={live ? 'Recording the live mix — tap to record the mic' : 'Recording the mic — tap to record the live mix'}
+    >
+      {live ? <LiveIcon /> : <MicIcon />}
+      <span className="tab-label">{live ? 'Mix' : 'Mic'}</span>
+    </button>
   )
 }

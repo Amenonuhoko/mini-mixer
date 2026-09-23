@@ -1,19 +1,17 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { getDrumKitByName, isDrumInstrumentName } from '../engine/drumSynth'
 import { usePadLooping } from '../hooks/usePadLooping'
-import { usePadPlaying } from '../hooks/usePadPlaying'
 import { useAppState } from '../state/AppStateContext'
 import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useEngine } from '../state/EngineContext'
-import { contrastingTextColor } from '../utils/color'
 import { drumVoiceIcon, instrumentIcon } from '../utils/instrumentIcon'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Instrument, Pad } from '../state/types'
-import { InstrumentModeButton } from './InstrumentModeButton'
-import { LoopModeSwitch } from './LoopModeSwitch'
-import { MixerModeButton } from './MixerModeButton'
+import { RecordDotIcon } from './icons'
 import { PadEffectsMenuButton } from './PadEffectsMenuButton'
+import { PadModeSwitch } from './PadModeSwitch'
 import { PadPlaybackModeButton } from './PadPlaybackModeButton'
+import { Stepper } from './Stepper'
 import { StaticWaveform } from './Waveform'
 
 /** A pad's badge when it holds an instrument key: its 1-based position within that instrument, plus a glyph identifying what it actually is — a specific drum voice for a Drum Kit (kick/snare/hi-hat/... are genuinely different sounds), or the instrument's own single glyph for anything pitched (every key there is literally the same sound, just pitch-shifted). */
@@ -25,9 +23,18 @@ interface InstrumentKeyInfo {
 interface PadGridProps {
   selectedPadId: string | null
   onSelectPad: (padId: string) => void
+  /** Rendered at the bottom of the module — the selected pad's action strip (see PadsPage). */
+  footer?: ReactNode
 }
 
-export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
+/**
+ * The pad module: a compact header (count, trigger mode, whole-grid FX,
+ * sequencer-record arm), the labeled mode switch, the grid, and a footer
+ * slot. Every pad is a light: it idles dim, glows with its own audio level,
+ * flares on each hit (see LightShow), and breathes with the beat while
+ * looping.
+ */
+export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const visiblePads = state.pads.slice(0, state.visiblePadCount)
@@ -59,53 +66,39 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   }
 
   return (
-    <section className="panel pad-grid" aria-label="pads">
-      <div className="pad-grid-header">
-        <div className="pads-title-controls">
-          <h2>Pads ({state.visiblePadCount})</h2>
+    <section className="module pad-grid" aria-label="Pads">
+      <header className="module-head">
+        <h2 className="module-title">Pads</h2>
+        <Stepper
+          label="Pads"
+          value={String(state.visiblePadCount).padStart(2, '0')}
+          onDecrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount - 1 })}
+          onIncrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
+          decrementDisabled={state.visiblePadCount <= MIN_PAD_COUNT}
+          incrementDisabled={state.visiblePadCount >= MAX_PAD_COUNT}
+          decrementTitle="Hide the last pad (its sound and steps are kept)"
+          incrementTitle="Add a pad"
+        />
+        <div className="module-head-tools">
+          <PadPlaybackModeButton />
+          <PadEffectsMenuButton followPadId={selectedPadId} />
           <button
             type="button"
-            className="pad-count-symbol"
-            onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount - 1 })}
-            disabled={state.visiblePadCount <= MIN_PAD_COUNT}
-            title="Remove the last visible pad (its data is kept)"
-            aria-label="Remove last pad"
+            className={sequencerRecordEnabled ? 'icon-btn armed' : 'icon-btn'}
+            onClick={() => setSequencerRecordEnabled((enabled) => !enabled)}
+            aria-pressed={sequencerRecordEnabled}
+            aria-label="Record pad hits into the playing sequencer"
+            title={
+              sequencerRecordEnabled
+                ? 'Step record armed — pad hits write into the playing step'
+                : 'Arm step record — play pads while the sequence runs to write them in'
+            }
           >
-            −
-          </button>
-          <button
-            type="button"
-            className="pad-count-symbol"
-            onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-            disabled={state.visiblePadCount >= MAX_PAD_COUNT}
-            title="Add an empty pad"
-            aria-label="Add pad"
-          >
-            +
+            <RecordDotIcon size={14} />
           </button>
         </div>
-        <button
-          type="button"
-          className={sequencerRecordEnabled ? 'sequencer-record-toggle armed' : 'sequencer-record-toggle'}
-          onClick={() => setSequencerRecordEnabled((enabled) => !enabled)}
-          aria-pressed={sequencerRecordEnabled}
-          aria-label="Record pad hits into the playing sequencer"
-          title={
-            sequencerRecordEnabled
-              ? 'Sequencer record armed — pad hits write to the current playing step'
-              : 'Arm sequencer record — then play pads while the sequence runs'
-          }
-        >
-          <span aria-hidden="true">●</span>
-          Seq rec
-        </button>
-      </div>
-      <div className="pad-grid-mode-controls">
-        <InstrumentModeButton />
-        <LoopModeSwitch />
-        <MixerModeButton />
-        <PadEffectsMenuButton followPadId={selectedPadId} />
-      </div>
+      </header>
+      <PadModeSwitch />
       <div
         className={[
           'pad-grid-cells',
@@ -115,6 +108,8 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
         ]
           .filter(Boolean)
           .join(' ')}
+        // 3 across up to a 3×3; past that, 4 across (a classic 4×4 at 16).
+        style={{ '--cols': state.visiblePadCount > 9 ? 4 : 3 } as React.CSSProperties}
       >
         {visiblePads.map((pad, index) =>
           mixerModeEnabled ? (
@@ -140,22 +135,8 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
             />
           ),
         )}
-        {state.visiblePadCount < MAX_PAD_COUNT && (
-          <button
-            type="button"
-            className="pad pad-add-slot"
-            onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-            aria-label="Add pad"
-            title="Add pad"
-          >
-            <span aria-hidden="true">+</span>
-            <small>Add pad</small>
-          </button>
-        )}
       </div>
-      <div className="pad-grid-playback-control">
-        <PadPlaybackModeButton />
-      </div>
+      {footer}
     </section>
   )
 }
@@ -198,7 +179,6 @@ function PadButton({
 }: PadButtonProps) {
   const { state, dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
-  const playing = usePadPlaying(engine, pad.id)
   const filled = pad.sampleId !== null
   const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
 
@@ -301,47 +281,38 @@ function PadButton({
         filled ? 'filled' : 'empty',
         selected ? 'selected' : '',
         looping ? 'looping' : '',
-        playing ? 'playing' : '',
         pad.muted ? 'muted' : '',
       ]
         .filter(Boolean)
         .join(' ')}
       data-pad-id={pad.id}
-      style={{
-        borderColor: pad.color,
-        // Empty pads keep a faint tint of their own color instead of a fully
-        // hollow outline — still reads as "nothing assigned" but doesn't look
-        // like a blank wireframe.
-        background: filled ? pad.color : `${pad.color}1f`,
-        color: filled ? contrastingTextColor(pad.color) : undefined,
-      }}
+      data-glow-pad={pad.id}
+      aria-label={`Pad ${index + 1}${sample ? `: ${sample.label}` : ', empty'}${pad.muted ? ', muted' : ''}${looping ? ', looping' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       onLostPointerCapture={handlePointerCancel}
       onClick={handleClick}
+      onContextMenu={(event) => event.preventDefault()}
     >
+      <span className="pad-glow" aria-hidden="true" />
+      <span className="pad-flash" aria-hidden="true" />
+      <span className="pad-bloom" aria-hidden="true" />
       {sample && sample.peaks.length > 0 && (
-        <span className="pad-waveform-backdrop" aria-hidden="true">
-          <StaticWaveform peaks={sample.peaks} color={contrastingTextColor(pad.color)} />
+        <span className="pad-wave" aria-hidden="true">
+          <StaticWaveform peaks={sample.peaks} />
         </span>
       )}
-      <span className="pad-index">{index + 1}</span>
+      <span className="pad-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
       {instrumentKeyInfo && (
-        <span className="pad-instrument-badge" aria-hidden="true">
-          <span className="pad-instrument-icon">{instrumentKeyInfo.icon}</span>
+        <span className="pad-key" aria-hidden="true">
+          <span className="pad-key-icon">{instrumentKeyInfo.icon}</span>
           {instrumentKeyInfo.keyNumber}
         </span>
       )}
-      {!filled && <span className="pad-empty-hint">+</span>}
-      {pad.muted && <span className="pad-muted-hint">muted</span>}
-      {playing && (
-        <span className="pad-eq" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </span>
-      )}
+      <span className="pad-name" aria-hidden="true">
+        {pad.muted ? 'Muted' : sample ? sample.label : '+'}
+      </span>
     </button>
   )
 }
@@ -397,25 +368,23 @@ function MixerPadFader({ pad, index, engine, instrumentKeyInfo }: MixerPadFaderP
       type="button"
       className={looping ? 'pad mixer-fader looping' : 'pad mixer-fader'}
       data-pad-id={pad.id}
-      style={{ borderColor: pad.color }}
+      data-glow-pad={pad.id}
+      aria-label={`Pad ${index + 1} level ${pad.mixLevel}%`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
-      <span
-        className="mixer-fader-fill"
-        style={{ height: `${pad.mixLevel}%`, background: pad.color }}
-        aria-hidden="true"
-      />
-      <span className="mixer-fader-label">{index + 1}</span>
+      <span className="pad-glow" aria-hidden="true" />
+      <span className="mixer-fader-fill" style={{ height: `${pad.mixLevel}%` }} aria-hidden="true" />
+      <span className="pad-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
       {instrumentKeyInfo && (
-        <span className="pad-instrument-badge" aria-label={`Instrument key ${instrumentKeyInfo.keyNumber}`}>
-          <span className="pad-instrument-icon">{instrumentKeyInfo.icon}</span>
+        <span className="pad-key" aria-hidden="true">
+          <span className="pad-key-icon">{instrumentKeyInfo.icon}</span>
           {instrumentKeyInfo.keyNumber}
         </span>
       )}
-      <span className="mixer-fader-level">{pad.mixLevel}%</span>
+      <span className="mixer-fader-level readout" aria-hidden="true">{pad.mixLevel}</span>
     </button>
   )
 }

@@ -26,6 +26,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
       { now: () => engine.getContext().currentTime },
       (stepIndex, time) => {
         const current = stateRef.current
+        if (stepIndex % 4 === 0) engine.markBeat(time)
         // The metronome runs off this same lookahead clock so it locks to the same
         // grid as the sequencer whenever both happen to be on, but it's gated on
         // its own toggle, not on whether the pattern itself is playing — see the

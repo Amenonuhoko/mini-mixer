@@ -20,7 +20,7 @@ interface LoadSequenceButtonProps {
  * it confirms first and shows exactly how many steps/hits are coming back
  * before committing, rather than after the fact.
  */
-export function LoadSequenceButton({ sample, label = 'Load', className = 'btn btn-secondary', onLoaded }: LoadSequenceButtonProps) {
+export function LoadSequenceButton({ sample, label = 'Load', className = 'btn btn-sm', onLoaded }: LoadSequenceButtonProps) {
   const { state, dispatch } = useAppState()
   const { goToSequencer } = useNavigation()
   const [confirming, setConfirming] = useState(false)

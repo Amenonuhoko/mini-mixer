@@ -1680,3 +1680,42 @@ Full verification: `tsc -b` (clean), `oxlint` (same three pre-existing `only-exp
 
 ### Open questions / carried forward
 - No other items are currently queued.
+
+---
+
+## 2026-09-23 — UI/UX overhaul: a TRON "pocket groovebox" with a live light show
+
+### Context
+Asked for a comprehensive UI and UX upgrade: the UI had no consistency or direction, and the UX was hard to use. Target direction: **UI small, compact, compartmentalized, easy to learn, hard to master; UX smooth, fast, intuitive, fun.** An audit of every screen at phone and desktop size found: about eight independently styled kinds of control; a top nav that overflowed on phones (the Pads tab was pushed off-screen on Library); a selected pad's actions rendered below the grid, off-screen on a phone; four unlabeled mode icons plus a switch for what tapping a pad does; duplicated controls (Save/Load in nav *and* Settings, pad count in four places); a BPM slider that only existed on the Sequencer page; and `PlaythroughToggle` not rendered anywhere, so playthrough recording was unreachable.
+
+### Decision(s)
+Direction chosen with the user via questions: **TRON-coded, "as much a light show as making music, especially the pads"**; the **classic two-tone** palette (cyan light, orange for anything active/armed/recording) over per-pad rainbow neon; a **full re-layout** rather than a restyle; **monospace labels** (JetBrains Mono) with system body text; light-show behaviors **hit bloom, audio-reactive glow, beat-synced pulse** (the sequencer light-sweep was left out). "Hard to master" power moves (long-press menus, keyboard shortcuts, haptics, first-run hints) were explicitly **parked for a later pass**.
+
+- **One design system** (`index.css`, rewritten from scratch): tokens → shared primitives (`.btn`/`.icon-btn`/`.chip-btn`/`.chip`, `.segmented`, `Stepper`, `.switch`, `.slider` with a lit track and a bipolar variant, `.module` compartments with lit corner ticks, one `Overlay` sheet with a shared sticky title/subtitle/close header) → modules. All icons in one file (`components/icons.tsx`, same grid and stroke). Every screen was rebuilt from these parts.
+- **Re-layout**: an always-visible **transport strip** (play/stop, beat LED, tempo that nudges *and* drag-scrubs, loop mode, metronome, master volume popover, panic, settings) replaces the top nav, the Sequencer-only play bar and the metronome/volume floating buttons. A thumb-zone **tab bar** (Pads · Seq · hold-to-record · Library · Mic/Mix) replaces page tabs and the floating record button, and gives playthrough recording its home back as the record-source switch. The **pad module** gets a labeled `PLAY · LOOP · KEYS · MIX` switch (`PadModeSwitch`, mapped onto the reducer's existing mode flags with no rule changes) and the selected pad's **Mute · FX · Edit · Swap** strip directly under the grid, inside the same module. The **sequencer** collapses four rows of controls into one header plus one toolbar, and drops the instruction text and per-row "LOAD" labels. Each duplicate now lives in one place.
+- **Light show** (`LightShow.tsx`): one rAF loop writes `--level`/`--beat`/`--scene` onto exactly the elements that use them, outside React's render cycle. The engine gained pure-observer taps: a per-pad `AnalyserNode` fed in parallel from each pad's panner into a zero-gain sink (so nothing heard or recorded changes), a master meter, `onPadHit` events stamped with audio-clock time (so a sequencer step flashes when it's *heard*, not ~100 ms early when it's scheduled), and `markBeat`/`getBeatPhase` locked to the scheduler, else to the loop epoch, else free-running at the BPM. Pads glow with their real level, bloom on each hit (Web Animations API), and breathe orange with the beat while looping; the background grid pulses with the beat and swells with the master mix; the playhead flashes lit steps white-hot. `prefers-reduced-motion` drops the motion but keeps level glow.
+- Pads go to 4 across past 9 (a 4×4 at 16). The landscape-phone layout slims the chrome. The Library's "Assign…" prompt moved from an inline block at the bottom of the page into its own sheet.
+
+### Alternatives considered
+- **Per-pad rainbow neon** — offered as the recommended option (pads distinguishable at a glance); the user picked the classic two-tone for cohesion. `Pad.color` stays in the data model, just no longer drawn.
+- **Driving glow through React state** — rejected: re-rendering the grid 60 times a second costs far more than a handful of `style.setProperty` calls per frame. Likewise, setting the custom properties on `:root` would restyle the whole document every frame, so they're scoped to the elements that read them.
+- **Reusing `<Overlay>` (with its backdrop) for the volume popover and FX panel** — rejected: both are meant to be used *while* playing, and a modal backdrop would block the pads. They got a lightweight outside-tap/Escape dismissal (`useDismiss`) instead.
+- **Keeping the mode icon buttons, restyled** — rejected: the modes weren't learnable from four unlabeled glyphs, which is exactly the "easy to learn" goal.
+
+### Reasoning
+Consistency had to come from structure, not polish: rebuilding every screen from one small set of primitives is what makes the app feel like one instrument. The light show only works if it's cheap and truthful: cheap (no React re-renders, scoped CSS variables, compositor-friendly opacity layers) and truthful (driven by real audio levels and audio-clock timing, not by UI events).
+
+### Outcome
+`tsc -b` clean; `oxlint` down to the same three pre-existing `only-export-components` warnings; `vitest` 90/90 (93 before, minus the 3 tests of `utils/color.ts`, removed along with it since the UI no longer draws per-pad colors); `vite build` clean. Removed dead or superseded code: `Nav`, `PlayBar`, `MetronomeButton`, `MasterVolumeButton`, `LoopModeSwitch`, `MixerModeButton`, the unrendered `PlaythroughToggle`, and the never-imported `InstrumentLibrary`. `RecordFAB` became `RecordButton`, and `InstrumentModeButton` became `InstrumentPicker`. Playwright passes at 390×844, 1280×800 and 844×390 covered every screen with no page errors, plus live interactions:
+- record → review → assign
+- a hit's bloom caught mid-flight
+- a real synth note's `--level` measured on the pad: 0.85 at the hit, decaying to 0 over ~500 ms
+- a looping pad turning orange, with `--beat` moving
+- the sequencer running with its playhead lit
+- Keys → build a Lead → Mix (faders) → Keys (returns without the picker) → Play (quick instrument cleaned up, pad 01's own sound restored)
+
+The pass caught and fixed three issues: lit steps on downbeats rendered dim (a specificity clash with the downbeat tint), "1-SHOT" wrapped, and the desktop tab bar sprawled.
+
+### Open questions / carried forward
+- **Power moves** (long-press pad menu, keyboard shortcuts, haptics, first-run hints) — deliberately deferred; to be designed in a follow-up session.
+- The recorded-sample fetch timeout gap noted in earlier entries is still open.

@@ -4,6 +4,7 @@ import { useAppState } from '../state/AppStateContext'
 import { getLibrarySamples } from '../state/librarySamples'
 import { formatSampleDuration, sampleKindIcon, sampleKindLabel, sampleLoudness } from '../utils/sampleInfo'
 import { ConfirmDialog } from './ConfirmDialog'
+import { ChevronIcon, PadsIcon, PlayIcon, StopIcon, TrashIcon } from './icons'
 import { LoadSequenceButton } from './LoadSequenceButton'
 import { PadAssignPrompt } from './PadAssignPrompt'
 import { StaticWaveform } from './Waveform'
@@ -75,10 +76,13 @@ export function Library() {
 
   return (
     <div className="page library-page">
-      <section className="panel library" aria-label="sample library">
-        <h2>Library ({samples.length})</h2>
+      <section className="module library" aria-label="Library">
+        <header className="module-head">
+          <h2 className="module-title">Library</h2>
+          <span className="module-sub readout">{String(samples.length).padStart(2, '0')}</span>
+        </header>
         {samples.length === 0 ? (
-          <p className="muted">Nothing recorded yet — hit Record to start your arsenal.</p>
+          <p className="empty-state">Nothing here yet — hold Record to capture your first sound.</p>
         ) : (
           <div className="library-grid">
             {samples.map((sample, index) => {
@@ -87,28 +91,28 @@ export function Library() {
                 .filter(({ pad }) => pad.sampleId === sample.id)
               const isRenaming = renamingSampleId === sample.id
               const isDeleting = deletingSampleId === sample.id
+              const previewing = previewingSampleId === sample.id
 
               return (
-                <div className="library-card" key={sample.id}>
-                  <div className="library-card-waveform">
-                    <StaticWaveform peaks={sample.peaks} color="#6c5ce7" />
-                  </div>
-
-                  <div className="library-card-facts">
-                    <span className="tag library-kind-badge">
-                      <span aria-hidden="true">{sampleKindIcon(sample.kind)}</span>
-                      {sampleKindLabel(sample.kind)}
+                <article className={previewing ? 'library-card playing' : 'library-card'} key={sample.id}>
+                  <button
+                    type="button"
+                    className="library-card-wave"
+                    onClick={() => togglePreview(sample.id)}
+                    aria-pressed={previewing}
+                    aria-label={previewing ? `Stop ${sample.label}` : `Play ${sample.label}`}
+                    title={previewing ? 'Stop' : 'Play'}
+                  >
+                    <StaticWaveform peaks={sample.peaks} />
+                    <span className="library-card-play" aria-hidden="true">
+                      {previewing ? <StopIcon size={16} /> : <PlayIcon size={16} />}
                     </span>
-                    <span className="muted library-card-fact">
-                      {formatSampleDuration(sample.buffer.duration)}
-                    </span>
-                    <span className="muted library-card-fact">{sampleLoudness(sample.peaks)}</span>
-                  </div>
+                  </button>
 
                   {isRenaming ? (
                     <input
                       type="text"
-                      className="library-rename-input"
+                      className="text-input library-rename-input"
                       ref={renameInputRef}
                       value={renameDraft}
                       autoFocus
@@ -122,7 +126,7 @@ export function Library() {
                   ) : (
                     <button
                       type="button"
-                      className="library-item-label"
+                      className="library-card-name"
                       onClick={() => startRename(sample.id, sample.label)}
                       title="Tap to rename"
                     >
@@ -130,81 +134,76 @@ export function Library() {
                     </button>
                   )}
 
-                  <span className="library-item-tags">
+                  <div className="library-card-facts">
+                    <span className="chip">
+                      <span aria-hidden="true">{sampleKindIcon(sample.kind)}</span>
+                      {sampleKindLabel(sample.kind)}
+                    </span>
+                    <span className="readout">{formatSampleDuration(sample.buffer.duration)}</span>
+                    <span className="library-card-loudness">{sampleLoudness(sample.peaks)}</span>
+                  </div>
+
+                  <div className="library-card-pads">
                     {assignedPads.length === 0 ? (
-                      <span className="tag tag-unassigned">unassigned</span>
+                      <span className="chip chip-dim">No pad</span>
                     ) : (
                       assignedPads.map(({ pad, padIndex }) => (
-                        <span key={pad.id} className="tag" style={{ background: pad.color }}>
-                          Pad {padIndex + 1}
+                        <span key={pad.id} className="chip chip-on">
+                          P{String(padIndex + 1).padStart(2, '0')}
                         </span>
                       ))
                     )}
-                  </span>
+                  </div>
 
                   <div className="library-card-actions">
-                    <div className="reorder-buttons">
-                      <button
-                        type="button"
-                        className="reorder-btn"
-                        disabled={index === 0}
-                        onClick={() =>
-                          dispatch({ type: 'MOVE_SAMPLE', sampleId: sample.id, direction: 'up' })
-                        }
-                        aria-label="Move up"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        className="reorder-btn"
-                        disabled={index === samples.length - 1}
-                        onClick={() =>
-                          dispatch({ type: 'MOVE_SAMPLE', sampleId: sample.id, direction: 'down' })
-                        }
-                        aria-label="Move down"
-                      >
-                        ▼
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      className={previewingSampleId === sample.id ? 'btn btn-secondary library-preview-btn playing' : 'btn btn-secondary library-preview-btn'}
-                      onClick={() => togglePreview(sample.id)}
-                      aria-pressed={previewingSampleId === sample.id}
-                      title={previewingSampleId === sample.id ? 'Stop preview' : `Play ${sample.label}`}
-                    >
-                      {previewingSampleId === sample.id ? 'Stop' : 'Play'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setAssigningSampleId(sample.id)}
-                    >
-                      Assign…
+                    <button type="button" className="btn btn-sm" onClick={() => setAssigningSampleId(sample.id)}>
+                      <PadsIcon size={14} />
+                      Pad
                     </button>
                     {sample.kind === 'sequence' && sample.sequenceTrace && <LoadSequenceButton sample={sample} />}
+                    <span className="library-card-spacer" />
                     <button
                       type="button"
-                      className="btn btn-secondary btn-icon-only"
+                      className="icon-btn icon-btn-sm"
+                      disabled={index === 0}
+                      onClick={() => dispatch({ type: 'MOVE_SAMPLE', sampleId: sample.id, direction: 'up' })}
+                      aria-label="Move earlier"
+                      title="Move earlier"
+                    >
+                      <ChevronIcon direction="left" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn icon-btn-sm"
+                      disabled={index === samples.length - 1}
+                      onClick={() => dispatch({ type: 'MOVE_SAMPLE', sampleId: sample.id, direction: 'down' })}
+                      aria-label="Move later"
+                      title="Move later"
+                    >
+                      <ChevronIcon direction="right" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn icon-btn-sm danger"
                       onClick={() => setDeletingSampleId(sample.id)}
                       aria-label={`Delete ${sample.label}`}
+                      title="Delete"
                     >
-                      🗑
+                      <TrashIcon size={14} />
                     </button>
-                    {isDeleting && (
-                      <ConfirmDialog
-                        message={`Delete "${sample.label}"? This can't be undone.`}
-                        confirmLabel="Delete"
-                        onConfirm={() => {
-                          dispatch({ type: 'REMOVE_SAMPLE', sampleId: sample.id })
-                          setDeletingSampleId(null)
-                        }}
-                        onCancel={() => setDeletingSampleId(null)}
-                      />
-                    )}
                   </div>
-                </div>
+                  {isDeleting && (
+                    <ConfirmDialog
+                      message={`Delete "${sample.label}"? This can't be undone.`}
+                      confirmLabel="Delete"
+                      onConfirm={() => {
+                        dispatch({ type: 'REMOVE_SAMPLE', sampleId: sample.id })
+                        setDeletingSampleId(null)
+                      }}
+                      onCancel={() => setDeletingSampleId(null)}
+                    />
+                  )}
+                </article>
               )
             })}
           </div>
