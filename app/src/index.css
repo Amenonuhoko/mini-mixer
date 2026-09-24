@@ -2340,16 +2340,16 @@ body.style-drawer-open .app-shell {
 .song-repeats input { width: 54px; }
 .song-section-summary { width: 100%; padding-left: 26px; color: var(--text-dim); font-size: var(--fs-xs); text-transform: capitalize; }
 .song-section-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; padding-left: 26px; }
-.song-section-mix { width: 100%; margin-left: 26px; padding: 9px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .04); }
-.song-section-mix p { margin: 0 0 8px; color: var(--text-dim); font-size: var(--fs-xs); }
-.song-section-faders { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-.song-section-fader { display: flex; flex-direction: column; gap: 5px; color: var(--text); font-size: var(--fs-xs); }
-.song-section-fader label { display: flex; flex-direction: column; gap: 5px; }
-.song-section-fader span { display: flex; justify-content: space-between; gap: 6px; }
-.song-section-fader strong { color: var(--cyan); font-family: var(--font-mono); }
-.song-section-fader input[type='range'] { width: 100%; min-height: 26px; padding: 0; accent-color: var(--cyan); cursor: pointer; }
-.song-section-fader.removed input[type='range'] { opacity: .4; cursor: default; }
-.song-section-fader .chip-btn { align-self: flex-start; }
+.pad-song-volume { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .04); }
+.pad-song-part, .pad-song-level { display: flex; flex-direction: column; gap: 4px; color: var(--text-dim); font-size: var(--fs-xs); }
+.pad-song-part { flex: 0 1 125px; }
+.pad-song-level { flex: 1 1 160px; }
+.pad-song-level span { display: flex; justify-content: space-between; gap: 8px; color: var(--text); }
+.pad-song-level strong { color: var(--cyan); font-family: var(--font-mono); }
+.pad-song-part select { min-width: 0; min-height: var(--control-sm); padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / .8); color: var(--text); font: inherit; }
+.pad-song-level input[type='range'] { width: 100%; min-height: var(--control-sm); padding: 0; accent-color: var(--cyan); cursor: pointer; }
+.pad-song-level input[type='range']:disabled { opacity: .4; cursor: default; }
+.pad-song-volume-note { flex: 1 1 100%; color: var(--text-dim); font-size: var(--fs-xs); }
 .song-footer { justify-content: space-between; }
 .song-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
 
@@ -3282,6 +3282,10 @@ body.style-drawer-open .app-shell {
   text-transform: uppercase;
   color: var(--cyan);
 }
+
+.sequencer-part-select { display: flex; align-items: center; gap: 5px; color: var(--text-dim); font-size: var(--fs-xs); }
+.sequencer-part-select select { max-width: 140px; min-height: var(--control-sm); padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / .8); color: var(--text); font: inherit; }
+.sequencer-bank-removed { margin: 4px 0 8px; color: var(--text-dim); font-size: var(--fs-xs); }
 
 .sequencer-bank:not(.bank-drums) .sequencer-bank-name {
   color: var(--orange);

@@ -563,6 +563,25 @@ describe('reducer', () => {
     expect(steps[bassPads[1]!.id]![20]).toBe('b_38')
   })
 
+  it('deletes one bank’s steps from one pattern while keeping other banks and patterns', () => {
+    let state = createInitialState(1)
+    const patternId = state.activePatternId
+    const drumPadId = state.pads[0]!.id
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId, padId: drumPadId, stepIndex: 0, sampleId: 'kick' })
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'chords', 'c', [60])], remap: 'index' })
+    const chords = getBank(state, 'chords')
+    const chordPadId = chords.padIds[0]!
+    state = reducer(state, {
+      type: 'TOGGLE_STEP', patternId, padId: chordPadId, stepIndex: 4, sampleId: 'chord',
+    })
+    state = reducer(state, { type: 'ADD_PATTERN', copyFromId: patternId })
+    const copyId = state.activePatternId
+    state = reducer(state, { type: 'CLEAR_BANK_PATTERN', patternId, bankId: chords.id })
+    expect(state.patterns.find((item) => item.id === patternId)!.steps[chordPadId]!.every((cell) => cell === null)).toBe(true)
+    expect(state.patterns.find((item) => item.id === patternId)!.steps[drumPadId]![0]).toBe('kick')
+    expect(state.patterns.find((item) => item.id === copyId)!.steps[chordPadId]![4]).toBe('chord')
+  })
+
   it('whole-bank effects only touch the active bank', () => {
     let state = createInitialState(1)
     state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'bass', 'b', [36])], remap: 'index' })

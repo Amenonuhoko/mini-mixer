@@ -55,6 +55,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [deletingBankId, setDeletingBankId] = useState<string | null>(null)
   const [sequencerGateMode, setSequencerGateMode] = useState(false)
   const [previewOnClick, setPreviewOnClick] = useState(true)
   const [removingPadId, setRemovingPadId] = useState<string | null>(null)
@@ -63,10 +64,13 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [stripOpen, setStripOpen] = useState<Record<string, boolean>>({})
   const [songArrangeOpen, setSongArrangeOpen] = useState(state.transport.playMode === 'song')
   const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
+  const deletingBank = deletingBankId ? state.banks.find((bank) => bank.id === deletingBankId) : undefined
   const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
   const editingSection = state.transport.auditionScope === 'loop'
     ? state.songSections.find((section) => section.id === state.transport.auditionSectionId)
     : undefined
+  const targetSection = (editingSection?.patternId === state.activePatternId ? editingSection : undefined)
+    ?? state.songSections.find((section) => section.patternId === state.activePatternId)
 
   const patternHasSteps = pattern
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
@@ -135,6 +139,28 @@ export function Sequencer({ onBounced }: SequencerProps) {
         <span className="module-sub">
           {pattern.name}{editingSection ? ` · ${state.transport.isPlaying ? 'Looping' : 'Loop ready'} ${editingSection.name}` : ''}
         </span>
+        {state.songSections.length > 0 && (
+          <label className="sequencer-part-select">
+            Song part
+            <select
+              value={targetSection?.id ?? ''}
+              onChange={(event) => {
+                const section = state.songSections.find((item) => item.id === event.target.value)
+                if (!section) return
+                engine.setSequencerPlaybackEnabled(false)
+                engine.stopAllSounds()
+                dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: section.patternId })
+                dispatch({ type: 'AUDITION_SONG_SECTION', sectionId: section.id, scope: 'loop' })
+              }}
+              aria-label="Song part to edit in sequencer"
+            >
+              <option value="">Choose part</option>
+              {state.songSections.map((section, index) => (
+                <option key={section.id} value={section.id}>{index + 1}. {section.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {!songArrangeOpen && state.songSections.length > 0 && <button type="button" className="chip-btn" onClick={() => {
           setSongArrangeOpen(true)
           requestAnimationFrame(() => document.querySelector('.song-arranger')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
@@ -274,10 +300,39 @@ export function Sequencer({ onBounced }: SequencerProps) {
               ? [...bankPads].sort((a, b) => (b.music?.midis[0] ?? 0) - (a.music?.midis[0] ?? 0))
               : bankPads
             const rows = expanded ? ordered : ordered.filter(used)
+            const removedFromPart = targetSection?.excludedBanks?.includes(bank.kind) ?? false
+            const bankHasSteps = bankPads.some(used)
             return (
               <div className={`sequencer-bank bank-${bank.kind}`} key={bank.id}>
                 <div className="sequencer-bank-head">
                   <span className="sequencer-bank-name">{BANK_NAMES[bank.kind]}</span>
+                  {targetSection && (
+                    <button
+                      type="button"
+                      className={removedFromPart ? 'chip-btn on' : 'chip-btn danger'}
+                      onClick={() => dispatch({
+                        type: 'SET_SONG_SECTION_BANK_INCLUDED',
+                        sectionId: targetSection.id,
+                        bank: bank.kind,
+                        included: removedFromPart,
+                      })}
+                      disabled={!removedFromPart && !bankHasSteps}
+                      aria-label={`${removedFromPart ? 'Restore' : 'Remove'} ${BANK_NAMES[bank.kind]} ${removedFromPart ? 'to' : 'from'} ${targetSection.name} song part`}
+                      title={removedFromPart ? 'Bring this group back into this song part' : 'Remove this group from this song part; its pattern steps stay saved'}
+                    >
+                      {removedFromPart ? `Restore in ${targetSection.name}` : `Remove from ${targetSection.name}`}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="chip-btn danger"
+                    onClick={() => setDeletingBankId(bank.id)}
+                    disabled={!bankHasSteps}
+                    aria-label={`Delete ${BANK_NAMES[bank.kind]} steps from ${pattern.name} pattern`}
+                    title="Permanently delete this group's steps from the pattern, including linked song parts"
+                  >
+                    Delete steps
+                  </button>
                   <button
                     type="button"
                     className={stripOpen[bank.id] ? 'sequencer-bank-style open' : 'sequencer-bank-style'}
@@ -296,8 +351,9 @@ export function Sequencer({ onBounced }: SequencerProps) {
                     {expanded ? 'Used rows only' : `Show all ${bankPads.length}`}
                   </button>
                 </div>
-                {stripOpen[bank.id] && <LayerStrip kind={bank.kind} />}
-                {rows.map((pad) => {
+                {removedFromPart && <p className="sequencer-bank-removed">Removed from {targetSection?.name}. Restore it to hear these steps again.</p>}
+                {!removedFromPart && stripOpen[bank.id] && <LayerStrip kind={bank.kind} />}
+                {!removedFromPart && rows.map((pad) => {
                   const padIndex = bankPads.indexOf(pad)
                   return (
                 <SequencerRow
@@ -326,7 +382,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
                 />
                   )
                 })}
-                {!melodic && expanded && bank.visibleCount < MAX_PAD_COUNT && (
+                {!removedFromPart && !melodic && expanded && bank.visibleCount < MAX_PAD_COUNT && (
                   <div className="sequencer-add-row-slot">
                     <div className="sequencer-row-fixed" />
                     <button
@@ -354,6 +410,17 @@ export function Sequencer({ onBounced }: SequencerProps) {
             setConfirmClear(false)
           }}
           onCancel={() => setConfirmClear(false)}
+        />
+      )}
+      {deletingBank && (
+        <ConfirmDialog
+          message={`Delete all ${BANK_NAMES[deletingBank.kind]} steps from ${pattern.name}? Every song part using this pattern will lose them. This cannot be undone.`}
+          confirmLabel="Delete steps"
+          onConfirm={() => {
+            dispatch({ type: 'CLEAR_BANK_PATTERN', patternId: pattern.id, bankId: deletingBank.id })
+            setDeletingBankId(null)
+          }}
+          onCancel={() => setDeletingBankId(null)}
         />
       )}
       {swappingPadId && <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />}

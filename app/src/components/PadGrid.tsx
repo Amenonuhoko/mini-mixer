@@ -6,6 +6,7 @@ import { useBankBuilder } from '../hooks/useBankBuilder'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { keyShortName, moodById, padLabel, pitchClass, type PadLabel } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
+import { sectionBankLevel } from '../engine/songTimeline'
 import { BANK_NAMES, bankColumns, getActiveBank, visibleBankPads } from '../state/banks'
 import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useEngine } from '../state/EngineContext'
@@ -83,6 +84,19 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
   const [sequencerRecordEnabled, setSequencerRecordEnabled] = useState(false)
   const [sheet, setSheet] = useState<'sound' | 'key' | null>(null)
   const [performOpen, setPerformOpen] = useState(false)
+  const [volumeChoice, setVolumeChoice] = useState<{ focusId: string | null; sectionId: string } | null>(null)
+  const focusedSectionId = state.transport.auditionScope === 'loop'
+    ? state.transport.auditionSectionId
+    : null
+  const volumeSectionId = volumeChoice?.focusId === focusedSectionId
+    ? volumeChoice?.sectionId
+    : focusedSectionId
+  const volumeSection = state.songSections.find((section) => section.id === volumeSectionId)
+    ?? state.songSections.find((section) => section.id === focusedSectionId)
+    ?? state.songSections.find((section) => section.patternId === state.activePatternId)
+    ?? state.songSections[0]
+  const sectionVolume = volumeSection ? Math.round(sectionBankLevel(volumeSection, bank.kind) * 100) : 100
+  const bankRemoved = volumeSection?.excludedBanks?.includes(bank.kind) ?? false
   const performer = engine.getPerformer()
   const performLabel = performSummary(state.perform)
 
@@ -172,6 +186,53 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
         )}
       </div>
       <LayerStrip kind={bank.kind} />
+      {volumeSection && (
+        <div className="pad-song-volume" role="group" aria-label="Song part volume">
+          <label className="pad-song-part">
+            Song part
+            <select
+              value={volumeSection.id}
+              onChange={(event) => setVolumeChoice({ focusId: focusedSectionId, sectionId: event.target.value })}
+              aria-label="Song part to mix"
+            >
+              {state.songSections.map((section, index) => (
+                <option key={section.id} value={section.id}>{index + 1}. {section.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="pad-song-level">
+            <span>{BANK_NAMES[bank.kind]} in {volumeSection.name} <strong>{bankRemoved ? 'Removed' : `${sectionVolume}%`}</strong></span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sectionVolume}
+              disabled={bankRemoved}
+              aria-label={`${BANK_NAMES[bank.kind]} volume in ${volumeSection.name}`}
+              onChange={(event) => dispatch({
+                type: 'SET_SONG_SECTION_BANK_VOLUME',
+                sectionId: volumeSection.id,
+                bank: bank.kind,
+                level: Number(event.target.value),
+              })}
+            />
+          </label>
+          <button
+            type="button"
+            className="chip-btn"
+            onClick={() => {
+              engine.setSequencerPlaybackEnabled(false)
+              engine.stopAllSounds()
+              dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: volumeSection.patternId })
+              dispatch({ type: 'AUDITION_SONG_SECTION', sectionId: volumeSection.id, scope: 'loop' })
+            }}
+            aria-label={`Loop ${volumeSection.name} while mixing`}
+          >
+            ▶ Hear part
+          </button>
+          {bankRemoved && <span className="pad-song-volume-note">Restore {BANK_NAMES[bank.kind]} in Seq to hear it.</span>}
+        </div>
+      )}
       {performOpen && <PerformPanel />}
       <PadModeSwitch />
       {melodic && visiblePads.length === 0 ? (

@@ -6,7 +6,7 @@ import { renderSongToBuffer } from '../engine/bouncePattern'
 import { encodeWav } from '../engine/projectFile'
 import { computePeaks } from '../utils/waveform'
 import { SONG_TEMPLATES } from '../engine/songTemplates'
-import { BANK_KINDS, BANK_NAMES } from '../state/banks'
+import { BANK_NAMES } from '../state/banks'
 import { ConfirmDialog } from './ConfirmDialog'
 import type { PendingRecording } from './RecordingReview'
 
@@ -30,7 +30,6 @@ export function SongArranger({
   const [exporting, setExporting] = useState(false)
   const [bounceError, setBounceError] = useState('')
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
-  const [mixSectionId, setMixSectionId] = useState<string | null>(null)
   const songHasSteps = timeline.some(({ pattern }) =>
     Object.values(pattern.steps).some((row) => row.some(Boolean)),
   )
@@ -190,8 +189,8 @@ export function SongArranger({
               ▶ Hear whole song
             </button>
             <span>
-              Edit a section to loop it while you change its pattern. Use ▶ From here to check a
-              transition.
+              Edit a section to loop it. Set its bank volumes on Pads, or remove a bank in Seq.
+              Use ▶ From here to check a transition.
             </span>
           </div>
           <h3 className="song-editor-heading">
@@ -254,9 +253,6 @@ export function SongArranger({
                 )
                 .map((bank) => bank.kind)
               const soundingBanks = programmedBanks.filter((kind) => !section.excludedBanks?.includes(kind))
-              const loweredBanks = BANK_KINDS.filter((kind) =>
-                !section.excludedBanks?.includes(kind) && sectionBankLevel(section, kind) < 1,
-              )
               const spanIndex = timeline.findIndex((span) => span.section.id === section.id)
               const restHasSteps = timeline
                 .slice(spanIndex)
@@ -324,7 +320,7 @@ export function SongArranger({
                           return `${BANK_NAMES[kind]}${level < 100 ? ` ${level}%` : ''}`
                         }).join(' · ')
                       : 'Empty pattern — edit to add sounds'}
-                    {!programmedBanks.length && (loweredBanks.length > 0 || section.excludedBanks?.length)
+                    {!programmedBanks.length && (Object.keys(section.bankVolumes ?? {}).length > 0 || section.excludedBanks?.length)
                       ? ' · Section mix is set'
                       : ''}
                   </span>
@@ -354,15 +350,6 @@ export function SongArranger({
                       aria-label={`Hear song from ${section.name}`}
                     >
                       ▶ From here
-                    </button>
-                    <button
-                      type="button"
-                      className={mixSectionId === section.id ? 'chip-btn on' : 'chip-btn'}
-                      onClick={() => setMixSectionId(mixSectionId === section.id ? null : section.id)}
-                      aria-expanded={mixSectionId === section.id}
-                      aria-label={`Mix ${section.name} section`}
-                    >
-                      Mix section
                     </button>
                     <button
                       type="button"
@@ -411,51 +398,6 @@ export function SongArranger({
                       Remove
                     </button>
                   </div>
-                  {mixSectionId === section.id && (
-                    <div className="song-section-mix" role="group" aria-label={`${section.name} section volumes`}>
-                      <p>Set levels or remove a group from this section. Its pattern stays saved, so you can restore it later.</p>
-                      <div className="song-section-faders">
-                        {BANK_KINDS.map((kind) => {
-                          const level = Math.round(sectionBankLevel(section, kind) * 100)
-                          const removed = section.excludedBanks?.includes(kind) ?? false
-                          return (
-                            <div className={removed ? 'song-section-fader removed' : 'song-section-fader'} key={kind}>
-                              <label>
-                                <span>{BANK_NAMES[kind]} <strong>{removed ? 'Removed' : `${level}%`}</strong></span>
-                                <input
-                                  type="range"
-                                  min={0}
-                                  max={100}
-                                  value={level}
-                                  disabled={removed}
-                                  aria-label={`${section.name} ${BANK_NAMES[kind]} volume`}
-                                  onChange={(event) => dispatch({
-                                    type: 'SET_SONG_SECTION_BANK_VOLUME',
-                                    sectionId: section.id,
-                                    bank: kind,
-                                    level: Number(event.target.value),
-                                  })}
-                                />
-                              </label>
-                              <button
-                                type="button"
-                                className={removed ? 'chip-btn on' : 'chip-btn'}
-                                onClick={() => dispatch({
-                                  type: 'SET_SONG_SECTION_BANK_INCLUDED',
-                                  sectionId: section.id,
-                                  bank: kind,
-                                  included: removed,
-                                })}
-                                aria-label={`${removed ? 'Restore' : 'Remove'} ${BANK_NAMES[kind]} ${removed ? 'to' : 'from'} ${section.name} section`}
-                              >
-                                {removed ? 'Restore' : 'Remove'}
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </li>
               )
             })}

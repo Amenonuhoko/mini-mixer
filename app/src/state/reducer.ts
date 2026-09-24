@@ -82,6 +82,7 @@ export type Action =
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
   | { type: 'SET_STEP_SAMPLE'; patternId: string; padId: string; stepIndex: number; sampleId: string }
   | { type: 'CLEAR_PATTERN'; patternId: string }
+  | { type: 'CLEAR_BANK_PATTERN'; patternId: string; bankId: string }
   | { type: 'ADD_PATTERN_STEPS'; patternId: string }
   | { type: 'REMOVE_PATTERN_STEPS'; patternId: string }
   | { type: 'CAPTURE_PATTERN_TRACE'; patternId: string }
@@ -606,6 +607,20 @@ export function reducer(state: AppState, action: Action): AppState {
         steps: Object.fromEntries(
           Object.keys(pattern.steps).map((padId) => [padId, new Array<string | null>(pattern.stepCount).fill(null)]),
         ),
+      }))
+      return removeUnusedNoteSamples(cleared)
+    }
+
+    case 'CLEAR_BANK_PATTERN': {
+      const bank = state.banks.find((item) => item.id === action.bankId)
+      if (!bank || !state.patterns.some((pattern) => pattern.id === action.patternId)) return state
+      const ids = new Set(bank.padIds)
+      const cleared = updatePattern(state, action.patternId, (pattern) => ({
+        ...pattern,
+        steps: Object.fromEntries(Object.entries(pattern.steps).map(([padId, steps]) => [
+          padId,
+          ids.has(padId) ? new Array<string | null>(pattern.stepCount).fill(null) : steps,
+        ])),
       }))
       return removeUnusedNoteSamples(cleared)
     }
