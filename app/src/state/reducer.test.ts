@@ -472,6 +472,28 @@ describe('reducer', () => {
     expect(next.sampleOrder.some((id) => id.startsWith('c_'))).toBe(false)
   })
 
+  it('recorded single notes from the note pool follow a key change too', () => {
+    let state = createInitialState(1)
+    const build = { ...makeBuild(state, 'chords', 'c', [60]), noteSampleIds: { '60': 'c_60', '64': 'c_pool_64', '67': 'c_pool_67' } }
+    build.samples = [...build.samples, makeNote('c_pool_64'), makeNote('c_pool_67')]
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [build], remap: 'index' })
+    const padId = visibleBankPads(state, getBank(state, 'chords'))[0]!.id
+    state = reducer(state, { type: 'SET_STEP_SAMPLE', patternId: state.activePatternId, padId, stepIndex: 2, sampleId: 'c_pool_64' })
+
+    // Up a whole step to D: E (64) should become F♯ (66).
+    const next = { ...makeBuild(state, 'chords', 'd', [62]), noteSampleIds: { '62': 'd_62', '66': 'd_pool_66', '69': 'd_pool_69' } }
+    next.samples = [...next.samples, makeNote('d_pool_66'), makeNote('d_pool_69')]
+    const moved = reducer(state, {
+      type: 'APPLY_BANK_BUILDS',
+      builds: [next],
+      remap: 'index',
+      key: { tonic: 2, scale: 'major', chordColor: 'triad' },
+      mood: null,
+    })
+    expect(moved.patterns[0]!.steps[padId]![2]).toBe('d_pool_66')
+    expect(moved.samples.c_pool_64).toBeUndefined()
+  })
+
   it('a layout change moves each programmed note to the pad with the nearest pitch', () => {
     let state = createInitialState(1)
     state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'melody', 'a', [60, 62, 64])], remap: 'index' })

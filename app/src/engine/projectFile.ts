@@ -1,7 +1,7 @@
 import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { computePeaks } from '../utils/waveform'
 import { BANK_KINDS, createBank } from '../state/banks'
-import { createId } from '../state/defaults'
+import { createId, DEFAULT_PERFORM } from '../state/defaults'
 import { DEFAULT_KEY, DEFAULT_PAD_LABELS } from '../music/theory'
 import type {
   AppState,
@@ -12,6 +12,7 @@ import type {
   MusicalKey,
   PadLabelSettings,
   PadLayout,
+  PerformSettings,
   PadPlaybackMode,
   Pad,
   Pattern,
@@ -119,6 +120,7 @@ export interface ProjectMeta {
   mood?: MoodId | null
   padLayout?: PadLayout
   padLabels?: PadLabelSettings
+  perform?: PerformSettings
   fxBySound?: Record<string, CharacterPreset>
   /** Legacy (pre-bank) projects only: how many of `pads` were showing. */
   visiblePadCount?: number
@@ -148,6 +150,7 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
     mood: state.mood,
     padLayout: state.padLayout,
     padLabels: state.padLabels,
+    perform: state.perform,
     fxBySound: state.fxBySound,
     patterns: state.patterns,
     activePatternId: state.activePatternId,
@@ -269,6 +272,7 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
     mood: meta.mood === undefined ? (meta.key ? null : 'bright') : meta.mood,
     padLayout: meta.padLayout ?? 'guided',
     padLabels: meta.padLabels ?? DEFAULT_PAD_LABELS,
+    perform: { ...DEFAULT_PERFORM, ...meta.perform },
     fxBySound: meta.fxBySound ?? {},
     patterns: normalizePatterns(meta.patterns, pads),
     activePatternId: meta.activePatternId,

@@ -1,3 +1,4 @@
+import { tonicMidi } from '../music/theory'
 import {
   BPM_MIN,
   BPM_MAX,
@@ -26,6 +27,7 @@ import type {
   MusicalKey,
   Pad,
   PadLabelSettings,
+  PerformSettings,
   PadLayout,
   PadPlaybackMode,
   Pattern,
@@ -57,6 +59,7 @@ export type Action =
       padLayout?: PadLayout
     }
   | { type: 'SET_PAD_LABELS'; labels: PadLabelSettings }
+  | { type: 'SET_PERFORM'; perform: Partial<PerformSettings> }
   /** Replaces one bank's rows in a pattern (the other banks' rows are untouched) — how a preset adds a layer. */
   | { type: 'WRITE_BANK_PATTERN'; bankId: string; patternId: string; stepsByPadIndex: Record<number, number[]>; minStepCount: number }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
@@ -235,6 +238,8 @@ function applyBankBuild(
   state: AppState,
   build: BankBuild,
   remap: 'index' | 'pitch',
+  /** Semitones the old key's home note moved in this bank's register — how pool notes transpose. */
+  keyShift: number,
 ): { state: AppState; sampleMap: Map<string, string>; rowMoves: Map<string, string> } {
   const bank = state.banks.find((item) => item.id === build.bankId)
   const sampleMap = new Map<string, string>()
@@ -275,6 +280,19 @@ function applyBankBuild(
       const { sampleId, padId } = best
       if (sampleId !== pad.sampleId) sampleMap.set(pad.sampleId, sampleId)
       if (padId !== pad.id) rowMoves.set(pad.id, padId)
+    }
+  }
+
+  // Single notes from the old pool that steps may hold directly (arpeggio and
+  // strum recordings) follow too: transposed with the key, then snapped to
+  // the nearest note the new pool has.
+  const newPool = Object.entries(build.noteSampleIds).map(([midi, sampleId]) => ({ midi: Number(midi), sampleId }))
+  if (newPool.length > 0) {
+    for (const [midi, sampleId] of Object.entries(bank.noteSampleIds)) {
+      if (sampleMap.has(sampleId)) continue
+      const target = Number(midi) + keyShift
+      const nearest = newPool.reduce((best, note) => (Math.abs(note.midi - target) < Math.abs(best.midi - target) ? note : best))
+      if (nearest.sampleId !== sampleId) sampleMap.set(sampleId, nearest.sampleId)
     }
   }
 
@@ -393,7 +411,12 @@ export function reducer(state: AppState, action: Action): AppState {
       const sampleMap = new Map<string, string>()
       const rowMoves = new Map<string, string>()
       for (const build of action.builds) {
-        const applied = applyBankBuild(next, build, action.remap)
+        const kind = state.banks.find((bank) => bank.id === build.bankId)?.kind
+        const keyShift =
+          action.key && action.remap === 'index' && kind && kind !== 'drums'
+            ? tonicMidi(kind, action.key.tonic) - tonicMidi(kind, state.key.tonic)
+            : 0
+        const applied = applyBankBuild(next, build, action.remap, keyShift)
         next = applied.state
         for (const [from, to] of applied.sampleMap) sampleMap.set(from, to)
         for (const [from, to] of applied.rowMoves) rowMoves.set(from, to)
@@ -406,6 +429,9 @@ export function reducer(state: AppState, action: Action): AppState {
       }
       return removeUnusedNoteSamples(next)
     }
+
+    case 'SET_PERFORM':
+      return { ...state, perform: { ...state.perform, ...action.perform } }
 
     case 'SET_PAD_LABELS':
       return { ...state, padLabels: action.labels }

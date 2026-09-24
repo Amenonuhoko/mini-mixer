@@ -1806,3 +1806,55 @@ What Phase 1 built:
 - **Phase 2**: the style pipeline replaces `LOOP_PRESETS`. Their leftover `rootHz`/`patch` fields go with it.
 - **Phase 3**: swing and humanize.
 - The recorded-sample fetch timeout gap noted in earlier entries is still open.
+
+---
+
+## 2026-09-24 — Phase 1.5: note repeat, arpeggiator, strum
+
+### Context
+Phase 1.5 of the blank-canvas plan. Once a user knows *what* to play (banks, mood, labeled pads), the next step is making one finger sound like a performance. The user asked for "an arpeggiator or something similar", and we folded note repeat and strum in with it.
+
+### Decision(s)
+- **`engine/performer.ts`** is a `Performer` owned by the `AudioEngine` (`getPerformer()`). It runs its own lookahead loop against the audio clock, like `Scheduler`.
+  - The first note plays on the press.
+  - Later notes snap to the beat grid when the beat is locked (`AudioEngine.getBeatAnchor()`). If the next grid line is less than half an interval away, it skips to the following one.
+  - A stalled tab never replays a backlog of notes.
+  - Its dependencies are injected, so it's tested on a fake clock (8 tests).
+- **Modes**:
+  - **Repeat** retriggers every held pad.
+  - **Arp** walks every held pad's notes (`arpOrder`: up, down, up-down without repeating the turnaround, or random) over 1–2 octaves. Drum-only holds are cycled through. **Latch** keeps the arpeggio going until a fresh press replaces it.
+  - **Strum** is independent of Hold: it rolls a chord pad's notes at 15/35/70 ms, each at 1/√n level.
+  - The settings live in `AppState.perform` and are saved with the project.
+- **Note pool widened**: `notePool` covers every pitch class the pads use, from the lowest pad note to an octave above the highest. Arpeggio octaves therefore play real rendered notes. `triggerNote` still takes a `cents` nudge as a fallback when a pitch isn't in the pool.
+- **Reducer**: steps holding single pool notes now follow key and sound changes. A note is transposed by how far the home note moved in the bank's register (`keyShift`), then snapped to the nearest note in the new pool.
+- **Step record timing**: `AudioEngine.markStep()`/`stepAt(time)` place each performed note on the step where it's heard.
+- **UI**:
+  - An orange **Perform** chip in the pad module header shows the current state, for example `Arp 1/16`.
+  - It opens an inline panel with Hold / Rate / Arp (pattern, octaves, latch) / Strum (direction, speed). Irrelevant rows are hidden.
+  - Pad presses route through the performer only when the settings need it (`Performer.handles`). Otherwise the plain one-shot path is unchanged.
+  - Keyboard activation counts as a tap: one hit or strum, never a held repeat.
+
+### Alternatives considered
+- **A popover or sheet for the controls.** Rejected because it would cover the pads mid-performance. The inline panel pushes the grid down instead.
+- **Pitch-shifting octave-up arp notes with `detune`.** This works, but a sequencer cell stores a sample id, not a pitch offset, so those notes couldn't be step-recorded. Widening the pool makes every arp note a real sample that can be recorded.
+- **Stamping recorded notes with the UI's `currentStep`.** This was the first cut. That counter is dispatched when a step is *scheduled*, up to ~100 ms before it's heard, so fast notes would pile onto the wrong steps. Recording by audio time is exact.
+- **Recording each strum note separately.** Rejected: the notes would overwrite each other in one cell. A strum records as the whole chord.
+
+### Reasoning
+- The performer only decides *when* and *which* sample plays; everything still plays through `playBuffer`. Effects, mix, meters, the light show (each note blooms its pad) and bounce all keep working without special cases.
+- Keeping the performer off React state keeps timing stable, the same reasoning as the sequencer.
+
+### Outcome
+- `tsc -b` is clean, and `oxlint` shows only the three pre-existing warnings.
+- `vitest`: 118/118.
+- `vite build` is clean.
+- A Playwright pass (390×844) counted `AudioBufferSourceNode.start` calls:
+  - A plain chord is 1 source; strum Up is 3 sources at 0/35/70 ms.
+  - Arp 1/16 held for 1 s gives 9 notes, 125 ms apart.
+  - Latch keeps playing after release; switching latch off stops it.
+  - An arp recorded into a running sequencer at 1/8 landed on steps 4, 6, 8, 10, 12, 14.
+
+### Open questions / carried forward
+- **Phase 2**: the style pipeline (seeded generator, starter beats, add-a-layer), replacing `LOOP_PRESETS`.
+- **Phase 3**: swing and humanize. The performer's grid snap should apply the same swing once it exists.
+- Possible later: arp gate length (notes currently ring out), and velocity.

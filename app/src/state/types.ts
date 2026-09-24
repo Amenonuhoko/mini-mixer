@@ -199,6 +199,27 @@ export interface Transport {
   playthroughRecordingEnabled: boolean
 }
 
+/** What holding a pad does beyond a single hit (see engine/performer.ts). */
+export type PerformMode = 'off' | 'repeat' | 'arp'
+/** Note lengths, tempo-synced; T = triplet. */
+export type PerformRate = '1/4' | '1/8' | '1/8T' | '1/16' | '1/16T' | '1/32'
+export type ArpPattern = 'up' | 'down' | 'upDown' | 'random'
+export type StrumDirection = 'off' | 'up' | 'down'
+export type StrumSpeed = 'fast' | 'medium' | 'slow'
+
+export interface PerformSettings {
+  mode: PerformMode
+  rate: PerformRate
+  arpPattern: ArpPattern
+  /** How many octaves the arpeggio climbs through. */
+  arpOctaves: 1 | 2
+  /** Repeat/arp keeps going after release until the next fresh press. */
+  latch: boolean
+  /** Chord pads roll their notes instead of hitting them together. */
+  strum: StrumDirection
+  strumSpeed: StrumSpeed
+}
+
 export interface AppState {
   /** The sample library ("arsenal") — first-class, independent of pad assignment. */
   samples: Record<string, Sample>
@@ -224,6 +245,8 @@ export interface AppState {
    * brings its character back with it.
    */
   fxBySound: Record<string, CharacterPreset>
+  /** Note repeat / arpeggiator / strum — how held pads perform. */
+  perform: PerformSettings
   patterns: Pattern[]
   activePatternId: string
   transport: Transport

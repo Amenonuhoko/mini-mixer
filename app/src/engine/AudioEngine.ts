@@ -13,6 +13,7 @@ import {
   dialToReverbParams,
   mixLevelToGain,
 } from './dialMapping'
+import { Performer } from './performer'
 import { trimToPlaybackWindow } from './trim'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
@@ -119,6 +120,8 @@ export class AudioEngine {
   private readonly hitListeners = new Set<PadHitListener>()
   /** Audio-clock time of the most recent beat the scheduler reported — see markBeat(). */
   private lastBeatTime: number | null = null
+  private performer: Performer | null = null
+  private lastStep: { index: number; time: number; count: number } | null = null
 
   /**
    * Subscribe to changes in engine-side playback state (which pads are looping,
@@ -252,6 +255,23 @@ export class AudioEngine {
     return this.ctx ? this.ctx.currentTime : null
   }
 
+  /** Called by the lookahead scheduler for every sequencer step it schedules, with that step's audio time. */
+  markStep(index: number, time: number, count: number): void {
+    this.lastStep = { index, time, count }
+  }
+
+  /**
+   * The sequencer step playing at a given audio time (nearest 16th), from the
+   * last step the scheduler reported — how a performed note that was
+   * scheduled ahead of time is recorded onto the step it's actually heard on.
+   */
+  stepAt(time: number): number | null {
+    const last = this.lastStep
+    if (!last) return null
+    const offset = Math.round((time - last.time) / (60 / this.bpm / 4))
+    return (((last.index + offset) % last.count) + last.count) % last.count
+  }
+
   /** Called by the lookahead scheduler on every quarter-note step, with that beat's scheduled audio time. */
   markBeat(time: number): void {
     this.lastBeatTime = time
@@ -275,6 +295,23 @@ export class AudioEngine {
       }
     }
     return { phase: fract(performance.now() / 1000 / beatSeconds), locked: false }
+  }
+
+  /** Note repeat / arpeggiator / strum for held pads, playing through this engine (see engine/performer.ts). */
+  getPerformer(): Performer {
+    this.performer ??= new Performer({
+      now: () => this.getContext().currentTime,
+      beatAnchor: () => this.getBeatAnchor(),
+      play: (pad, note, time, level) => this.triggerNote(pad, note.buffer, time, note.cents, level),
+    })
+    return this.performer
+  }
+
+  /** Audio time of the most recent beat when the beat is locked to something playing, else null — the grid note repeat snaps to. */
+  getBeatAnchor(): number | null {
+    const now = this.ctx?.currentTime
+    const { phase, locked } = this.getBeatPhase()
+    return locked && now !== undefined ? now - phase * (60 / this.bpm) : null
   }
 
   /** Changes the final listening level without disturbing individual pad faders. */
@@ -337,7 +374,7 @@ export class AudioEngine {
     buffer: AudioBuffer,
     effects: EffectSetting[],
     trim: { trimStart: number; trimEnd: number },
-    options: { loop: boolean; startTime?: number },
+    options: { loop: boolean; startTime?: number; cents?: number; level?: number },
     mixLevel: number,
   ): PlayingNodes {
     const ctx = this.getContext()
@@ -345,7 +382,7 @@ export class AudioEngine {
     source.buffer = buffer
     source.loop = options.loop
     source.playbackRate.value = dialToPlaybackRate(effectValue(effects, 'speed'))
-    source.detune.value = dialToDetuneCents(effectValue(effects, 'pitch'))
+    source.detune.value = dialToDetuneCents(effectValue(effects, 'pitch')) + (options.cents ?? 0)
 
     const filter = ctx.createBiquadFilter()
     const filterParams = dialToFilterParams(effectValue(effects, 'filter'))
@@ -385,7 +422,7 @@ export class AudioEngine {
     // scales the pad's whole output, dry signal and echo/reverb tails alike,
     // rather than just the dry path.
     const mixGain = ctx.createGain()
-    mixGain.gain.value = mixLevelToGain(mixLevel)
+    mixGain.gain.value = mixLevelToGain(mixLevel) * (options.level ?? 1)
 
     // Pan: applied last, after Mixer Mode's fader, so it positions the final
     // fader-scaled signal (every other effect included) rather than just the
@@ -595,6 +632,24 @@ export class AudioEngine {
   }
 
   /**
+   * A single performed note (note repeat, arpeggio, strum) through a pad's
+   * own effects chain, at an exact audio time — optionally nudged by `cents`
+   * when the exact pitch isn't in the bank's note pool, and scaled by `level`
+   * (a strum's notes share one chord's loudness). Returns the source so a
+   * gated performance can stop it on release.
+   */
+  triggerNote(pad: Pad, buffer: AudioBuffer, time: number, cents = 0, level = 1): AudioBufferSourceNode {
+    return this.playBuffer(
+      pad.id,
+      buffer,
+      effectiveEffects(pad),
+      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
+      { loop: false, startTime: time, cents, level },
+      pad.mixLevel,
+    ).source
+  }
+
+  /**
    * Live-updates the Mixer Mode fader on a pad that's currently looping —
    * dragging a fader slider is audible immediately on the sustained loop,
    * same reasoning as updateLoopingPadEffect. One-shot/sequencer-step
@@ -733,6 +788,7 @@ export class AudioEngine {
    * source is never itself stoppable any other way once started.
    */
   stopAllSounds(): void {
+    this.performer?.stopAll()
     this.loopingNodes.clear()
     for (const source of Array.from(this.activeSources)) {
       try {

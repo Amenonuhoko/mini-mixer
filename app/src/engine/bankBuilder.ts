@@ -1,4 +1,4 @@
-import { bankLayout, noteName, chordName, type MusicalKey, type PadLayout } from '../music/theory'
+import { bankLayout, chordName, noteName, notePool, type MusicalKey, type PadLayout } from '../music/theory'
 import { buildKeySamples } from '../utils/buildInstrumentSamples'
 import type { AppState, Bank, BankBuild, BankSound, PadMusic, Sample } from '../state/types'
 import { buildDrumKitKeys, DRUM_KITS } from './drumSynth'
@@ -50,7 +50,7 @@ export async function buildBank(bank: Bank, sound: BankSound, context: BuildCont
   }
 
   const layout = bankLayout(bank.kind === 'drums' ? 'melody' : bank.kind, context.key, context.padLayout)
-  const allMidis = [...new Set(layout.pads.flatMap((pad) => pad.midis))].sort((a, b) => a - b)
+  const allMidis = notePool(layout.pads)
   const buffers = await renderNotes(sound, allMidis, context.samples)
   const name = soundName(sound, context.samples)
 

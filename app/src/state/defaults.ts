@@ -9,7 +9,17 @@ import {
 } from './constants'
 import { DEFAULT_KEY, DEFAULT_PAD_LABELS } from '../music/theory'
 import { BANK_KINDS, createBank } from './banks'
-import type { AppState, EffectSetting, Pad, Pattern } from './types'
+import type { AppState, EffectSetting, Pad, Pattern, PerformSettings } from './types'
+
+export const DEFAULT_PERFORM: PerformSettings = {
+  mode: 'off',
+  rate: '1/16',
+  arpPattern: 'up',
+  arpOctaves: 1,
+  latch: false,
+  strum: 'off',
+  strumSpeed: 'medium',
+}
 
 export function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`
@@ -81,6 +91,7 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
     mood: 'bright',
     padLayout: 'guided',
     padLabels: DEFAULT_PAD_LABELS,
+    perform: DEFAULT_PERFORM,
     fxBySound: {},
     patterns: [pattern],
     activePatternId: pattern.id,

@@ -391,6 +391,21 @@ export function bankLayout(kind: Exclude<BankKind, 'drums'>, key: MusicalKey, la
 // Labels
 // ---------------------------------------------------------------------------
 
+/**
+ * Every single note a bank keeps rendered: each pitch class its pads use,
+ * from the lowest pad note up to an octave above the highest — so an
+ * arpeggio can climb an extra octave over any chord or note and still hit
+ * real rendered notes, all of them in the key on a guided layout.
+ */
+export function notePool(pads: readonly PadMusic[]): number[] {
+  const midis = pads.flatMap((pad) => pad.midis)
+  if (midis.length === 0) return []
+  const pitchClasses = new Set(midis.map(pitchClass))
+  const low = Math.min(...midis)
+  const high = Math.max(...midis) + 12
+  return Array.from({ length: high - low + 1 }, (_, i) => low + i).filter((midi) => pitchClasses.has(pitchClass(midi)))
+}
+
 export interface PadLabelSettings {
   feel: boolean
   name: boolean

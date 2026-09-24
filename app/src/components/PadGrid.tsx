@@ -1,6 +1,7 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { DRUM_KITS } from '../engine/drumSynth'
 import { soundName } from '../engine/bankBuilder'
+import { performSummary, performVoice, Performer } from '../engine/performer'
 import { useBankBuilder } from '../hooks/useBankBuilder'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { keyShortName, moodById, padLabel, pitchClass, type PadLabel } from '../music/theory'
@@ -18,6 +19,7 @@ import { RecordDotIcon } from './icons'
 import { PadEffectsMenuButton } from './PadEffectsMenuButton'
 import { PadModeSwitch } from './PadModeSwitch'
 import { PadPlaybackModeButton } from './PadPlaybackModeButton'
+import { PerformPanel } from './PerformPanel'
 import { Stepper } from './Stepper'
 import { StaticWaveform } from './Waveform'
 
@@ -79,6 +81,34 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
   const playbackMode = state.transport.padPlaybackMode
   const [sequencerRecordEnabled, setSequencerRecordEnabled] = useState(false)
   const [sheet, setSheet] = useState<'sound' | 'key' | null>(null)
+  const [performOpen, setPerformOpen] = useState(false)
+  const performer = engine.getPerformer()
+  const performLabel = performSummary(state.perform)
+
+  useEffect(() => {
+    performer.configure(state.perform, state.transport.bpm)
+  }, [performer, state.perform, state.transport.bpm])
+
+  // Loop and Mix take over the pads; leaving the pad module ends a latched arpeggio.
+  useEffect(() => {
+    if (loopModeEnabled || mixerModeEnabled) performer.stopAll()
+  }, [performer, loopModeEnabled, mixerModeEnabled])
+  useEffect(() => () => performer.stopAll(), [performer])
+
+  // Step record captures every performed hit (repeats, arpeggio notes, strums) on the step it's heard on.
+  const recordRef = useRef({ armed: sequencerRecordEnabled, state })
+  useEffect(() => {
+    recordRef.current = { armed: sequencerRecordEnabled, state }
+  })
+  useEffect(() => {
+    performer.setListener((padId, sampleId, time) => {
+      const { armed, state: current } = recordRef.current
+      if (!armed || !current.transport.isPlaying) return
+      const stepIndex = engine.stepAt(time) ?? current.transport.currentStep
+      dispatch({ type: 'SET_STEP_SAMPLE', patternId: current.activePatternId, padId, stepIndex, sampleId })
+    })
+    return () => performer.setListener(null)
+  }, [performer, engine, dispatch])
   const melodic = bank.kind !== 'drums'
   const columns = bankColumns(bank)
   const moodLabel = state.mood ? moodById(state.mood).name : 'Custom'
@@ -88,6 +118,15 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
       <header className="module-head">
         <BankTabs />
         <div className="module-head-tools">
+          <button
+            type="button"
+            className={['chip-btn', 'perform-toggle', performLabel ? 'on' : '', performOpen ? 'open' : ''].filter(Boolean).join(' ')}
+            onClick={() => setPerformOpen((open) => !open)}
+            aria-expanded={performOpen}
+            title="Note repeat, arpeggiator and strum"
+          >
+            {performLabel ?? 'Perform'}
+          </button>
           <PadPlaybackModeButton />
           <PadEffectsMenuButton followPadId={selectedPadId} />
           <button
@@ -130,6 +169,7 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           />
         )}
       </div>
+      {performOpen && <PerformPanel />}
       <PadModeSwitch />
       {melodic && visiblePads.length === 0 ? (
         <EmptyBank bank={bank} kind={bank.kind as Exclude<BankKind, 'drums'>} onMore={() => setSheet('sound')} />
@@ -153,6 +193,8 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
               <PadButton
                 key={pad.id}
                 pad={pad}
+                bank={bank}
+                performer={performer}
                 index={index}
                 engine={engine}
                 selected={pad.id === selectedPadId}
@@ -245,6 +287,8 @@ function PadFaceContent({ pad, index, face, sampleLabel }: { pad: Pad; index: nu
 
 interface PadButtonProps {
   pad: Pad
+  bank: Bank
+  performer: Performer
   index: number
   engine: AudioEngine
   selected: boolean
@@ -269,6 +313,8 @@ interface PadButtonProps {
  */
 function PadButton({
   pad,
+  bank,
+  performer,
   index,
   engine,
   selected,
@@ -287,6 +333,23 @@ function PadButton({
   // than one source ref) is what lets multiple fingers hold separate pads—or
   // even retrigger the same pad—without one release cutting off another.
   const activeSourcesRef = useRef(new Map<number, AudioBufferSourceNode>())
+  // Pointers whose press went to the performer (repeat / arp / strum), released there too.
+  const performingRef = useRef(new Set<number>())
+
+  /** Hands the press to the performer if the current perform settings need it; false means play it plainly. */
+  const tryPerform = (pointerId: number, gate: boolean): boolean => {
+    const voice = performVoice(state, bank, pad)
+    if (!voice || !Performer.handles(state.perform, voice)) return false
+    performer.press(`${pad.id}:${pointerId}`, voice, gate)
+    performingRef.current.add(pointerId)
+    return true
+  }
+
+  const releasePerform = (pointerId: number): boolean => {
+    if (!performingRef.current.delete(pointerId)) return false
+    performer.release(`${pad.id}:${pointerId}`)
+    return true
+  }
 
   const recordCurrentStep = () => {
     if (!sequencerRecordEnabled || !state.transport.isPlaying || !pad.sampleId) return
@@ -326,6 +389,7 @@ function PadButton({
     // is delivered independently to every simultaneous finger.
     const sample = state.samples[pad.sampleId]
     if (!sample) return
+    if (tryPerform(event.pointerId, playbackMode === 'gate')) return
     recordCurrentStep()
     const source = engine.triggerPad(pad, sample.buffer)
     if (playbackMode === 'gate') activeSourcesRef.current.set(event.pointerId, source)
@@ -344,6 +408,7 @@ function PadButton({
       return
     }
 
+    if (releasePerform(event.pointerId)) return
     if (playbackMode === 'gate') stopActiveSource(event.pointerId)
   }
 
@@ -351,6 +416,7 @@ function PadButton({
     // A dropped gesture (OS interruption, scroll takeover) behaves like a
     // release for gating purposes, but never toggles a loop — an incomplete
     // gesture shouldn't commit to a discrete on/off action.
+    if (releasePerform(event.pointerId)) return
     if (playbackMode === 'gate') stopActiveSource(event.pointerId)
   }
 
@@ -369,6 +435,11 @@ function PadButton({
       return
     }
     if (!pad.muted) {
+      // Keyboard activation is a tap: one hit (strummed if strum is on), never a held repeat.
+      if (tryPerform(-1, false)) {
+        releasePerform(-1)
+        return
+      }
       recordCurrentStep()
       engine.triggerPad(pad, sample.buffer)
     }

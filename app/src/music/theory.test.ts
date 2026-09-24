@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   bankLayout,
+  notePool,
   chordFeel,
   chordName,
   chordNumeral,
@@ -128,6 +129,17 @@ describe('bank layouts', () => {
     }
     expect(lowest('bass')).toBe(36)
     expect(lowest('melody')).toBe(60)
+  })
+})
+
+describe('note pool', () => {
+  it('covers every pad note plus an octave above, only in the key', () => {
+    const layout = bankLayout('chords', C_MAJOR, 'guided')
+    const pool = notePool(layout.pads)
+    const padNotes = layout.pads.flatMap((pad) => pad.midis)
+    for (const midi of padNotes) expect(pool).toContain(midi)
+    expect(Math.max(...pool)).toBe(Math.max(...padNotes) + 12)
+    expect(pool.every((midi) => [0, 2, 4, 5, 7, 9, 11].includes(midi % 12))).toBe(true)
   })
 })
 

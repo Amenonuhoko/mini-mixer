@@ -37,6 +37,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         }
         if (!current.transport.isPlaying || !engine.isSequencerPlaybackEnabled()) return
         const pattern = current.patterns.find((p) => p.id === current.activePatternId)
+        engine.markStep(stepIndex, time, pattern?.stepCount ?? 16)
         if (pattern) {
           const visiblePads = playablePads(current)
           for (const pad of visiblePads) {

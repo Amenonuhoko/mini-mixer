@@ -3011,3 +3011,59 @@ button.list-item:hover .list-wave {
   letter-spacing: 0;
   white-space: nowrap;
 }
+
+/* --------------------------------------------------------------------------
+   Perform: note repeat, arpeggiator, strum
+   -------------------------------------------------------------------------- */
+.perform-toggle {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.perform-toggle.on {
+  color: var(--orange);
+  border-color: rgb(var(--orange-rgb) / 0.6);
+  box-shadow: var(--glow-orange);
+  text-shadow: var(--text-glow-orange);
+}
+
+.perform-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--s2);
+  border: 1px solid rgb(var(--orange-rgb) / 0.3);
+  border-radius: var(--r-md);
+  background: rgb(var(--orange-rgb) / 0.03);
+}
+
+.perform-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.perform-row-label {
+  flex: none;
+  width: 44px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.perform-row-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.perform-row-controls .segment {
+  flex: none;
+  padding: 0 6px;
+  letter-spacing: 0.04em;
+}
