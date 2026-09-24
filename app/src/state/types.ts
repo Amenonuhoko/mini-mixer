@@ -220,14 +220,24 @@ export interface PerformSettings {
   strumSpeed: StrumSpeed
 }
 
+/** One bank's preset layer: which style wrote it, which take (reroll), and how busy (0 sparse … 0.5 as written … 1 busy). */
+export interface GrooveLayer {
+  styleId: string
+  take: number
+  intensity: number
+}
+
 /**
- * The style a beat was written in (see src/styles): its seed fixes the
- * progression every layer shares; each bank's take counts its rerolls.
+ * The beat the preset layers belong to (see src/styles). The beat owns the
+ * seed, length and chord progression, so layers from different styles still
+ * fit together; each bank's layer owns its own style, take and intensity.
  */
 export interface Groove {
-  styleId: string
   seed: number
-  takes: Partial<Record<BankKind, number>>
+  bars: number
+  /** Scale degrees (0 = home), spread evenly over the pattern. */
+  progression: number[]
+  layers: Partial<Record<BankKind, GrooveLayer>>
 }
 
 export interface AppState {

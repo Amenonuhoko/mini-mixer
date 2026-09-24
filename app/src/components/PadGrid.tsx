@@ -15,6 +15,7 @@ import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
 import { BankSoundPicker } from './BankSoundPicker'
 import { BankTabs } from './BankTabs'
 import { KeySheet } from './KeySheet'
+import { LayerStrip } from './LayerStrip'
 import { RecordDotIcon } from './icons'
 import { PadEffectsMenuButton } from './PadEffectsMenuButton'
 import { PadModeSwitch } from './PadModeSwitch'
@@ -169,6 +170,7 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           />
         )}
       </div>
+      <LayerStrip kind={bank.kind} />
       {performOpen && <PerformPanel />}
       <PadModeSwitch />
       {melodic && visiblePads.length === 0 ? (

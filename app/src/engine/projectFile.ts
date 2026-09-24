@@ -3,9 +3,12 @@ import { computePeaks } from '../utils/waveform'
 import { BANK_KINDS, createBank } from '../state/banks'
 import { createId, DEFAULT_PERFORM } from '../state/defaults'
 import { DEFAULT_KEY, DEFAULT_PAD_LABELS } from '../music/theory'
+import { DEFAULT_INTENSITY, pickProgression } from '../styles/generator'
+import { styleById } from '../styles/library'
 import type {
   AppState,
   Bank,
+  BankKind,
   CharacterPreset,
   LoopMode,
   MoodId,
@@ -258,6 +261,27 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
 }
 
 /**
+ * Phase 2 saved one style per beat (`{ styleId, seed, takes }`); now every
+ * layer carries its own. An old beat becomes the same beat with every bank's
+ * layer in that style — same seed, so the same progression.
+ */
+export function normalizeGroove(saved: unknown): Groove | null {
+  if (!saved || typeof saved !== 'object') return null
+  const value = saved as Partial<Groove> & { styleId?: string; takes?: Partial<Record<BankKind, number>> }
+  if (value.layers && Array.isArray(value.progression) && typeof value.seed === 'number') return value as Groove
+  const style = value.styleId ? styleById(value.styleId) : undefined
+  if (!style || typeof value.seed !== 'number') return null
+  return {
+    seed: value.seed,
+    bars: style.bars,
+    progression: pickProgression(style, value.seed),
+    layers: Object.fromEntries(
+      BANK_KINDS.map((kind) => [kind, { styleId: style.id, take: value.takes?.[kind] ?? 0, intensity: DEFAULT_INTENSITY }]),
+    ),
+  }
+}
+
+/**
  * Rebuilds full app state from saved meta plus already-decoded samples — the
  * one place both load paths (project file, autosave) fill in defaults for
  * fields older saves lack, so they can't drift.
@@ -276,7 +300,7 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
     padLayout: meta.padLayout ?? 'guided',
     padLabels: meta.padLabels ?? DEFAULT_PAD_LABELS,
     perform: { ...DEFAULT_PERFORM, ...meta.perform },
-    groove: meta.groove ?? null,
+    groove: normalizeGroove(meta.groove),
     fxBySound: meta.fxBySound ?? {},
     patterns: normalizePatterns(meta.patterns, pads),
     activePatternId: meta.activePatternId,

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
 import { padLabel } from '../music/theory'
+import { styleById } from '../styles/library'
 import { BANK_NAMES, playablePads, visibleBankPads } from '../state/banks'
 import { MAX_PAD_COUNT, MIN_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
@@ -11,7 +12,8 @@ import type { AudioEngine } from '../engine/AudioEngine'
 import type { Bank, Pad, Sample, SequenceTrace, Transport } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CloseIcon, EyeIcon, OpenIcon, PlusIcon, SaveIcon, SparkIcon, TrashIcon } from './icons'
-import { BeatSheet } from './BeatSheet'
+import { LayerStrip } from './LayerStrip'
+import { StyleDock } from './StyleBrowser'
 import { PadLibraryPicker } from './PadLibraryPicker'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
@@ -56,7 +58,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [previewOnClick, setPreviewOnClick] = useState(true)
   const [removingPadId, setRemovingPadId] = useState<string | null>(null)
   const [loadPickerOpen, setLoadPickerOpen] = useState(false)
-  const [beatSheetOpen, setBeatSheetOpen] = useState(false)
+  const [stylesOpen, setStylesOpen] = useState(false)
+  const [stripOpen, setStripOpen] = useState<Record<string, boolean>>({})
   const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
   const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
 
@@ -107,7 +110,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
 
   const traceHidden = pattern.traceSource === 'hidden'
 
+  /** A bank head's preset chip: the layer's style and take, or an invitation. */
+  const layerLabel = (kind: Bank['kind']) => {
+    const layer = state.groove?.layers[kind]
+    const style = layer && styleById(layer.styleId)
+    return style ? `${style.name} · ${layer.take + 1}` : '+ Style'
+  }
+
   return (
+    // The Styles dock sits in the same column as the sequencer it feeds.
+    <div className="sequencer-column">
     <section
       className={pattern.stepCount <= 16 ? 'module sequencer sequencer-fits-desktop' : 'module sequencer'}
       aria-label="Sequencer"
@@ -129,10 +141,11 @@ export function Sequencer({ onBounced }: SequencerProps) {
         <div className="module-head-tools">
           <button
             type="button"
-            className="icon-btn"
-            onClick={() => setBeatSheetOpen(true)}
-            aria-label="Beat styles"
-            title="Start a beat from a style, or add a layer"
+            className={stylesOpen ? 'icon-btn on' : 'icon-btn'}
+            onClick={() => setStylesOpen((open) => !open)}
+            aria-label="Styles"
+            aria-expanded={stylesOpen}
+            title="Styles — drop preset layers into the beat, or start a whole beat"
           >
             <SparkIcon />
           </button>
@@ -219,7 +232,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
       {!patternHasSteps && (
         <div className="sequencer-empty">
           <span className="sequencer-empty-text">Blank canvas? Start from a style.</span>
-          <button type="button" className="chip-btn on" onClick={() => setBeatSheetOpen(true)}>
+          <button type="button" className="chip-btn on" onClick={() => setStylesOpen(true)}>
             <SparkIcon size={14} />
             Styles
           </button>
@@ -255,6 +268,15 @@ export function Sequencer({ onBounced }: SequencerProps) {
                   <span className="sequencer-bank-name">{BANK_NAMES[bank.kind]}</span>
                   <button
                     type="button"
+                    className={stripOpen[bank.id] ? 'sequencer-bank-style open' : 'sequencer-bank-style'}
+                    onClick={() => setStripOpen((current) => ({ ...current, [bank.id]: !current[bank.id] }))}
+                    aria-expanded={!!stripOpen[bank.id]}
+                    title="Pick this bank's preset layer"
+                  >
+                    {layerLabel(bank.kind)}
+                  </button>
+                  <button
+                    type="button"
                     className="sequencer-bank-toggle"
                     onClick={() => setExpandedOverride((current) => ({ ...current, [bank.id]: !expanded }))}
                     aria-expanded={expanded}
@@ -262,6 +284,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
                     {expanded ? 'Used rows only' : `Show all ${bankPads.length}`}
                   </button>
                 </div>
+                {stripOpen[bank.id] && <LayerStrip kind={bank.kind} />}
                 {rows.map((pad) => {
                   const padIndex = bankPads.indexOf(pad)
                   return (
@@ -324,13 +347,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
       )}
       {swappingPadId && <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />}
       {loadPickerOpen && <SequenceLoadPicker onClose={() => setLoadPickerOpen(false)} />}
-      {beatSheetOpen && (
-        <BeatSheet
-          onClose={() => setBeatSheetOpen(false)}
-          // A fresh beat reads best folded to the rows it uses (a kit has up to 32).
-          onStarted={() => setExpandedOverride(Object.fromEntries(state.banks.map((bank) => [bank.id, false])))}
-        />
-      )}
       {removingPad && (
         <ConfirmDialog
           message={`Remove pad ${removingPadIndex + 1} from the sequencer? Its programmed steps go with it — its sample stays in the library, and every other row is unaffected.`}
@@ -343,6 +359,14 @@ export function Sequencer({ onBounced }: SequencerProps) {
         />
       )}
     </section>
+    {stylesOpen && (
+      <StyleDock
+        onClose={() => setStylesOpen(false)}
+        // A fresh beat reads best folded to the rows it uses (a kit has up to 32).
+        onStarted={() => setExpandedOverride(Object.fromEntries(state.banks.map((bank) => [bank.id, false])))}
+      />
+    )}
+    </div>
   )
 }
 

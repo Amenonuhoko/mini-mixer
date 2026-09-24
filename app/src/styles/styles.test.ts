@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { DRUM_KITS } from '../engine/drumSynth'
 import { INSTRUMENT_PRESETS } from '../engine/synth'
 import { bankLayout, MOODS, pitchClass, type MusicalKey } from '../music/theory'
-import { beatProgression, chordPcs, generateLayer, padForRole, rollLine, styleStepCount, type LayerTarget } from './generator'
+import { normalizeGroove } from '../engine/projectFile'
+import { chordPcs, DEFAULT_INTENSITY, generateLayer, hitChance, padForRole, pickProgression, rollLine, styleStepCount, type LayerContext, type LayerTarget } from './generator'
 import { STYLES } from './library'
 import { createRng } from './random'
 
 const C_MAJOR: MusicalKey = { tonic: 0, scale: 'major', chordColor: 'triad' }
+
+/** A layer of a beat in `style` (its own length and progression) unless overridden. */
+function ctxFor(style: (typeof STYLES)[number], overrides: Partial<LayerContext> = {}): LayerContext {
+  const seed = overrides.seed ?? 42
+  return { style, key: C_MAJOR, seed, take: 0, bars: style.bars, progression: pickProgression(style, seed), intensity: DEFAULT_INTENSITY, ...overrides }
+}
 
 function kitTarget(kitId: string): LayerTarget {
   const kit = DRUM_KITS.find((item) => item.id === kitId)!
@@ -57,7 +64,7 @@ describe('generateLayer', () => {
   const style = STYLES.find((item) => item.id === 'boom-bap')!
 
   it('is deterministic for a seed and changes with the take', () => {
-    const ctx = { style, key: C_MAJOR, seed: 42, take: 0 }
+    const ctx = ctxFor(style)
     const target = kitTarget('acoustic-drums')
     expect(generateLayer(ctx, target)).toEqual(generateLayer(ctx, target))
     const takes = new Set(Array.from({ length: 6 }, (_, take) => JSON.stringify(generateLayer({ ...ctx, take }, target))))
@@ -72,7 +79,7 @@ describe('generateLayer', () => {
 
   it('puts the backbeat snare on 2 and 4', () => {
     const target = kitTarget('acoustic-drums')
-    const steps = generateLayer({ style, key: C_MAJOR, seed: 7, take: 0 }, target)
+    const steps = generateLayer(ctxFor(style, { seed: 7 }), target)
     const snare = steps[padForRole('snare', target.pads)]!
     expect(snare).toEqual(expect.arrayContaining([4, 12, 20, 28]))
   })
@@ -81,10 +88,10 @@ describe('generateLayer', () => {
     it(`${each.name}: every layer stays in range and the bass roots each bar on the chord`, () => {
       const seed = 1234
       const stepCount = styleStepCount(each)
-      const progression = beatProgression(each, seed)
+      const progression = pickProgression(each, seed)
       for (const kind of ['bass', 'chords', 'melody'] as const) {
         const target = melodicTarget(kind)
-        const steps = generateLayer({ style: each, key: C_MAJOR, seed, take: 0 }, target)
+        const steps = generateLayer(ctxFor(each, { seed }), target)
         for (const [pad, list] of Object.entries(steps)) {
           expect(Number(pad)).toBeLessThan(target.pads.length)
           for (const step of list) expect(step).toBeLessThan(stepCount)
@@ -108,7 +115,70 @@ describe('generateLayer', () => {
   it('fits a pentatonic melody bank too', () => {
     const key: MusicalKey = { tonic: 9, scale: 'minorPentatonic', chordColor: 'triad' }
     const target = melodicTarget('melody', key)
-    const steps = generateLayer({ style, key, seed: 3, take: 0 }, target)
+    const steps = generateLayer(ctxFor(style, { key, seed: 3 }), target)
     expect(Object.keys(steps).length).toBeGreaterThan(0)
+  })
+})
+
+describe('intensity', () => {
+  it('plays a line as written at the middle, thins toward 0 and fills toward 1, keeping strong beats', () => {
+    expect(hitChance('o', 2, DEFAULT_INTENSITY, false)).toBeCloseTo(0.65)
+    expect(hitChance('-', 2, 0, false)).toBe(0)
+    expect(hitChance('x', 0, 0, false)).toBe(1)
+    expect(hitChance('x', 2, 0, false)).toBeLessThan(1)
+    expect(hitChance('.', 3, 1, true)).toBeGreaterThan(0)
+    expect(hitChance('.', 3, 1, false)).toBe(0)
+  })
+
+  it('only adds hits as it rises (every step keeps its own roll)', () => {
+    for (const style of STYLES) {
+      const target = kitTarget(style.sounds.drums)
+      let previous: Record<number, number[]> | null = null
+      for (const intensity of [0, 0.25, 0.5, 0.75, 1]) {
+        const steps = generateLayer(ctxFor(style, { intensity }), target)
+        if (previous) {
+          for (const [pad, list] of Object.entries(previous)) {
+            for (const step of list) expect(steps[Number(pad)], `${style.id} @${intensity}`).toContain(step)
+          }
+        }
+        previous = steps
+      }
+    }
+  })
+
+  it('makes a layer measurably busier at 1 than at 0', () => {
+    const style = STYLES.find((item) => item.id === 'funk')!
+    const count = (intensity: number) => Object.values(generateLayer(ctxFor(style, { intensity }), melodicTarget('bass'))).flat().length
+    expect(count(1)).toBeGreaterThan(count(0))
+  })
+})
+
+describe('mixing styles', () => {
+  it('a layer in one style follows the beat progression and length from another', () => {
+    const lofi = STYLES.find((item) => item.id === 'lofi')!
+    const funk = STYLES.find((item) => item.id === 'funk')!
+    const progression = pickProgression(lofi, 99)
+    const target = melodicTarget('bass')
+    const steps = generateLayer(ctxFor(funk, { seed: 99, bars: lofi.bars, progression }), target)
+    const stepCount = lofi.bars * 16
+    const all = Object.values(steps).flat()
+    expect(Math.max(...all)).toBeGreaterThanOrEqual(48) // spans lo-fi's four bars, not funk's two
+    for (const [pad, list] of Object.entries(steps)) {
+      for (const step of list.filter((each) => each % 16 === 0)) {
+        const degree = progression[Math.floor((step * progression.length) / stepCount)]!
+        expect(pitchClass(target.pads[Number(pad)]!.music!.midis[0]!)).toBe(chordPcs(C_MAJOR, degree)[0])
+      }
+    }
+  })
+
+  it('migrates a Phase 2 one-style beat to per-layer styles with the same progression', () => {
+    const lofi = STYLES.find((item) => item.id === 'lofi')!
+    const groove = normalizeGroove({ styleId: 'lofi', seed: 5, takes: { bass: 2 } })!
+    expect(groove.bars).toBe(lofi.bars)
+    expect(groove.progression).toEqual(pickProgression(lofi, 5))
+    expect(groove.layers.bass).toEqual({ styleId: 'lofi', take: 2, intensity: DEFAULT_INTENSITY })
+    expect(groove.layers.drums?.take).toBe(0)
+    expect(normalizeGroove(null)).toBeNull()
+    expect(normalizeGroove(groove)).toBe(groove)
   })
 })

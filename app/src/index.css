@@ -2018,10 +2018,107 @@ button.list-item:hover .list-wave {
   text-overflow: ellipsis;
 }
 
-/* Beat sheet: style cards with a tiny drum preview, and per-layer takes. */
+/* Styles: the preset library, docked where the beat is built. On phones the
+   drawer docks above the tab bar and the page shrinks to sit above it, so the
+   sequencer stays fully in view and playable while you browse. */
+:root {
+  --drawer-h: 46vh;
+}
+
+body.style-drawer-open .app-shell {
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--drawer-h));
+}
+
+.style-dock {
+  gap: var(--s2);
+}
+
+.style-drawer {
+  position: fixed;
+  z-index: 15;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom));
+  height: var(--drawer-h);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s3);
+  background: linear-gradient(180deg, rgb(10 17 23 / 0.97), rgb(5 9 12 / 0.98));
+  border-top: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, rgb(var(--cyan-rgb) / 0.5) 25%, rgb(var(--cyan-rgb) / 0.5) 75%, transparent) 1;
+  box-shadow: 0 -12px 32px rgb(0 0 0 / 0.5);
+}
+
+.style-browser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.style-browser-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.style-browser-chords {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--orange);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.style-browser-chords.muted {
+  color: var(--text-faint);
+}
+
+.mix-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mix-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) minmax(64px, 110px) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  opacity: 0.6;
+}
+
+.mix-row.live {
+  opacity: 1;
+  border-color: var(--line-strong);
+}
+
+.mix-row-bank {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.mix-row-style {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .style-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 6px;
 }
 
@@ -2032,30 +2129,7 @@ button.list-item:hover .list-wave {
   padding: var(--s2);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  text-align: left;
-  transition:
-    border-color var(--fast),
-    box-shadow var(--fast),
-    transform var(--fast);
-}
-
-.style-card:hover:not(:disabled) {
-  border-color: var(--cyan);
-  box-shadow: var(--glow-cyan);
-}
-
-.style-card:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-.style-card:disabled {
-  opacity: 0.4;
-}
-
-.style-card.on {
-  border-color: var(--cyan);
-  background: rgb(var(--cyan-rgb) / 0.08);
-  box-shadow: inset 0 0 0 1px var(--cyan-dim), var(--glow-cyan);
+  background: rgb(var(--cyan-rgb) / 0.02);
 }
 
 .style-card-head {
@@ -2111,42 +2185,123 @@ button.list-item:hover .list-wave {
   box-shadow: 0 0 4px rgb(var(--cyan-rgb) / 0.5);
 }
 
-.beat-start {
-  width: 100%;
-  margin-top: var(--s3);
+/* One tap per layer: drop this style's drums / bass / chords / melody into its bank. */
+.style-card-layers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 26px;
+  gap: 3px;
+  margin-top: 2px;
 }
 
-.layer-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.layer-row {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: 6px 6px 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-}
-
-.layer-row-name {
+.layer-add {
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.12em;
+  font-size: 9px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  color: var(--text-dim);
+  transition:
+    border-color var(--fast),
+    color var(--fast),
+    box-shadow var(--fast);
+}
+
+.layer-add:hover:not(:disabled) {
+  border-color: var(--cyan);
   color: var(--text);
 }
 
-.layer-row-status {
-  flex: 1;
+.layer-add.on {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgb(var(--orange-rgb) / 0.1);
+  box-shadow: var(--glow-orange);
+}
+
+.layer-add.whole {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cyan);
+}
+
+.layer-add:disabled {
+  opacity: 0.4;
+}
+
+/* A bank's own preset strip (pad module and sequencer bank heads). */
+.layer-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
   min-width: 0;
-  overflow: hidden;
+}
+
+.layer-strip-controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.layer-intensity {
+  width: 72px;
+}
+
+.layer-strip-label {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.layer-strip-styles {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(90deg, #000 88%, transparent);
+}
+
+.layer-strip-styles::-webkit-scrollbar {
+  display: none;
+}
+
+.layer-strip-styles .chip-btn {
+  flex: none;
+}
+
+.sequencer-bank .layer-strip {
+  position: sticky;
+  left: calc(-1 * var(--s1));
+  width: min(100%, 520px);
+  padding: 0 0 6px;
+}
+
+.sequencer-bank-style {
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  color: var(--text-dim);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  color: var(--orange);
+  padding: 1px 6px;
+  border: 1px solid rgb(var(--orange-rgb) / 0.35);
+  border-radius: var(--r-sm);
+}
+
+.sequencer-bank-style.open {
+  background: rgb(var(--orange-rgb) / 0.12);
+}
+
+.sequencer-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  min-width: 0;
 }
 
 /* The sequencer's blank-canvas prompt. */

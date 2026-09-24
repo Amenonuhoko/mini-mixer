@@ -1963,3 +1963,63 @@ Phase 2 of the blank-canvas plan: the user asked for a way to "inspire structure
 ### Open questions / carried forward
 - **Phase 3** (feel): apply each style's `swing`, plus humanize. The performer's grid snap should follow the same swing.
 - Per-style drum velocity or accents would need sample gain per step, which the step model doesn't carry yet.
+
+---
+
+## 2026-09-24 — Presets become a pillar: mix styles per layer, intensity, a docked library
+
+### Context
+The user said the preset beats looked like "just a starter thing and not a part of a song". They asked for the preset menu to be woven into the workflow: easy to pick, add, mix and integrate, because presets will be a pillar of the app once the library grows. They also asked for thorough testing, then a push to main.
+
+Direction chosen with the user through questions:
+- **Keep one pattern.** No song sections yet.
+- **The library lives in both places:** a docked browser and per-bank strips.
+- **Mixing:** the options were explained in plain terms first. The user picked **mix styles per layer** and **intensity control**, and declined audition and blend.
+
+### Decision(s)
+- **Groove model** (`AppState.groove`):
+  - The *beat* now owns the seed, the length and the **chord progression**.
+  - Each bank's layer owns its own `styleId`, `take` and `intensity` (`GrooveLayer`).
+  - The first layer, or a whole beat, sets the length and chords. Every other layer follows them, which is what makes Trap drums, a Funk bass and Lo-fi chords fit together.
+  - **New chords** picks another progression from the chords layer's style and rewrites every preset layer to follow it.
+  - Saved Phase 2 grooves migrate through `normalizeGroove`.
+- **Generator**:
+  - It now takes `bars`, `progression` and `intensity` from the context instead of the style.
+  - `hitChance(char, step, intensity, fillable)` bends the line notation. At 0.5 the line plays exactly as written. Quarter-note hits survive at 0. Empty 16ths fill in above 0.5, but only for hats, percussion, bass and melody.
+  - Rolls use separate seeded streams per role and purpose, and draw one number per step whatever the character. Raising intensity therefore only adds hits (tested for every style), and bass notes are decided per step, so they don't reshuffle.
+  - `progressionNames` names the chords for display.
+- **`useGroove`**:
+  - Actions: `startBeat`, `setLayerStyle` (the same style again rolls a new take), `newTake`, `setIntensity` (synchronous, so the slider feels live), `clearLayer`, `newChords`.
+  - One busy lock is shared across every place presets are used (`useSyncExternalStore`), so two builds can't interleave.
+- **UI**:
+  - **`StyleDock` / `StyleBrowser`** replace the modal Beat sheet. It sits inline under the sequencer on wide screens, in the sequencer's own column (`.sequencer-column`). On phones it's a non-modal drawer docked above the tab bar, and the page shrinks above it (`body.style-drawer-open`), so the beat stays visible and playable.
+  - The dock shows the mix (per bank: style and take, intensity, take, remove), the chord names with New chords, and style cards. Each card has one-tap `Drm · Bass · Chd · Mel` buttons, lit while that layer is playing, plus ✦ for a whole beat.
+  - **`LayerStrip`** is a per-bank strip (take, intensity, a scrolling style row that keeps the lit style in view). It appears in the pad module for the active bank, and behind a style chip on each sequencer bank head.
+
+### Alternatives considered
+- **Song sections and an arrangement lane** would make presets literally part of a song. The user chose to keep one pattern for now. The per-layer model is section-ready: a section could hold its own groove.
+- **Audition before adding** and **blend into existing steps** were offered and declined for now.
+- **A progression owned by each layer's style.** Rejected: layers from different styles would clash. The beat owns the chords.
+- **Committing intensity on release.** Rejected in favour of rewriting live. Generation is synchronous and cheap, and the per-step rolls keep the change continuous.
+
+### Outcome
+- `tsc -b` is clean, and `oxlint` shows only the three pre-existing warnings. `vitest`: 139/139.
+- New unit tests cover:
+  - intensity is monotonic for every style, and 1 is busier than 0;
+  - a Funk bass over a Lo-fi beat follows Lo-fi's length and chords;
+  - migration from the Phase 2 groove shape.
+- A 30-check Playwright scenario (390×844) passed with no page errors:
+  - the empty prompt opens a non-modal drawer, and the page sits above it;
+  - Trap drums, Funk bass, Lo-fi chords and R&B melody mix while the pattern keeps Trap's 32 steps;
+  - re-picking Funk bass gives take 2;
+  - bass intensity 0 / 0.5 / 1 gives 9 < 14 < 17 hits, and returning to 0.5 restores the same 14;
+  - New chords changes C · Am to C · Am · F · G and rewrites the chords layer;
+  - removing a layer works, and the beat plays with the drawer open;
+  - the sequencer bank-head strip switches drums to House;
+  - the pad-module strip adds a melody, building the bank's sound, and lights its style;
+  - a Dark mood change renames the chords to Cm · A♭ · Fm · Gm and keeps the layers;
+  - the mix and chords survive a reload;
+  - a whole Boom Bap beat asks first, then sets all four layers.
+- Desktop (1280×800) and landscape (844×390) passes: inline dock versus drawer, two-style mix, no page errors.
+- The desktop run caught the dock landing in the wrong split-view column; this was fixed by giving the sequencer its own column.
+- Phase 1 and 1.5 regressions re-run clean: strum, arp timing, latch, step record, autosave round trip.
