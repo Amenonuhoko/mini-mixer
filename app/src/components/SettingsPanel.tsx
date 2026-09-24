@@ -151,11 +151,11 @@ export function SettingsPanel() {
         <div className="settings-actions">
           <button type="button" className="btn" onClick={handleSaveProject}>
             <SaveIcon size={16} />
-            Save
+            Save project
           </button>
           <button type="button" className="btn" onClick={() => fileInputRef.current?.click()}>
             <OpenIcon size={16} />
-            Load
+            Open project
           </button>
           <input
             ref={fileInputRef}

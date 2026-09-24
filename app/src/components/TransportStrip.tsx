@@ -2,39 +2,30 @@ import { useCallback, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import { useNavigation } from '../state/NavigationContext'
+import { playScope } from '../utils/playScope'
 import { TempoControl } from './TempoControl'
-import { GearIcon, LoopIcon, MetronomeIcon, OnceIcon, PanicIcon, PlayIcon, StopIcon, VolumeIcon } from './icons'
+import { GearIcon, LoopIcon, MetronomeIcon, OnceIcon, PanicIcon, SparkIcon, VolumeIcon } from './icons'
 
 interface TransportStripProps {
   onOpenSettings: () => void
 }
 
 /**
- * The always-visible top strip: everything about *time* lives here — play,
- * tempo, loop-once vs. continuous, metronome, master level — plus the panic
- * stop and settings. Visible on every page (it used to be a Sequencer-only
- * bottom bar), since tempo and the click matter just as much while playing
- * pads by hand, and a groovebox's transport never moves.
+ * The always-visible top strip: status and set-and-forget controls — tempo,
+ * loop-once vs. continuous, metronome, master level, the Styles drawer,
+ * panic stop and settings. Play itself lives in the bottom bar, under the
+ * thumb (see PlayButton); this strip is what you glance at, not what you
+ * press on every bar.
  */
 export function TransportStrip({ onOpenSettings }: TransportStripProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const { isPlaying, bpm, loopMode, metronomeEnabled, masterVolume } = state.transport
+  const { bpm, loopMode, metronomeEnabled, masterVolume } = state.transport
+  const { stylesOpen, setStylesOpen } = useNavigation()
   const [volumeOpen, setVolumeOpen] = useState(false)
   const volumeRef = useRef<HTMLDivElement>(null)
   useDismiss(volumeRef, volumeOpen, useCallback(() => setVolumeOpen(false), []))
-
-  const togglePlayback = () => {
-    if (isPlaying) {
-      // Disable the scheduler synchronously before React's state update, then
-      // terminate all currently audible sources. This leaves no lookahead hit
-      // behind to start after Stop has been pressed.
-      engine.setSequencerPlaybackEnabled(false)
-      engine.stopAllSounds()
-      dispatch({ type: 'SET_METRONOME_ENABLED', enabled: false })
-    }
-    dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: !isPlaying })
-  }
 
   const handlePanic = () => {
     engine.stopAllSounds()
@@ -43,24 +34,11 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
 
   const auditioning = Boolean(state.transport.auditionSectionId)
   const sectionLoop = auditioning && state.transport.auditionScope === 'loop'
-  const editingSection = state.songSections.find((section) => section.id === state.transport.auditionSectionId)
   const continuous = sectionLoop || (loopMode === 'continuous' && !auditioning)
-  const scope = sectionLoop
-    ? `${editingSection?.name || 'section'} section`
-    : auditioning ? 'preview' : state.transport.playMode === 'song' ? 'song' : 'pattern'
+  const scope = playScope(state)
 
   return (
     <header className="transport">
-      <button
-        type="button"
-        className={isPlaying ? 'transport-play on' : 'transport-play'}
-        onClick={togglePlayback}
-        aria-label={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
-        title={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
-      >
-        {isPlaying ? <StopIcon size={20} /> : <PlayIcon size={20} />}
-      </button>
-
       <span className="beat-led" data-beat aria-hidden="true" />
 
       <TempoControl bpm={bpm} onChange={(next) => dispatch({ type: 'SET_BPM', bpm: next })} />
@@ -120,6 +98,16 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
             </div>
           )}
         </div>
+        <button
+          type="button"
+          className={stylesOpen ? 'icon-btn on' : 'icon-btn'}
+          onClick={() => setStylesOpen((open) => !open)}
+          aria-label="Styles"
+          aria-expanded={stylesOpen}
+          title="Styles — drop preset layers into the beat, or start a whole beat"
+        >
+          <SparkIcon />
+        </button>
         <button
           type="button"
           className="icon-btn danger"

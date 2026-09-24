@@ -3,7 +3,7 @@ import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
 import { styleById } from '../styles/library'
 import { BANK_NAMES, playablePads, visibleBankPads } from '../state/banks'
-import { MAX_PAD_COUNT, MIN_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
+import { MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
@@ -12,15 +12,11 @@ import { computePeaks } from '../utils/waveform'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { Bank, Pad, Sample, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { BrushIcon, EyeIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, SparkIcon, SwapIcon, TrashIcon } from './icons'
+import { BrushIcon, EyeIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon } from './icons'
 import { Overlay } from './Overlay'
-import { LayerStrip } from './LayerStrip'
-import { StyleDock } from './StyleBrowser'
-import { PadLibraryPicker } from './PadLibraryPicker'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
 import { Stepper } from './Stepper'
-import { SongArranger } from './SongArranger'
 
 const GROUP_SIZE = 4
 /** Painting near the scroll area's edge scrolls it: how close (px), and how fast (px per frame). */
@@ -53,17 +49,19 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /**
- * The step sequencer module: a compact header (pattern, step count, loop
- * presets), one toolbar (entry behavior on the left, pattern actions on the
- * right), and the grid, read as a continuous timeline — beat groups set
- * apart, the playhead column lit. Rows are grouped by bank: Drums shows
- * every pad (its number chip opens the library picker to swap the sound);
- * a melodic bank lists its notes/chords highest first, labeled by name.
- * Each bank folds down to just the rows in use unless it's the bank being
- * played on the Pads page or was opened by hand. Every row chip glows with that pad's live level.
- * "Save" renders the pattern exactly as programmed (mute/trim/effects/mix
- * respected) down to one sample via engine/bouncePattern.ts, completing the
- * pad -> beat -> sequence -> pad loop.
+ * The step sequencer module: a compact header (which pattern is in the grid,
+ * its step count, and a ⋯ menu for everything else about the pattern —
+ * rename, new, duplicate, save as sample, load, bar 1 → all, hide, clear),
+ * the three ways a tap on a step behaves (hold to hear, preview, paint), and
+ * the grid, read as a continuous timeline — beat groups set apart, the
+ * playhead column lit. Rows are grouped by bank and named like their pads;
+ * tapping a name selects that pad, whose actions live in the pad bar. A
+ * melodic bank lists its notes/chords highest first. Each bank folds down to
+ * just the rows in use unless it's the bank being played on the Pads page or
+ * was opened by hand. Every row chip glows with that pad's live level.
+ * "Save as sample" renders the pattern exactly as programmed
+ * (mute/trim/effects/mix respected) down to one sample via
+ * engine/bouncePattern.ts, completing the pad -> beat -> sequence -> pad loop.
  */
 interface SequencerProps {
   onBounced: (recording: PendingRecording) => void
@@ -75,25 +73,28 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const pattern = state.patterns.find((p) => p.id === state.activePatternId)
   const visiblePads = playablePads(state)
   const [expandedOverride, setExpandedOverride] = useState<Record<string, boolean>>({})
-  const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [deletingBankId, setDeletingBankId] = useState<string | null>(null)
   const [sequencerGateMode, setSequencerGateMode] = useState(false)
   const [previewOnClick, setPreviewOnClick] = useState(true)
-  const [removingPadId, setRemovingPadId] = useState<string | null>(null)
   const [loadPickerOpen, setLoadPickerOpen] = useState(false)
-  const [stylesOpen, setStylesOpen] = useState(false)
-  const [stripOpen, setStripOpen] = useState<Record<string, boolean>>({})
-  const [songArrangeOpen, setSongArrangeOpen] = useState(state.transport.playMode === 'song')
   const [paintMode, setPaintMode] = useState(false)
-  const [menuPadId, setMenuPadId] = useState<string | null>(null)
   const [confirmRepeat, setConfirmRepeat] = useState(false)
-  const { selectedPadId, selectPad } = useNavigation()
+  const [patternMenuOpen, setPatternMenuOpen] = useState(false)
+  const { selectedPadId, selectPad, setStylesOpen, beatStarts } = useNavigation()
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const paintRef = useRef<Painting | null>(null)
   const padsById = new Map(state.pads.map((pad) => [pad.id, pad]))
+
+  // Styles just wrote a whole new beat: fold every bank to the rows it uses (a kit has up to 32).
+  const seenBeatStarts = useRef(beatStarts)
+  useEffect(() => {
+    if (beatStarts === seenBeatStarts.current) return
+    seenBeatStarts.current = beatStarts
+    setExpandedOverride(Object.fromEntries(state.banks.map((bank) => [bank.id, false])))
+  }, [beatStarts, state.banks])
 
   // Arriving from the Pads page: bring the selected pad's row into view.
   useEffect(() => {
@@ -102,9 +103,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
     // Only on arrival — scrolling on every selection would yank the page while you play.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
   const deletingBank = deletingBankId ? state.banks.find((bank) => bank.id === deletingBankId) : undefined
-  const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
   const editingSection = state.transport.auditionScope === 'loop'
     ? state.songSections.find((section) => section.id === state.transport.auditionSectionId)
     : undefined
@@ -304,65 +303,51 @@ export function Sequencer({ onBounced }: SequencerProps) {
   }
 
   return (
-    // The Styles dock sits in the same column as the sequencer it feeds.
     <div className="sequencer-column">
-    <SongArranger onBounced={onBounced} arrangerOpen={songArrangeOpen} setArrangerOpen={setSongArrangeOpen} />
     <section
       className={pattern.stepCount <= 16 ? 'module sequencer sequencer-fits-desktop' : 'module sequencer'}
       aria-label="Sequencer"
     >
       <header className="module-head">
         <h2 className="module-title">Seq</h2>
-        <span className="module-sub">
-          {pattern.name}{editingSection ? ` · ${state.transport.isPlaying ? 'Looping' : 'Loop ready'} ${editingSection.name}` : ''}
-        </span>
-        {state.songSections.length > 0 && (
-          <label className="sequencer-part-select">
-            Song part
-            <select
-              value={targetSection?.id ?? ''}
-              onChange={(event) => {
-                const section = state.songSections.find((item) => item.id === event.target.value)
-                if (!section) return
-                engine.setSequencerPlaybackEnabled(false)
-                engine.stopAllSounds()
-                dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: section.patternId })
-                dispatch({ type: 'AUDITION_SONG_SECTION', sectionId: section.id, scope: 'loop' })
-              }}
-              aria-label="Song part to edit in sequencer"
-            >
-              <option value="">Choose part</option>
-              {state.songSections.map((section, index) => (
-                <option key={section.id} value={section.id}>{index + 1}. {section.name}</option>
-              ))}
-            </select>
-          </label>
+        <select
+          className="sequencer-pattern-select"
+          value={pattern.id}
+          onChange={(event) => dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: event.target.value })}
+          aria-label="Pattern in the grid"
+        >
+          {state.patterns.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+        {editingSection && (
+          <span className="module-sub">
+            {state.transport.isPlaying ? 'Looping' : 'Loop ready'} {editingSection.name}
+          </span>
         )}
-        {!songArrangeOpen && state.songSections.length > 0 && <button type="button" className="chip-btn" onClick={() => {
-          setSongArrangeOpen(true)
-          requestAnimationFrame(() => document.querySelector('.song-arranger')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-        }}>↑ Song</button>}
-        <Stepper
-          label="Steps"
-          value={pattern.stepCount}
-          unit="st"
-          onDecrement={() => dispatch({ type: 'REMOVE_PATTERN_STEPS', patternId: pattern.id })}
-          onIncrement={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
-          decrementDisabled={pattern.stepCount <= MIN_STEP_COUNT}
-          incrementDisabled={pattern.stepCount >= MAX_STEP_COUNT}
-          decrementTitle="Remove the last four steps"
-          incrementTitle="Add four steps"
-        />
         <div className="module-head-tools">
+          <Stepper
+            label="Steps"
+            value={pattern.stepCount}
+            unit="st"
+            onDecrement={() => dispatch({ type: 'REMOVE_PATTERN_STEPS', patternId: pattern.id })}
+            onIncrement={() => dispatch({ type: 'ADD_PATTERN_STEPS', patternId: pattern.id })}
+            decrementDisabled={pattern.stepCount <= MIN_STEP_COUNT}
+            incrementDisabled={pattern.stepCount >= MAX_STEP_COUNT}
+            decrementTitle="Remove the last four steps"
+            incrementTitle="Add four steps"
+          />
           <button
             type="button"
-            className={stylesOpen ? 'icon-btn on' : 'icon-btn'}
-            onClick={() => setStylesOpen((open) => !open)}
-            aria-label="Styles"
-            aria-expanded={stylesOpen}
-            title="Styles — drop preset layers into the beat, or start a whole beat"
+            className={patternMenuOpen ? 'icon-btn on' : 'icon-btn'}
+            onClick={() => setPatternMenuOpen(true)}
+            aria-label="Pattern options"
+            aria-expanded={patternMenuOpen}
+            title="Rename, new, duplicate, save, load, hide or clear this pattern"
           >
-            <SparkIcon />
+            <MoreIcon />
           </button>
         </div>
       </header>
@@ -374,9 +359,9 @@ export function Sequencer({ onBounced }: SequencerProps) {
             className={sequencerGateMode ? 'chip-btn on' : 'chip-btn'}
             onClick={() => setSequencerGateMode((enabled) => !enabled)}
             aria-pressed={sequencerGateMode}
-            title="Gate — hold a step to hear it only while held"
+            title="Hold to hear — a held step sounds only while held"
           >
-            Gate
+            Hold to hear
           </button>
           <button
             type="button"
@@ -398,80 +383,12 @@ export function Sequencer({ onBounced }: SequencerProps) {
             Paint
           </button>
         </div>
-        <div className="toolbar-group">
-          <button
-            type="button"
-            className="chip-btn"
-            onClick={() => void handleBounce()}
-            disabled={!patternHasSteps || bouncing}
-            title={patternHasSteps ? 'Save this sequence as a sample' : 'Program a step first'}
-          >
-            <SaveIcon size={14} />
-            {bouncing ? 'Saving…' : 'Save'}
-          </button>
-          {pattern.stepCount > 16 && (
-            <button
-              type="button"
-              className="chip-btn"
-              onClick={() => (laterBarsHaveSteps ? setConfirmRepeat(true) : repeatFirstBar())}
-              title="Copy the first bar onto every bar"
-            >
-              Bar 1 → all
-            </button>
-          )}
-          <button
-            type="button"
-            className="chip-btn"
-            onClick={() => setLoadPickerOpen(true)}
-            title="Load a previously saved sequence into this pattern"
-          >
-            <OpenIcon size={14} />
-            Load
-          </button>
-          <button
-            type="button"
-            className={traceHidden ? 'chip-btn on' : 'chip-btn'}
-            onClick={() =>
-              dispatch({ type: traceHidden ? 'RESTORE_PATTERN_TRACE' : 'CAPTURE_PATTERN_TRACE', patternId: pattern.id })
-            }
-            disabled={!traceHidden && !patternHasSteps}
-            aria-pressed={traceHidden}
-            title={traceHidden ? 'Bring the hidden sequence back' : 'Hide this sequence, keeping it as a visual guide'}
-          >
-            <EyeIcon size={14} closed={traceHidden} />
-            {traceHidden ? 'Show' : 'Hide'}
-          </button>
-          {pattern.traceSteps && !traceHidden && (
-            <button
-              type="button"
-              className="chip-btn"
-              onClick={() => dispatch({ type: 'CLEAR_PATTERN_TRACE', patternId: pattern.id })}
-              title="Remove the visual trace"
-            >
-              Clear trace
-            </button>
-          )}
-          <button
-            type="button"
-            className="chip-btn danger"
-            onClick={() => setConfirmClear(true)}
-            disabled={!patternHasSteps}
-            title={patternHasSteps ? 'Clear every step in this pattern' : 'Nothing programmed yet'}
-          >
-            <TrashIcon size={14} />
-            Clear
-          </button>
-        </div>
       </div>
 
       {!patternHasSteps && (
-        <div className="sequencer-empty">
-          <span className="sequencer-empty-text">Blank canvas? Start from a style.</span>
-          <button type="button" className="chip-btn on" onClick={() => setStylesOpen(true)}>
-            <SparkIcon size={14} />
-            Styles
-          </button>
-        </div>
+        <p className="sequencer-empty">
+          <span className="sequencer-empty-text">Blank canvas? Tap ✨ at the top to start from a style.</span>
+        </p>
       )}
 
       <div className="sequencer-scroll" onWheel={handleTimelineWheel} ref={scrollRef}>
@@ -512,39 +429,12 @@ export function Sequencer({ onBounced }: SequencerProps) {
               <div className={`sequencer-bank bank-${bank.kind}`} key={bank.id}>
                 <div className="sequencer-bank-head">
                   <span className="sequencer-bank-name">{BANK_NAMES[bank.kind]}</span>
-                  {targetSection && (
-                    <button
-                      type="button"
-                      className={removedFromPart ? 'chip-btn on' : 'chip-btn danger'}
-                      onClick={() => dispatch({
-                        type: 'SET_SONG_SECTION_BANK_INCLUDED',
-                        sectionId: targetSection.id,
-                        bank: bank.kind,
-                        included: removedFromPart,
-                      })}
-                      disabled={!removedFromPart && !bankHasSteps}
-                      aria-label={`${removedFromPart ? 'Restore' : 'Remove'} ${BANK_NAMES[bank.kind]} ${removedFromPart ? 'to' : 'from'} ${targetSection.name} song part`}
-                      title={removedFromPart ? 'Bring this group back into this song part' : 'Remove this group from this song part; its pattern steps stay saved'}
-                    >
-                      {removedFromPart ? `Restore in ${targetSection.name}` : `Remove from ${targetSection.name}`}
-                    </button>
-                  )}
                   <button
                     type="button"
-                    className="chip-btn danger"
-                    onClick={() => setDeletingBankId(bank.id)}
-                    disabled={!bankHasSteps}
-                    aria-label={`Delete ${BANK_NAMES[bank.kind]} steps from ${pattern.name} pattern`}
-                    title="Permanently delete this group's steps from the pattern, including linked song parts"
-                  >
-                    Delete steps
-                  </button>
-                  <button
-                    type="button"
-                    className={stripOpen[bank.id] ? 'sequencer-bank-style open' : 'sequencer-bank-style'}
-                    onClick={() => setStripOpen((current) => ({ ...current, [bank.id]: !current[bank.id] }))}
-                    aria-expanded={!!stripOpen[bank.id]}
-                    title="Pick this bank's preset layer"
+                    className="sequencer-bank-style"
+                    onClick={() => setStylesOpen(true)}
+                    aria-label={`${BANK_NAMES[bank.kind]} style: ${layerLabel(bank.kind)} — open Styles`}
+                    title="Styles — pick this bank's preset layer"
                   >
                     {layerLabel(bank.kind)}
                   </button>
@@ -553,12 +443,24 @@ export function Sequencer({ onBounced }: SequencerProps) {
                     className="sequencer-bank-toggle"
                     onClick={() => setExpandedOverride((current) => ({ ...current, [bank.id]: !expanded }))}
                     aria-expanded={expanded}
+                    aria-label={expanded ? `${BANK_NAMES[bank.kind]}: show used rows only` : `${BANK_NAMES[bank.kind]}: show all ${bankPads.length} rows`}
                   >
                     {expanded ? 'Used rows only' : `Show all ${bankPads.length}`}
                   </button>
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    onClick={() => setDeletingBankId(bank.id)}
+                    disabled={!bankHasSteps}
+                    aria-label={`Delete ${BANK_NAMES[bank.kind]} steps from ${pattern.name} pattern`}
+                    title="Permanently delete this group's steps from the pattern, including linked song parts"
+                  >
+                    <TrashIcon size={14} />
+                  </button>
                 </div>
-                {removedFromPart && <p className="sequencer-bank-removed">Removed from {targetSection?.name}. Restore it to hear these steps again.</p>}
-                {!removedFromPart && stripOpen[bank.id] && <LayerStrip kind={bank.kind} />}
+                {removedFromPart && (
+                  <p className="sequencer-bank-removed">Left out of {targetSection?.name} — bring it back on the Song page.</p>
+                )}
                 {!removedFromPart && rows.map((pad) => (
                 <SequencerRow
                   key={pad.id}
@@ -576,28 +478,104 @@ export function Sequencer({ onBounced }: SequencerProps) {
                     dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
                   }
                   onPick={() => pickRow(bank, pad)}
-                  onOpenMenu={() => setMenuPadId(pad.id)}
                 />
                 ))}
-                {!removedFromPart && !melodic && expanded && bank.visibleCount < MAX_PAD_COUNT && (
-                  <div className="sequencer-add-row-slot">
-                    <div className="sequencer-row-fixed" />
-                    <button
-                      type="button"
-                      className="sequencer-add-row"
-                      onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount + 1, bankId: bank.id })}
-                    >
-                      <PlusIcon size={14} />
-                      Add row
-                    </button>
-                  </div>
-                )}
               </div>
             )
           })}
         </div>
       </div>
 
+      {patternMenuOpen && (
+        <Overlay onClose={() => setPatternMenuOpen(false)} title="Pattern" subtitle="Everything about the pattern in the grid.">
+          <section className="sheet-section" aria-label="Name and copies">
+            <input
+              className="song-pattern-name"
+              aria-label="Pattern name"
+              value={pattern.name}
+              onChange={(event) => dispatch({ type: 'RENAME_PATTERN', patternId: pattern.id, name: event.target.value })}
+              maxLength={40}
+            />
+            <div className="pattern-menu-actions">
+              <button type="button" className="btn" onClick={() => { dispatch({ type: 'ADD_PATTERN' }); setPatternMenuOpen(false) }}>
+                <PlusIcon size={16} />
+                New pattern
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => { dispatch({ type: 'ADD_PATTERN', copyFromId: pattern.id }); setPatternMenuOpen(false) }}
+              >
+                Duplicate
+              </button>
+            </div>
+          </section>
+          <section className="sheet-section" aria-label="Steps">
+            <div className="pattern-menu-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => { setPatternMenuOpen(false); void handleBounce() }}
+                disabled={!patternHasSteps || bouncing}
+                title={patternHasSteps ? 'Save this sequence as a sample' : 'Program a step first'}
+              >
+                <SaveIcon size={16} />
+                {bouncing ? 'Saving…' : 'Save as sample'}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => { setPatternMenuOpen(false); setLoadPickerOpen(true) }}
+                title="Load a previously saved sequence into this pattern"
+              >
+                <OpenIcon size={16} />
+                Load sequence
+              </button>
+              {pattern.stepCount > 16 && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => { setPatternMenuOpen(false); if (laterBarsHaveSteps) setConfirmRepeat(true); else repeatFirstBar() }}
+                  title="Copy the first bar onto every bar"
+                >
+                  Bar 1 → all
+                </button>
+              )}
+              <button
+                type="button"
+                className={traceHidden ? 'btn on' : 'btn'}
+                onClick={() => dispatch({ type: traceHidden ? 'RESTORE_PATTERN_TRACE' : 'CAPTURE_PATTERN_TRACE', patternId: pattern.id })}
+                disabled={!traceHidden && !patternHasSteps}
+                aria-pressed={traceHidden}
+                title={traceHidden ? 'Bring the hidden sequence back' : 'Hide this sequence, keeping it as a visual guide'}
+              >
+                <EyeIcon size={16} closed={traceHidden} />
+                {traceHidden ? 'Show' : 'Hide'}
+              </button>
+              {pattern.traceSteps && !traceHidden && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => dispatch({ type: 'CLEAR_PATTERN_TRACE', patternId: pattern.id })}
+                  title="Remove the visual trace"
+                >
+                  Clear trace
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => { setPatternMenuOpen(false); setConfirmClear(true) }}
+                disabled={!patternHasSteps}
+                title={patternHasSteps ? 'Clear every step in this pattern' : 'Nothing programmed yet'}
+              >
+                <TrashIcon size={16} />
+                Clear
+              </button>
+            </div>
+          </section>
+        </Overlay>
+      )}
       {confirmClear && (
         <ConfirmDialog
           message="Clear every step in this pattern? This can't be undone."
@@ -620,23 +598,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
           onCancel={() => setDeletingBankId(null)}
         />
       )}
-      {menuPadId && (() => {
-        const pad = padsById.get(menuPadId)
-        const bank = state.banks.find((item) => item.padIds.includes(menuPadId))
-        if (!pad || !bank) return null
-        const close = () => setMenuPadId(null)
-        return (
-          <RowMenu
-            pad={pad}
-            bank={bank}
-            stepCount={pattern.stepCount}
-            onFill={(steps) => dispatch({ type: 'SET_ROW_STEPS', patternId: pattern.id, padId: pad.id, steps, sampleId: pad.sampleId })}
-            onSwap={bank.kind === 'drums' ? () => { close(); setSwappingPadId(pad.id) } : null}
-            onRemove={bank.kind === 'drums' && bank.padIds.length > MIN_PAD_COUNT ? () => { close(); setRemovingPadId(pad.id) } : null}
-            onClose={close}
-          />
-        )
-      })()}
       {confirmRepeat && (
         <ConfirmDialog
           message="Copy bar 1 onto every bar? The steps already in the later bars are replaced."
@@ -645,27 +606,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
           onCancel={() => setConfirmRepeat(false)}
         />
       )}
-      {swappingPadId && <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />}
       {loadPickerOpen && <SequenceLoadPicker onClose={() => setLoadPickerOpen(false)} />}
-      {removingPad && (
-        <ConfirmDialog
-          message={`Remove pad ${removingPadIndex + 1} from the sequencer? Its programmed steps go with it — its sample stays in the library, and every other row is unaffected.`}
-          confirmLabel="Remove"
-          onConfirm={() => {
-            dispatch({ type: 'REMOVE_PAD', padId: removingPad.id })
-            setRemovingPadId(null)
-          }}
-          onCancel={() => setRemovingPadId(null)}
-        />
-      )}
     </section>
-    {stylesOpen && (
-      <StyleDock
-        onClose={() => setStylesOpen(false)}
-        // A fresh beat reads best folded to the rows it uses (a kit has up to 32).
-        onStarted={() => setExpandedOverride(Object.fromEntries(state.banks.map((bank) => [bank.id, false])))}
-      />
-    )}
     </div>
   )
 }
@@ -684,12 +626,12 @@ interface SequencerRowProps {
   onToggleStep: (stepIndex: number) => void
   /** Tapping the row's name: hear it, and make it the selected pad (on the Pads page too). */
   onPick: () => void
-  onOpenMenu: () => void
 }
 
 /**
  * One pad's row: its name (number, kit glyph, sound — the same name the pad
- * grid shows), a row menu, and its steps. Painting across cells is handled
+ * grid shows; tap it to select the pad, whose actions are in the pad bar)
+ * and its steps. Painting across cells is handled
  * by the grid (see Sequencer), so it can cross rows and auto-scroll.
  */
 function SequencerRow({
@@ -705,7 +647,6 @@ function SequencerRow({
   previewOnClick,
   onToggleStep,
   onPick,
-  onOpenMenu,
 }: SequencerRowProps) {
   const { state } = useAppState()
   const looping = usePadLooping(engine, pad.id)
@@ -735,9 +676,6 @@ function SequencerRow({
   return (
     <div className={['sequencer-row', looping ? 'row-looping' : '', selected ? 'selected' : ''].filter(Boolean).join(' ')} data-row-pad={pad.id}>
       <div className="sequencer-row-fixed">
-        <button type="button" className="sequencer-row-menu" onClick={onOpenMenu} aria-label={`${rowName}: row options`} title="Fill, swap or remove this row">
-          <MoreIcon size={14} />
-        </button>
         <button
           type="button"
           className="sequencer-row-label"
@@ -782,76 +720,5 @@ function SequencerRow({
         </div>
       ))}
     </div>
-  )
-}
-
-/** One-tap row fills, across the whole pattern. */
-const ROW_FILLS: Array<{ id: string; label: string; hits: (step: number) => boolean }> = [
-  { id: 'beats', label: 'Every beat', hits: (i) => i % 4 === 0 },
-  { id: 'eighths', label: 'Every 8th', hits: (i) => i % 2 === 0 },
-  { id: 'sixteenths', label: 'Every 16th', hits: () => true },
-  { id: 'offbeats', label: 'Offbeats', hits: (i) => i % 4 === 2 },
-  { id: 'backbeat', label: 'Beats 2 & 4', hits: (i) => i % 16 === 4 || i % 16 === 12 },
-  { id: 'clear', label: 'Clear row', hits: () => false },
-]
-
-interface RowMenuProps {
-  pad: Pad
-  bank: Bank
-  stepCount: number
-  onFill: (steps: number[]) => void
-  onSwap: (() => void) | null
-  onRemove: (() => void) | null
-  onClose: () => void
-}
-
-/** A row's options: fill it in one tap (the fast way to program a lot on a phone), or swap / remove it. */
-function RowMenu({ pad, bank, stepCount, onFill, onSwap, onRemove, onClose }: RowMenuProps) {
-  const { state } = useAppState()
-  const identity = padIdentity(state, bank, pad)
-  const fill = (hits: (step: number) => boolean) => {
-    onFill(Array.from({ length: stepCount }, (_, i) => i).filter(hits))
-    onClose()
-  }
-  return (
-    <Overlay
-      onClose={onClose}
-      title={`${identity.icon ? `${identity.icon} ` : ''}${identity.name}`}
-      subtitle={pad.sampleId ? 'Fill the whole row in one tap — then tap single steps to tweak.' : 'This pad has no sound yet.'}
-    >
-      <section className="sheet-section" aria-label="Fill">
-        <h3 className="label">Fill</h3>
-        <div className="row-fills">
-          {ROW_FILLS.map((option) => (
-            <button key={option.id} type="button" className="row-fill" onClick={() => fill(option.hits)} disabled={!pad.sampleId && option.id !== 'clear'}>
-              <span className="row-fill-name">{option.label}</span>
-              <span className="style-preview-row" aria-hidden="true">
-                {Array.from({ length: 16 }, (_, i) => (
-                  <span key={i} className={option.hits(i) ? 'style-preview-cell on' : 'style-preview-cell'} />
-                ))}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-      {(onSwap || onRemove) && (
-        <section className="sheet-section" aria-label="Row">
-          <div className="row-menu-actions">
-            {onSwap && (
-              <button type="button" className="btn" onClick={onSwap}>
-                <SwapIcon size={16} />
-                Swap sound
-              </button>
-            )}
-            {onRemove && (
-              <button type="button" className="btn btn-danger" onClick={onRemove}>
-                <TrashIcon size={16} />
-                Remove row
-              </button>
-            )}
-          </div>
-        </section>
-      )}
-    </Overlay>
   )
 }

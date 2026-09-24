@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DRUM_KITS } from '../engine/drumSynth'
 import { soundName } from '../engine/bankBuilder'
 import { performSummary, performVoice, Performer } from '../engine/performer'
@@ -6,9 +6,7 @@ import { useBankBuilder } from '../hooks/useBankBuilder'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { keyShortName, moodById, padLabel, pitchClass, type PadLabel } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
-import { sectionBankLevel } from '../engine/songTimeline'
 import { BANK_NAMES, bankColumns, getActiveBank, visibleBankPads } from '../state/banks'
-import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useEngine } from '../state/EngineContext'
 import { drumVoiceIcon, instrumentIconForName } from '../utils/instrumentIcon'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
@@ -16,13 +14,11 @@ import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
 import { BankSoundPicker } from './BankSoundPicker'
 import { BankTabs } from './BankTabs'
 import { KeySheet } from './KeySheet'
-import { LayerStrip } from './LayerStrip'
 import { RecordDotIcon } from './icons'
 import { PadEffectsMenuButton } from './PadEffectsMenuButton'
 import { PadModeSwitch } from './PadModeSwitch'
 import { PadPlaybackModeButton } from './PadPlaybackModeButton'
 import { PerformPanel } from './PerformPanel'
-import { Stepper } from './Stepper'
 import { StaticWaveform } from './Waveform'
 
 /** What a pad's face shows beyond its sample: a note/chord label for melodic pads, a drum glyph for kit pads. */
@@ -59,21 +55,20 @@ const QUICK_SOUNDS: Record<Exclude<BankKind, 'drums'>, string[]> = {
 interface PadGridProps {
   selectedPadId: string | null
   onSelectPad: (padId: string) => void
-  /** Rendered at the bottom of the module — the selected pad's action strip (see PadsPage). */
-  footer?: ReactNode
 }
 
 /**
- * The pad module: bank tabs (Drums · Bass · Chords · Melody) with the
- * trigger mode, whole-bank FX and step-record arm; a bank strip naming the
- * bank's sound and the project's mood/key; the labeled mode switch; the
- * grid; and a footer slot. Melodic pads are labeled with what they play
- * (name / feel / numeral — see Settings) and only offer notes and chords in
- * the key. Every pad is a light: it idles dim, glows with its own audio
- * level, flares on each hit (see LightShow), and breathes with the beat
- * while looping.
+ * The pad module, top to bottom: bank tabs (Drums · Bass · Chords · Melody);
+ * one setup row — the bank's sound (its sheet also sets how many pads the
+ * bank shows), the project's mood/key and whole-bank FX; the grid; and, pinned to the bottom of the screen while
+ * the grid scrolls, how the pads respond — Play / Loop / Mix, gate or
+ * one-shot, Perform (repeat, arp, strum) and step record. Melodic pads are
+ * labeled with what they play (name / feel / numeral — see Settings) and
+ * only offer notes and chords in the key. Every pad is a light: it idles
+ * dim, glows with its own audio level, flares on each hit (see LightShow),
+ * and breathes with the beat while looping.
  */
-export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
+export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const bank = getActiveBank(state)
@@ -84,19 +79,6 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
   const [sequencerRecordEnabled, setSequencerRecordEnabled] = useState(false)
   const [sheet, setSheet] = useState<'sound' | 'key' | null>(null)
   const [performOpen, setPerformOpen] = useState(false)
-  const [volumeChoice, setVolumeChoice] = useState<{ focusId: string | null; sectionId: string } | null>(null)
-  const focusedSectionId = state.transport.auditionScope === 'loop'
-    ? state.transport.auditionSectionId
-    : null
-  const volumeSectionId = volumeChoice?.focusId === focusedSectionId
-    ? volumeChoice?.sectionId
-    : focusedSectionId
-  const volumeSection = state.songSections.find((section) => section.id === volumeSectionId)
-    ?? state.songSections.find((section) => section.id === focusedSectionId)
-    ?? state.songSections.find((section) => section.patternId === state.activePatternId)
-    ?? state.songSections[0]
-  const sectionVolume = volumeSection ? Math.round(sectionBankLevel(volumeSection, bank.kind) * 100) : 100
-  const bankRemoved = volumeSection?.excludedBanks?.includes(bank.kind) ?? false
   const performer = engine.getPerformer()
   const performLabel = performSummary(state.perform)
 
@@ -133,33 +115,6 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
     <section className="module pad-grid" aria-label="Pads">
       <header className="module-head">
         <BankTabs />
-        <div className="module-head-tools">
-          <button
-            type="button"
-            className={['chip-btn', 'perform-toggle', performLabel ? 'on' : '', performOpen ? 'open' : ''].filter(Boolean).join(' ')}
-            onClick={() => setPerformOpen((open) => !open)}
-            aria-expanded={performOpen}
-            title="Note repeat, arpeggiator and strum"
-          >
-            {performLabel ?? 'Perform'}
-          </button>
-          <PadPlaybackModeButton />
-          <PadEffectsMenuButton followPadId={selectedPadId} />
-          <button
-            type="button"
-            className={sequencerRecordEnabled ? 'icon-btn armed' : 'icon-btn'}
-            onClick={() => setSequencerRecordEnabled((enabled) => !enabled)}
-            aria-pressed={sequencerRecordEnabled}
-            aria-label="Record pad hits into the playing sequencer"
-            title={
-              sequencerRecordEnabled
-                ? 'Step record armed — pad hits write into the playing step'
-                : 'Arm step record — play pads while the sequence runs to write them in'
-            }
-          >
-            <RecordDotIcon size={14} />
-          </button>
-        </div>
       </header>
       <div className="bank-strip">
         <button type="button" className="bank-sound" onClick={() => setSheet('sound')} title="Change this bank’s sound">
@@ -172,69 +127,8 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           <span className="bank-key-mood">{moodLabel}</span>
           <span className="bank-key-name readout">{keyShortName(state.key)}</span>
         </button>
-        {!melodic && (
-          <Stepper
-            label="Pads"
-            value={String(bank.visibleCount).padStart(2, '0')}
-            onDecrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount - 1 })}
-            onIncrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount + 1 })}
-            decrementDisabled={bank.visibleCount <= MIN_PAD_COUNT}
-            incrementDisabled={bank.visibleCount >= MAX_PAD_COUNT}
-            decrementTitle="Hide the last pad (its sound and steps are kept)"
-            incrementTitle="Add a pad"
-          />
-        )}
+        <PadEffectsMenuButton followPadId={selectedPadId} />
       </div>
-      <LayerStrip kind={bank.kind} />
-      {volumeSection && (
-        <div className="pad-song-volume" role="group" aria-label="Song part volume">
-          <label className="pad-song-part">
-            Song part
-            <select
-              value={volumeSection.id}
-              onChange={(event) => setVolumeChoice({ focusId: focusedSectionId, sectionId: event.target.value })}
-              aria-label="Song part to mix"
-            >
-              {state.songSections.map((section, index) => (
-                <option key={section.id} value={section.id}>{index + 1}. {section.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="pad-song-level">
-            <span>{BANK_NAMES[bank.kind]} in {volumeSection.name} <strong>{bankRemoved ? 'Removed' : `${sectionVolume}%`}</strong></span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={sectionVolume}
-              disabled={bankRemoved}
-              aria-label={`${BANK_NAMES[bank.kind]} volume in ${volumeSection.name}`}
-              onChange={(event) => dispatch({
-                type: 'SET_SONG_SECTION_BANK_VOLUME',
-                sectionId: volumeSection.id,
-                bank: bank.kind,
-                level: Number(event.target.value),
-              })}
-            />
-          </label>
-          <button
-            type="button"
-            className="chip-btn"
-            onClick={() => {
-              engine.setSequencerPlaybackEnabled(false)
-              engine.stopAllSounds()
-              dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: volumeSection.patternId })
-              dispatch({ type: 'AUDITION_SONG_SECTION', sectionId: volumeSection.id, scope: 'loop' })
-            }}
-            aria-label={`Loop ${volumeSection.name} while mixing`}
-          >
-            ▶ Hear part
-          </button>
-          {bankRemoved && <span className="pad-song-volume-note">Restore {BANK_NAMES[bank.kind]} in Seq to hear it.</span>}
-        </div>
-      )}
-      {performOpen && <PerformPanel />}
-      <PadModeSwitch />
       {melodic && visiblePads.length === 0 ? (
         <EmptyBank bank={bank} kind={bank.kind as Exclude<BankKind, 'drums'>} onMore={() => setSheet('sound')} />
       ) : (
@@ -272,7 +166,39 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           })}
         </div>
       )}
-      {footer}
+      {/* How the pads respond — pinned to the bottom of the screen while the grid scrolls. */}
+      <div className="pad-play-dock" data-no-page-swipe>
+        {performOpen && <PerformPanel />}
+        <div className="pad-play-row">
+          <PadModeSwitch />
+          <div className="pad-play-tools">
+            <PadPlaybackModeButton />
+            <button
+              type="button"
+              className={['chip-btn', 'perform-toggle', performLabel ? 'on' : '', performOpen ? 'open' : ''].filter(Boolean).join(' ')}
+              onClick={() => setPerformOpen((open) => !open)}
+              aria-expanded={performOpen}
+              title="Note repeat, arpeggiator and strum"
+            >
+              {performLabel ?? 'Perform'}
+            </button>
+            <button
+              type="button"
+              className={sequencerRecordEnabled ? 'icon-btn armed' : 'icon-btn'}
+              onClick={() => setSequencerRecordEnabled((enabled) => !enabled)}
+              aria-pressed={sequencerRecordEnabled}
+              aria-label="Record pad hits into the playing sequencer"
+              title={
+                sequencerRecordEnabled
+                  ? 'Step record armed — pad hits write into the playing step'
+                  : 'Arm step record — play pads while the sequence runs to write them in'
+              }
+            >
+              <RecordDotIcon size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
       {sheet === 'sound' && <BankSoundPicker bank={bank} onClose={() => setSheet(null)} />}
       {sheet === 'key' && <KeySheet onClose={() => setSheet(null)} />}
     </section>

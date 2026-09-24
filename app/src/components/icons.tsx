@@ -117,6 +117,15 @@ export const SeqIcon = (p: IconProps) => (
   </Svg>
 )
 
+/** Song: an arrangement read left to right — sections of different lengths. */
+export const SongIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="7" width="5" height="10" rx="1" />
+    <rect x="10" y="7" width="4" height="10" rx="1" />
+    <rect x="16" y="7" width="5" height="10" rx="1" />
+  </Svg>
+)
+
 export const LibraryIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 4v16M8 4v16" />

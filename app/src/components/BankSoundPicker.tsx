@@ -4,9 +4,11 @@ import { useBankBuilder } from '../hooks/useBankBuilder'
 import { keyName } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
 import { BANK_NAMES, soundKey } from '../state/banks'
+import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import type { Bank, BankSound } from '../state/types'
 import { instrumentIconForName } from '../utils/instrumentIcon'
 import { Overlay } from './Overlay'
+import { Stepper } from './Stepper'
 
 const PRESET_GROUPS = [
   { label: 'Keys', names: ['Piano', 'Organ', 'Bell'] },
@@ -37,7 +39,7 @@ interface BankSoundPickerProps {
  * sound; the old sound's rendered notes are cleaned up.
  */
 export function BankSoundPicker({ bank, onClose }: BankSoundPickerProps) {
-  const { state } = useAppState()
+  const { state, dispatch } = useAppState()
   const { busy, error, setBankSound } = useBankBuilder()
   const current = soundKey(bank.sound)
 
@@ -85,6 +87,24 @@ export function BankSoundPicker({ bank, onClose }: BankSoundPickerProps) {
   return (
     <Overlay onClose={onClose} title={`${BANK_NAMES[bank.kind]} sound`} subtitle={subtitle}>
       {error && <p className="sheet-error" role="alert">{error}</p>}
+      {bank.kind === 'drums' && (
+        <section className="sheet-section settings-row" aria-label="Pads">
+          <div className="settings-row-text">
+            <span className="label">Pads</span>
+            <span className="settings-hint">How many pads the bank shows. Hiding one keeps its sound and steps.</span>
+          </div>
+          <Stepper
+            label="Pads"
+            value={String(bank.visibleCount).padStart(2, '0')}
+            onDecrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount - 1, bankId: bank.id })}
+            onIncrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount + 1, bankId: bank.id })}
+            decrementDisabled={bank.visibleCount <= MIN_PAD_COUNT}
+            incrementDisabled={bank.visibleCount >= MAX_PAD_COUNT}
+            decrementTitle="Hide the last pad (its sound and steps are kept)"
+            incrementTitle="Add a pad"
+          />
+        </section>
+      )}
       {bank.kind === 'drums' ? (
         <section className="sheet-section" aria-label="Kits">
           <h3 className="label">Kits</h3>

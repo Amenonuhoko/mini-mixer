@@ -1,5 +1,6 @@
-import { useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
+import { PadActionBar } from './components/PadActionBar'
 import { LightShow } from './components/LightShow'
 import { PadEditOverlay } from './components/PadEditOverlay'
 import { PadsPage } from './components/PadsPage'
@@ -7,6 +8,8 @@ import { RecordingReviewOverlay } from './components/RecordingReviewOverlay'
 import type { PendingRecording } from './components/RecordingReview'
 import { Sequencer } from './components/Sequencer'
 import { SettingsOverlay } from './components/SettingsOverlay'
+import { SongArranger } from './components/SongArranger'
+import { StyleDock } from './components/StyleBrowser'
 import { TabBar } from './components/TabBar'
 import { TransportStrip } from './components/TransportStrip'
 import { useAutosave } from './hooks/useAutosave'
@@ -74,6 +77,8 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
       return <PadsPage />
     case 'sequencer':
       return <Sequencer onBounced={onBounced} />
+    case 'song':
+      return <SongArranger onBounced={onBounced} />
     case 'library':
       return <Library />
   }
@@ -81,10 +86,11 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
 
 function Shell() {
   const { state, dispatch } = useAppState()
-  const { page, editingPadId, goBackFromEdit, goToPads, goToSequencer } = useNavigation()
+  const { page, editingPadId, goBackFromEdit, goToPads, goToSequencer, stylesOpen } = useNavigation()
   const engine = useEngine()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
   const swipeStart = useRef<{ x: number; y: number; identifier: number; startedAt: number } | null>(null)
   useAutosave(state, dispatch, engine)
 
@@ -96,6 +102,19 @@ function Shell() {
   // below — only the mutually-exclusive layout choice itself (see
   // CurrentPage) actually distinguishes them.
   const combinedView = isWide || isLandscape
+  const studio = page === 'pads' || page === 'sequencer'
+
+  // The bottom stack (Styles drawer, selected-pad bar, tab bar) changes
+  // height as its parts come and go; the page and toasts sit right above it.
+  useLayoutEffect(() => {
+    const stack = bottomRef.current
+    if (!stack) return
+    const update = () => document.documentElement.style.setProperty('--bottom-h', `${stack.getBoundingClientRect().height}px`)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(stack)
+    return () => observer.disconnect()
+  }, [])
 
   const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
     if (combinedView || (page !== 'pads' && page !== 'sequencer')) return
@@ -154,11 +173,17 @@ function Shell() {
       >
         <CurrentPage onBounced={setPendingRecording} />
       </main>
-      <TabBar
-        combinedView={combinedView}
-        sampleCount={Object.keys(state.samples).length}
-        onRecorded={setPendingRecording}
-      />
+      <div className="bottom-stack" ref={bottomRef}>
+        {stylesOpen && <StyleDock />}
+        <div className="bottom-row">
+          {studio && !stylesOpen && <PadActionBar />}
+          <TabBar
+            combinedView={combinedView}
+            sampleCount={Object.keys(state.samples).length}
+            onRecorded={setPendingRecording}
+          />
+        </div>
+      </div>
       {editingPadId !== null && <PadEditOverlay onClose={goBackFromEdit} />}
       {pendingRecording && (
         <RecordingReviewOverlay

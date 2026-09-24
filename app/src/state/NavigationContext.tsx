@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type Page = 'pads' | 'sequencer' | 'library'
+export type Page = 'pads' | 'sequencer' | 'song' | 'library'
 
 interface NavigationValue {
   page: Page
@@ -8,6 +8,7 @@ interface NavigationValue {
   editingPadId: string | null
   goToPads: () => void
   goToSequencer: () => void
+  goToSong: () => void
   goToLibrary: () => void
   goToEditPad: (padId: string) => void
   goBackFromEdit: () => void
@@ -18,12 +19,18 @@ interface NavigationValue {
    */
   selectedPadId: string | null
   selectPad: (padId: string | null) => void
+  /** The Styles drawer: one drawer for the whole app, opened from the top bar on any page. */
+  stylesOpen: boolean
+  setStylesOpen: (open: boolean | ((open: boolean) => boolean)) => void
+  /** Bumped when Styles writes a whole new beat, so the sequencer can fold to the rows it uses. */
+  beatStarts: number
+  markBeatStarted: () => void
 }
 
 const NavigationContext = createContext<NavigationValue | null>(null)
 
 /**
- * Client-side page state only — no router library. This app has three small,
+ * Client-side page state only — no router library. This app has four small,
  * flat destinations and no need for URLs/history, so a plain context keeps
  * navigation reachable from deep components (e.g. a pad's "Edit" action)
  * without prop-drilling, at a fraction of a router's weight. Editing a pad is
@@ -34,17 +41,24 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<Page>('pads')
   const [editingPadId, setEditingPadId] = useState<string | null>(null)
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
+  const [stylesOpen, setStylesOpen] = useState(false)
+  const [beatStarts, setBeatStarts] = useState(0)
 
   const value: NavigationValue = {
     page,
     editingPadId,
     goToPads: () => setPage('pads'),
     goToSequencer: () => setPage('sequencer'),
+    goToSong: () => setPage('song'),
     goToLibrary: () => setPage('library'),
     goToEditPad: (padId: string) => setEditingPadId(padId),
     goBackFromEdit: () => setEditingPadId(null),
     selectedPadId,
     selectPad: setSelectedPadId,
+    stylesOpen,
+    setStylesOpen,
+    beatStarts,
+    markBeatStarted: () => setBeatStarts((count) => count + 1),
   }
 
   return <NavigationContext value={value}>{children}</NavigationContext>
