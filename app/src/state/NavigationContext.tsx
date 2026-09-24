@@ -11,7 +11,12 @@ interface NavigationValue {
   goToSong: () => void
   goToLibrary: () => void
   goToEditPad: (padId: string) => void
+  /** Opens the Mix sheet on the whole bank's effects ("All" pads), from `padId`'s bank. */
+  goToBankEffects: (padId: string) => void
   goBackFromEdit: () => void
+  /** What the Mix sheet shows: one pad (level, sound, trim, effects) or the whole bank's effects. */
+  mixScope: 'pad' | 'all'
+  setMixScope: (scope: 'pad' | 'all') => void
   /**
    * The pad you're working with, shared by the Pads grid and the Sequencer —
    * pick a pad on one and the other shows the same one, so going back and
@@ -40,6 +45,7 @@ const NavigationContext = createContext<NavigationValue | null>(null)
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<Page>('pads')
   const [editingPadId, setEditingPadId] = useState<string | null>(null)
+  const [mixScope, setMixScope] = useState<'pad' | 'all'>('pad')
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
   const [stylesOpen, setStylesOpen] = useState(false)
   const [beatStarts, setBeatStarts] = useState(0)
@@ -51,8 +57,17 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     goToSequencer: () => setPage('sequencer'),
     goToSong: () => setPage('song'),
     goToLibrary: () => setPage('library'),
-    goToEditPad: (padId: string) => setEditingPadId(padId),
+    goToEditPad: (padId: string) => {
+      setMixScope('pad')
+      setEditingPadId(padId)
+    },
+    goToBankEffects: (padId: string) => {
+      setMixScope('all')
+      setEditingPadId(padId)
+    },
     goBackFromEdit: () => setEditingPadId(null),
+    mixScope,
+    setMixScope,
     selectedPadId,
     selectPad: setSelectedPadId,
     stylesOpen,

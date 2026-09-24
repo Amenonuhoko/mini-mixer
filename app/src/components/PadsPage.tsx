@@ -5,9 +5,9 @@ import { useNavigation } from '../state/NavigationContext'
 import { PadGrid } from './PadGrid'
 
 /**
- * Home page: the pad module. Tapping a pad selects it (and plays it); the
- * selected pad's actions — Mute, Edit, Swap, Steps — sit in the pad bar
- * pinned above the bottom bar (see PadActionBar), shared with the Sequencer.
+ * Home page: the pad module. Tapping a pad selects it (and plays it) — the
+ * same selection the Sequencer shows. A pad's level, sound, trim and effects
+ * are all in Mix (see PadGrid and PadEditOverlay).
  */
 export function PadsPage() {
   const { state } = useAppState()

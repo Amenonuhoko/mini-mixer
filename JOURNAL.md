@@ -2145,3 +2145,34 @@ The UI, sequencer, styles, tempo, bounce and engine-path suites all pass. The bo
 
 Trade-off, stated plainly: about 30 ms more delay between tapping a pad and hearing it, on phones only. Desktop keeps the smallest buffer.
 
+## 2026-09-26 — Mix is the one place; the pad bar folds away
+
+Requests:
+- "Mix should consolidate effects and edit into one". I asked which of three layouts; the answer was **Mix mode is the one place**.
+- "that whole bottom part (mute edit swap steps) should be consolidated somehow without being overbearing to play loop mix area".
+
+**Mix mode:**
+- Drag a pad tile to set its level. A drag now moves the level relative to where it was; it used to jump to the touch point.
+- Tap a tile to open the **Mix sheet**. Each tile also gets an **M** corner to mute it.
+- Keyboard: the arrow keys nudge the level and Enter opens the sheet.
+
+**The Mix sheet** (`PadEditOverlay`, with `PadEditPage` inside):
+- **Per pad:** Level, Mute, Swap sound and Remove pad (Drums), loop-to-audition, trim, and effects with the only on/off switch.
+- **ALL**, the first swatch in its pad strip, shows the whole bank's effects (`BankEffectsPanel`). That panel replaces the floating whole-bank FX popover and the sliders button in the bank row.
+
+**The pinned row under the grid:**
+- In Play and Loop it keeps Gate / 1-shot, Perform and step-record.
+- In Mix, where those do nothing, it shows a hint and **All pads FX** instead. So the row changes with the mode rather than growing.
+
+**The selected-pad bar is gone:**
+- Mute, Edit and Swap live in Mix.
+- Row fills moved to the sequencer toolbar as **Fill row**, for the selected row (`StepsMenu`).
+- Dropping the bar gives the Pads page another row of pads on a phone.
+
+Removed: `PadActionBar.tsx` and `PadEffectsMenuButton.tsx` (with its floating-position code and CSS).
+
+**Checks:**
+- The UI suite now covers Mix: relative drag without opening the sheet, the tile mute, tap to open the sheet with every control, sheet level driving the fader, ALL presets reaching every pad, All pads FX, Play mode restoring its tools, and Fill row.
+- The engine-path suite now drags the fader instead of tapping it, since a tap opens the sheet.
+- The audio, sequencer, styles, tempo and bounce suites all pass, along with types, lint, 162 unit tests and the build.
+

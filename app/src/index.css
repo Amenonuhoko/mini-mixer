@@ -1394,10 +1394,53 @@ button:disabled {
   border-color: rgb(var(--orange-rgb) / 0.35);
 }
 
-/* Mixer mode: pads become faders. */
+/* Mixer mode: pads become faders — drag for level, tap for the Mix sheet, M to mute. */
 .mixer-fader {
   overflow: hidden;
   touch-action: none;
+}
+
+.mixer-fader-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  color: inherit;
+  touch-action: none;
+}
+
+.mixer-mute {
+  position: absolute;
+  z-index: 2;
+  right: 4px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 0.45);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.mixer-mute.on {
+  border-color: var(--orange);
+  color: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.mixer-fader.muted .mixer-fader-fill {
+  opacity: 0.35;
+}
+
+.mixer-fader.muted .mixer-fader-level {
+  color: var(--orange);
 }
 
 .mixer-fader-fill {
@@ -2714,57 +2757,8 @@ button.list-item:hover .list-wave {
 }
 
 /* --------------------------------------------------------------------------
-   Whole-grid FX panel (portaled; positioned by JS — see PadEffectsMenuButton)
+   Whole-bank effects (the Mix sheet's ALL scope — see BankEffectsPanel)
    -------------------------------------------------------------------------- */
-
-.fx-popover-anchor {
-  position: relative;
-}
-
-.fx-floating-panel {
-  position: fixed;
-  z-index: 25;
-  width: min(300px, calc(100vw - 24px));
-  max-height: min(70vh, 480px);
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-lg);
-  background: var(--deck-raised);
-  box-shadow:
-    0 14px 36px rgb(0 0 0 / 0.65),
-    0 0 20px rgb(var(--cyan-rgb) / 0.12);
-  animation: pop-in var(--med) var(--ease);
-}
-
-.fx-floating-heading {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  margin-bottom: var(--s2);
-}
-
-.fx-floating-heading-text {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.fx-floating-heading-text > span:first-child {
-  font-weight: 600;
-  color: var(--cyan);
-  text-shadow: var(--text-glow-cyan);
-}
-
-.fx-floating-heading-text .muted {
-  color: var(--text-faint);
-}
 
 .fx-quick-presets {
   display: grid;
@@ -2998,73 +2992,6 @@ button.list-item:hover .list-wave {
   text-shadow: var(--text-glow-orange);
 }
 
-/* The selected pad, pinned above the tab bar on Pads and Seq. */
-.pad-action-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: 8px var(--s3);
-  background: linear-gradient(180deg, rgb(8 14 19 / 0.96), rgb(5 9 12 / 0.97));
-  border-top: 1px solid var(--line);
-  backdrop-filter: blur(10px);
-}
-
-.pad-action-bar.empty {
-  justify-content: center;
-  min-height: 56px;
-}
-
-.pad-action-hint {
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-}
-
-.pad-action-id {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.pad-action-num {
-  font-size: var(--fs-md, 15px);
-  font-weight: 600;
-  text-shadow: var(--text-glow-cyan);
-}
-
-.pad-action-name {
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--fs-xs);
-  color: var(--text);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.pad-action-id .chip-live {
-  align-self: flex-start;
-}
-
-.pad-action-buttons {
-  display: flex;
-  flex: none;
-  gap: 6px;
-}
-
-.pad-action-buttons .action {
-  flex-direction: column;
-  gap: 2px;
-  width: 54px;
-  height: 44px;
-  padding: 0;
-  font-size: 9px;
-}
-
-.action.fx-off {
-  border-color: var(--orange);
-  color: var(--orange);
-}
-
 /* The page area knows its own height, so pinned rows can let go when it's short. */
 .app-shell {
   container-type: size;
@@ -3266,29 +3193,46 @@ button.list-item:hover .list-wave {
   }
 }
 
-/* A landscape phone is short: the pad bar and the tab bar share one row. */
+/* A landscape phone is short: whatever else sits in the bottom row shares it with the tab bar. */
 @media (min-aspect-ratio: 2/1) and (max-height: 500px) {
   .bottom-row {
     flex-direction: row;
     align-items: stretch;
   }
 
-  .bottom-row .pad-action-bar {
-    flex: 1 1 auto;
-    min-width: 0;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    border-top: 0;
-  }
-
   .bottom-row .tabbar {
     flex: 0 1 auto;
   }
 
-  .pad-action-buttons .action {
-    width: 48px;
-    height: 38px;
-  }
+}
+
+/* The Mix sheet: ALL (the bank's effects) leads the pad strip; a pad opens on its level and sound. */
+.pad-switcher-swatch.all {
+  padding: 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.mix-sound-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.mix-sound-actions .btn {
+  flex: 1 1 120px;
+}
+
+.bank-fx .muted {
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.pad-mix-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
 }
 
 /* Motion is decoration here, never information — drop it for anyone who asked. */

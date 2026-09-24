@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
-import { PadActionBar } from './components/PadActionBar'
 import { LightShow } from './components/LightShow'
 import { PadEditOverlay } from './components/PadEditOverlay'
 import { PadsPage } from './components/PadsPage'
@@ -102,9 +101,8 @@ function Shell() {
   // below — only the mutually-exclusive layout choice itself (see
   // CurrentPage) actually distinguishes them.
   const combinedView = isWide || isLandscape
-  const studio = page === 'pads' || page === 'sequencer'
 
-  // The bottom stack (Styles drawer, selected-pad bar, tab bar) changes
+  // The bottom stack (Styles drawer, tab bar) changes
   // height as its parts come and go; the page and toasts sit right above it.
   useLayoutEffect(() => {
     const stack = bottomRef.current
@@ -176,7 +174,6 @@ function Shell() {
       <div className="bottom-stack" ref={bottomRef}>
         {stylesOpen && <StyleDock />}
         <div className="bottom-row">
-          {studio && !stylesOpen && <PadActionBar />}
           <TabBar
             combinedView={combinedView}
             sampleCount={Object.keys(state.samples).length}

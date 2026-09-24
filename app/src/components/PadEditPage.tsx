@@ -1,17 +1,18 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { usePadPlaying } from '../hooks/usePadPlaying'
-import { EFFECT_IDS, EFFECT_MAX, EFFECT_MIN, EFFECT_PRESETS, EFFECT_STEP } from '../state/constants'
+import { EFFECT_IDS, EFFECT_MAX, EFFECT_MIN, EFFECT_PRESETS, EFFECT_STEP, MIN_PAD_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
-import type { AudioEngine } from '../engine/AudioEngine'
-import type { EffectId, Pad } from '../state/types'
+import type { EffectId } from '../state/types'
 import { EffectsSwitch } from './EffectsSwitch'
-import { LoopIcon } from './icons'
+import { ConfirmDialog } from './ConfirmDialog'
+import { LoopIcon, MuteIcon, SwapIcon, TrashIcon } from './icons'
 import { InfoTip } from './InfoTip'
+import { PadLibraryPicker } from './PadLibraryPicker'
 import { WaveformTrimEditor } from './WaveformTrimEditor'
-import { bankOfPad, visibleBankPads } from '../state/banks'
+import { bankOfPad } from '../state/banks'
 
 const EFFECT_LABELS: Record<EffectId, string> = {
   pitch: 'Pitch',
@@ -54,13 +55,14 @@ function formatSeconds(seconds: number): string {
 }
 
 /**
- * Pad editor — dials and trim, opened as a popup over whatever page you were
- * on (see PadEditOverlay) rather than a navigated-to page. Tapping the
- * backdrop or Close dismisses it; every change here dispatches immediately,
- * so there's nothing "unsaved" to lose by dismissing at any point.
+ * One pad in the Mix sheet (see PadEditOverlay): its level and sound (mute,
+ * and on Drums swap or remove), loop-to-audition, trim, and effects with
+ * their on/off switch. Every change dispatches immediately, so there's
+ * nothing "unsaved" to lose by dismissing at any point.
  */
 export function PadEditPage() {
-  const { editingPadId, goToEditPad, goBackFromEdit } = useNavigation()
+  const { editingPadId, goBackFromEdit } = useNavigation()
+  const [sheet, setSheet] = useState<'swap' | 'remove' | null>(null)
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const pad = state.pads.find((p) => p.id === editingPadId)
@@ -104,16 +106,67 @@ export function PadEditPage() {
 
   if (!pad) return null
   const padBank = bankOfPad(state, pad.id)
-  const switcherPads = padBank ? visibleBankPads(state, padBank) : [pad]
+  const drums = padBank?.kind === 'drums'
+
+  const setLevel = (level: number) => {
+    dispatch({ type: 'SET_PAD_MIX_LEVEL', padId: pad.id, level })
+    engine.updateLoopingPadMixLevel(pad.id, level)
+  }
 
   return (
     <div className="edit-pad">
-      <PadSwitcherStrip
-        pads={switcherPads}
-        currentPadId={pad.id}
-        engine={engine}
-        onSwitch={goToEditPad}
-      />
+      <section className="edit-section mix-level" aria-label="Level and sound">
+        <header className="edit-section-head">
+          <h3 className="label">Level</h3>
+          <span className="readout edit-section-readout">{pad.muted ? 'Muted' : `${pad.mixLevel}%`}</span>
+        </header>
+        <input
+          type="range"
+          className="slider"
+          style={{ '--fill': `${pad.mixLevel / 100}` } as React.CSSProperties}
+          min={0}
+          max={100}
+          step={1}
+          value={pad.mixLevel}
+          onChange={(event) => setLevel(Number(event.target.value))}
+          aria-label="Pad level"
+        />
+        <div className="mix-sound-actions">
+          <button
+            type="button"
+            className={pad.muted ? 'btn on-warn' : 'btn'}
+            onClick={() => dispatch({ type: 'SET_PAD_MUTED', padId: pad.id, muted: !pad.muted })}
+            aria-pressed={pad.muted}
+          >
+            <MuteIcon muted={pad.muted} size={16} />
+            {pad.muted ? 'Muted' : 'Mute'}
+          </button>
+          {drums && (
+            <button type="button" className="btn" onClick={() => setSheet('swap')} title="Swap in another sound from the library">
+              <SwapIcon size={16} />
+              Swap sound
+            </button>
+          )}
+          {drums && padBank.padIds.length > MIN_PAD_COUNT && (
+            <button type="button" className="btn btn-danger" onClick={() => setSheet('remove')}>
+              <TrashIcon size={16} />
+              Remove pad
+            </button>
+          )}
+        </div>
+      </section>
+      {sheet === 'swap' && <PadLibraryPicker padId={pad.id} onClose={() => setSheet(null)} />}
+      {sheet === 'remove' && (
+        <ConfirmDialog
+          message="Remove this pad? Its programmed steps go with it — its sample stays in the library, and every other pad is unaffected."
+          confirmLabel="Remove"
+          onConfirm={() => {
+            setSheet(null)
+            dispatch({ type: 'REMOVE_PAD', padId: pad.id })
+          }}
+          onCancel={() => setSheet(null)}
+        />
+      )}
       <button
         type="button"
         className={looping ? 'btn btn-block on-warn' : 'btn btn-block'}
@@ -244,67 +297,5 @@ export function PadEditPage() {
         </button>
       </section>
     </div>
-  )
-}
-
-interface PadSwitcherStripProps {
-  pads: Pad[]
-  currentPadId: string
-  engine: AudioEngine
-  onSwitch: (padId: string) => void
-}
-
-/**
- * Horizontally-scrollable strip of every visible pad, so you can flip between
- * them while editing without backing out to the Pads page each time. Each
- * swatch is purely a "jump to this pad" tap target plus a passive looping
- * indicator (a small pulsing dot) — no per-swatch loop toggle here, since
- * that would nest a second small interactive zone inside an already-small
- * tile, the same touch-precision problem that got loop moved off the pad
- * face in the first place. The one real Loop action for whichever pad is
- * currently selected lives as its own full-sized button right below this
- * strip instead.
- */
-function PadSwitcherStrip({ pads, currentPadId, engine, onSwitch }: PadSwitcherStripProps) {
-  return (
-    <div className="pad-switcher-strip" role="tablist" aria-label="Switch pad">
-      {pads.map((pad, index) => (
-        <PadSwitcherSwatch
-          key={pad.id}
-          pad={pad}
-          index={index}
-          engine={engine}
-          current={pad.id === currentPadId}
-          onSwitch={onSwitch}
-        />
-      ))}
-    </div>
-  )
-}
-
-interface PadSwitcherSwatchProps {
-  pad: Pad
-  index: number
-  engine: AudioEngine
-  current: boolean
-  onSwitch: (padId: string) => void
-}
-
-function PadSwitcherSwatch({ pad, index, engine, current, onSwitch }: PadSwitcherSwatchProps) {
-  const looping = usePadLooping(engine, pad.id)
-  const filled = pad.sampleId !== null
-
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={current}
-      className={['pad-switcher-swatch', current ? 'current' : '', filled ? '' : 'empty'].filter(Boolean).join(' ')}
-      data-glow-pad={pad.id}
-      onClick={() => onSwitch(pad.id)}
-    >
-      {String(index + 1).padStart(2, '0')}
-      {looping && <span className="pad-switcher-loop-dot" aria-hidden="true" />}
-    </button>
   )
 }

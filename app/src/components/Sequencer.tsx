@@ -16,6 +16,7 @@ import { BrushIcon, EyeIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon }
 import { Overlay } from './Overlay'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
+import { StepsMenu } from './StepsMenu'
 import { Stepper } from './Stepper'
 
 const GROUP_SIZE = 4
@@ -52,10 +53,11 @@ function chunk<T>(items: T[], size: number): T[][] {
  * The step sequencer module: a compact header (which pattern is in the grid,
  * its step count, and a ⋯ menu for everything else about the pattern —
  * rename, new, duplicate, save as sample, load, bar 1 → all, hide, clear),
- * the three ways a tap on a step behaves (hold to hear, preview, paint), and
+ * the ways a tap on a step behaves (hold to hear, preview, paint) plus Fill
+ * row for the selected row, and
  * the grid, read as a continuous timeline — beat groups set apart, the
  * playhead column lit. Rows are grouped by bank and named like their pads;
- * tapping a name selects that pad, whose actions live in the pad bar. A
+ * tapping a name selects that pad (Fill row acts on it). A
  * melodic bank lists its notes/chords highest first. Each bank folds down to
  * just the rows in use unless it's the bank being played on the Pads page or
  * was opened by hand. Every row chip glows with that pad's live level.
@@ -82,6 +84,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [paintMode, setPaintMode] = useState(false)
   const [confirmRepeat, setConfirmRepeat] = useState(false)
   const [patternMenuOpen, setPatternMenuOpen] = useState(false)
+  const [fillOpen, setFillOpen] = useState(false)
   const { selectedPadId, selectPad, setStylesOpen, beatStarts } = useNavigation()
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -294,6 +297,9 @@ export function Sequencer({ onBounced }: SequencerProps) {
   if (!pattern) return null
 
   const traceHidden = pattern.traceSource === 'hidden'
+  // The row "Fill row" acts on: the selected pad, when it has a row here.
+  const selectedPad = selectedPadId ? visiblePads.find((pad) => pad.id === selectedPadId) : undefined
+  const selectedBank = selectedPad ? state.banks.find((bank) => bank.padIds.includes(selectedPad.id)) : undefined
 
   /** A bank head's preset chip: the layer's style and take, or an invitation. */
   const layerLabel = (kind: Bank['kind']) => {
@@ -381,6 +387,15 @@ export function Sequencer({ onBounced }: SequencerProps) {
           >
             <BrushIcon size={14} />
             Paint
+          </button>
+          <button
+            type="button"
+            className="chip-btn"
+            onClick={() => setFillOpen(true)}
+            disabled={!selectedPad}
+            title={selectedPad ? 'Fill the selected row in one tap — every beat, 8th, 16th…' : 'Tap a row name to pick the row to fill'}
+          >
+            Fill row
           </button>
         </div>
       </div>
@@ -486,6 +501,17 @@ export function Sequencer({ onBounced }: SequencerProps) {
         </div>
       </div>
 
+      {fillOpen && selectedPad && selectedBank && (
+        <StepsMenu
+          pad={selectedPad}
+          bank={selectedBank}
+          stepCount={pattern.stepCount}
+          onFill={(steps) =>
+            dispatch({ type: 'SET_ROW_STEPS', patternId: pattern.id, padId: selectedPad.id, steps, sampleId: selectedPad.sampleId })
+          }
+          onClose={() => setFillOpen(false)}
+        />
+      )}
       {patternMenuOpen && (
         <Overlay onClose={() => setPatternMenuOpen(false)} title="Pattern" subtitle="Everything about the pattern in the grid.">
           <section className="sheet-section" aria-label="Name and copies">
@@ -630,7 +656,7 @@ interface SequencerRowProps {
 
 /**
  * One pad's row: its name (number, kit glyph, sound — the same name the pad
- * grid shows; tap it to select the pad, whose actions are in the pad bar)
+ * grid shows; tap it to hear and select the pad — Fill row acts on it)
  * and its steps. Painting across cells is handled
  * by the grid (see Sequencer), so it can cross rows and auto-scroll.
  */
