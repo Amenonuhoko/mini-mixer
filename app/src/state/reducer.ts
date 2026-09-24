@@ -96,6 +96,8 @@ export type Action =
   | { type: 'MOVE_SONG_SECTION'; sectionId: string; direction: -1 | 1 }
   | { type: 'REMOVE_SONG_SECTION'; sectionId: string }
   | { type: 'SET_PLAY_MODE'; mode: 'pattern' | 'song' }
+  | { type: 'AUDITION_SONG_SECTION'; sectionId: string; scope: 'section' | 'rest' }
+  | { type: 'APPLY_SONG_TEMPLATE'; sections: readonly string[] }
   | { type: 'SET_CURRENT_SONG_SECTION'; sectionId: string | null }
   /** Resizes one bank's showing pads (the active bank unless bankId is given). */
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number; bankId?: string }
@@ -799,6 +801,50 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, patterns: [...state.patterns, pattern], activePatternId: pattern.id }
     }
 
+    case 'APPLY_SONG_TEMPLATE': {
+      const names = action.sections.map((name) => name.trim()).filter(Boolean)
+      if (names.length === 0) return state
+      const patterns = [...state.patterns]
+      const generic = patterns.filter((pattern) => /^Pattern \d+$/i.test(pattern.name))
+      const assigned = new Map<string, string>()
+      for (const name of names) {
+        if (assigned.has(name)) continue
+        const named = patterns.find((pattern) => pattern.name.toLowerCase() === name.toLowerCase())
+        if (named) {
+          assigned.set(name, named.id)
+          continue
+        }
+        const reusable = generic.shift()
+        if (reusable) {
+          patterns[patterns.indexOf(reusable)] = { ...reusable, name }
+          assigned.set(name, reusable.id)
+          continue
+        }
+        const pattern: Pattern = {
+          id: createId('pattern'),
+          name,
+          stepCount: 16,
+          steps: Object.fromEntries(state.pads.map((pad) => [pad.id, new Array<string | null>(16).fill(null)])),
+          traceSteps: null,
+          traceSource: null,
+        }
+        patterns.push(pattern)
+        assigned.set(name, pattern.id)
+      }
+      return {
+        ...state,
+        patterns,
+        activePatternId: assigned.get(names[0]!)!,
+        songSections: names.map((name) => ({
+          id: createId('section'),
+          name,
+          patternId: assigned.get(name)!,
+          repeats: name === 'Intro' || name === 'Outro' || name === 'Bridge' ? 2 : 4,
+        })),
+        transport: { ...state.transport, isPlaying: false, playMode: 'song', currentSongSectionId: null, auditionSectionId: null },
+      }
+    }
+
     case 'RENAME_PATTERN':
       return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, name: action.name.slice(0, 40) }))
 
@@ -845,15 +891,30 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'REMOVE_SONG_SECTION': {
       const songSections = state.songSections.filter((section) => section.id !== action.sectionId)
+      const auditionRemoved = state.transport.auditionSectionId === action.sectionId
       return {
         ...state,
         songSections,
-        transport: songSections.length ? state.transport : { ...state.transport, playMode: 'pattern', currentSongSectionId: null },
+        transport: songSections.length && !auditionRemoved
+          ? state.transport
+          : { ...state.transport, playMode: songSections.length ? state.transport.playMode : 'pattern', isPlaying: auditionRemoved ? false : state.transport.isPlaying, currentSongSectionId: null, auditionSectionId: null },
       }
     }
 
     case 'SET_PLAY_MODE':
-      return { ...state, transport: { ...state.transport, playMode: action.mode, currentSongSectionId: null } }
+      return { ...state, transport: { ...state.transport, playMode: action.mode, currentSongSectionId: null, auditionSectionId: null } }
+
+    case 'AUDITION_SONG_SECTION':
+      if (!state.songSections.some((section) => section.id === action.sectionId)) return state
+      return { ...state, transport: {
+        ...state.transport,
+        playMode: 'song',
+        isPlaying: true,
+        auditionSectionId: action.sectionId,
+        auditionScope: action.scope,
+        currentSongSectionId: null,
+        playbackRunId: state.transport.playbackRunId + 1,
+      } }
 
     case 'SET_CURRENT_SONG_SECTION':
       return state.transport.currentSongSectionId === action.sectionId ? state : {
@@ -862,7 +923,13 @@ export function reducer(state: AppState, action: Action): AppState {
       }
 
     case 'SET_TRANSPORT_PLAYING':
-      return { ...state, transport: { ...state.transport, isPlaying: action.isPlaying, currentSongSectionId: action.isPlaying ? state.transport.currentSongSectionId : null } }
+      return { ...state, transport: {
+        ...state.transport,
+        isPlaying: action.isPlaying,
+        currentSongSectionId: action.isPlaying ? state.transport.currentSongSectionId : null,
+        auditionSectionId: null,
+        playbackRunId: action.isPlaying ? state.transport.playbackRunId + 1 : state.transport.playbackRunId,
+      } }
 
     case 'SET_LOOP_MODE':
       return { ...state, transport: { ...state.transport, loopMode: action.loopMode } }
@@ -915,6 +982,9 @@ export function reducer(state: AppState, action: Action): AppState {
           padPlaybackMode: action.state.transport.padPlaybackMode ?? 'gate',
           playMode: action.state.transport.playMode ?? 'pattern',
           currentSongSectionId: null,
+          auditionSectionId: null,
+          auditionScope: 'section',
+          playbackRunId: 0,
         },
         songSections: action.state.songSections ?? [],
       }

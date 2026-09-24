@@ -38,6 +38,8 @@ export class Scheduler {
   private readonly clock: SchedulerClock
   private readonly onStep: StepCallback
   private stepCount: number
+  private rangeStart = 0
+  private rangeEnd: number
   private readonly scheduleAheadSeconds: number
   private readonly lookaheadIntervalMs: number
   private readonly setIntervalFn: typeof setInterval
@@ -53,6 +55,7 @@ export class Scheduler {
     this.onStep = onStep
     this.bpm = clamp(options.bpm ?? 120, BPM_MIN, BPM_MAX)
     this.stepCount = options.stepCount ?? STEP_COUNT
+    this.rangeEnd = this.stepCount
     this.scheduleAheadSeconds = options.scheduleAheadSeconds ?? 0.1
     this.lookaheadIntervalMs = options.lookaheadIntervalMs ?? 25
     // Bound to globalThis: calling the bare functions as `this.setIntervalFn(...)`
@@ -78,12 +81,21 @@ export class Scheduler {
 
   setStepCount(stepCount: number): void {
     this.stepCount = Math.max(1, Math.floor(stepCount))
-    this.currentStep %= this.stepCount
+    this.setRange(0, this.stepCount)
+  }
+
+  /** Limits playback to a section of the current timeline. End is exclusive. */
+  setRange(start: number, end: number): void {
+    this.rangeStart = Math.max(0, Math.floor(start))
+    this.rangeEnd = Math.max(this.rangeStart + 1, Math.floor(end))
+    if (this.currentStep < this.rangeStart || this.currentStep >= this.rangeEnd) {
+      this.currentStep = this.rangeStart
+    }
   }
 
   start(): void {
     if (this.isRunning) return
-    this.currentStep = 0
+    this.currentStep = this.rangeStart
     this.nextStepTime = this.clock.now()
     this.timerId = this.setIntervalFn(this.tick, this.lookaheadIntervalMs)
   }
@@ -105,13 +117,13 @@ export class Scheduler {
     if (this.nextStepTime < now - LATE_TOLERANCE_SECONDS) {
       const missed = Math.ceil((now - this.nextStepTime) / this.secondsPerStep())
       this.nextStepTime += missed * this.secondsPerStep()
-      this.currentStep = (this.currentStep + missed) % this.stepCount
+      this.currentStep = this.rangeStart + (this.currentStep - this.rangeStart + missed) % (this.rangeEnd - this.rangeStart)
     }
     const horizon = now + this.scheduleAheadSeconds
     while (this.nextStepTime < horizon) {
       this.onStep(this.currentStep, this.nextStepTime)
       this.nextStepTime += this.secondsPerStep()
-      this.currentStep = (this.currentStep + 1) % this.stepCount
+      this.currentStep = this.currentStep + 1 < this.rangeEnd ? this.currentStep + 1 : this.rangeStart
     }
   }
 }

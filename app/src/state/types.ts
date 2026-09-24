@@ -176,6 +176,10 @@ export interface Transport {
   isPlaying: boolean
   playMode: 'pattern' | 'song'
   currentSongSectionId: string | null
+  /** A section audition starts here; 'section' ends at its boundary, 'rest' at the song end. */
+  auditionSectionId: string | null
+  auditionScope: 'section' | 'rest'
+  playbackRunId: number
   loopMode: LoopMode
   metronomeEnabled: boolean
   /** Controls normal pad tap duration; Loop Mode has its own distinct behavior. */

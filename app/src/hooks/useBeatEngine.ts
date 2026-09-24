@@ -39,6 +39,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         }
         if (!current.transport.isPlaying || !engine.isSequencerPlaybackEnabled()) return
         const song = current.transport.playMode === 'song' ? buildSongTimeline(current) : []
+        const auditionSpan = song.find((span) => span.section.id === current.transport.auditionSectionId)
         const songPosition = songStepAt(song, stepIndex)
         const pattern = songPosition?.span.pattern ?? current.patterns.find((p) => p.id === current.activePatternId)
         const patternStep = songPosition?.patternStep ?? stepIndex
@@ -60,10 +61,12 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             engine.triggerStep(pad, sample.buffer, time)
           }
         }
-        const finalStep = song.length && current.transport.playMode === 'song'
+        const finalStep = auditionSpan && current.transport.auditionScope === 'section'
+          ? auditionSpan.endStep - 1
+          : song.length && current.transport.playMode === 'song'
           ? song[song.length - 1]!.endStep - 1
           : (pattern?.stepCount ?? 16) - 1
-        if (current.transport.loopMode === 'once' && pattern && stepIndex === finalStep) {
+        if ((auditionSpan || current.transport.loopMode === 'once') && pattern && stepIndex === finalStep) {
           engine.setSequencerPlaybackEnabled(false)
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
@@ -81,8 +84,16 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     const song = state.transport.playMode === 'song'
       ? buildSongTimeline({ patterns: state.patterns, songSections: state.songSections })
       : []
-    schedulerRef.current?.setStepCount(song.length ? song[song.length - 1]!.endStep : pattern?.stepCount ?? 16)
-  }, [state.activePatternId, state.patterns, state.songSections, state.transport.playMode])
+    const end = song.length ? song[song.length - 1]!.endStep : pattern?.stepCount ?? 16
+    const auditionSpan = song.find((span) => span.section.id === state.transport.auditionSectionId)
+    schedulerRef.current?.setStepCount(end)
+    if (auditionSpan) {
+      schedulerRef.current?.setRange(
+        auditionSpan.startStep,
+        state.transport.auditionScope === 'section' ? auditionSpan.endStep : end,
+      )
+    }
+  }, [state.activePatternId, state.patterns, state.songSections, state.transport.playMode, state.transport.auditionSectionId, state.transport.auditionScope])
 
   useEffect(() => {
     schedulerRef.current?.setBpm(state.transport.bpm)
@@ -104,12 +115,13 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
   // stays on, must NOT restart the clock, or it'd glitch the running pattern —
   // wasPlayingRef exists solely to tell "just pressed play" apart from those.
   const wasPlayingRef = useRef(false)
+  const lastRunIdRef = useRef(state.transport.playbackRunId)
   useEffect(() => {
     const scheduler = schedulerRef.current
     if (!scheduler) return
     const isPlaying = state.transport.isPlaying
     const metronomeEnabled = state.transport.metronomeEnabled
-    if (isPlaying && !wasPlayingRef.current) {
+    if (isPlaying && (!wasPlayingRef.current || lastRunIdRef.current !== state.transport.playbackRunId)) {
       lastSongSectionRef.current = null
       dispatch({ type: 'SET_CURRENT_SONG_SECTION', sectionId: null })
       engineRef.current?.setSequencerPlaybackEnabled(true)
@@ -123,7 +135,8 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
       scheduler.stop()
     }
     wasPlayingRef.current = isPlaying
-  }, [dispatch, state.transport.isPlaying, state.transport.metronomeEnabled])
+    lastRunIdRef.current = state.transport.playbackRunId
+  }, [dispatch, state.transport.isPlaying, state.transport.metronomeEnabled, state.transport.playbackRunId])
 
   return engineRef.current
 }

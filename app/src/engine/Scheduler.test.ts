@@ -72,7 +72,11 @@ describe('Scheduler', () => {
   it('skips steps it fell far behind on instead of firing them in a burst', () => {
     const clock = new FakeClock()
     const onStep = vi.fn()
-    const scheduler = new Scheduler(clock, onStep, { bpm: 120, stepCount: 16, scheduleAheadSeconds: 0.1 })
+    const scheduler = new Scheduler(clock, onStep, {
+      bpm: 120,
+      stepCount: 16,
+      scheduleAheadSeconds: 0.1,
+    })
     scheduler.start()
     scheduler.tick()
     onStep.mockClear()
@@ -86,5 +90,28 @@ describe('Scheduler', () => {
     expect(onStep.mock.calls.length).toBeLessThanOrEqual(2)
     // The step count kept its place in the bar.
     expect(onStep.mock.calls[0]![0]).toBe(8)
+  })
+
+  it('starts at a selected song section and wraps inside its range, including after a stall', () => {
+    const clock = new FakeClock()
+    const onStep = vi.fn()
+    const scheduler = new Scheduler(clock, onStep, {
+      bpm: 120,
+      stepCount: 64,
+      scheduleAheadSeconds: 0.1,
+    })
+    scheduler.setRange(16, 20)
+    scheduler.start()
+    scheduler.tick()
+    expect(onStep.mock.calls.map((call) => call[0])).toEqual([16])
+    for (const step of [17, 18, 19, 16]) {
+      clock.advance(0.125)
+      scheduler.tick()
+      expect(onStep.mock.calls.at(-1)?.[0]).toBe(step)
+    }
+    clock.advance(1)
+    scheduler.tick()
+    expect(onStep.mock.calls.at(-1)?.[0]).toBe(16)
+    scheduler.stop()
   })
 })

@@ -2303,6 +2303,18 @@ body.style-drawer-open .app-shell {
 
 .song-arranger { min-width: 0; }
 .song-editor { display: flex; flex-direction: column; gap: 10px; }
+.song-templates { display: flex; flex-direction: column; gap: 6px; }
+.song-templates h3, .song-editor-heading { margin: 0; color: var(--cyan); font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; }
+.song-editor-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.song-editor-heading span { color: var(--text-dim); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.song-template-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
+.song-template { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .04); color: var(--text); text-align: left; }
+.song-template:hover { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / .1); }
+.song-template strong { color: var(--cyan); font-size: var(--fs-xs); }
+.song-template span { font-size: var(--fs-xs); line-height: 1.45; }
+.song-template small { color: var(--text-dim); font-size: var(--fs-xs); line-height: 1.4; }
+.song-preview-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.song-preview-bar span { color: var(--text-dim); font-size: var(--fs-xs); }
 .song-mode { display: flex; gap: 4px; }
 .song-hint { margin: 0; color: var(--text-dim); font-size: var(--fs-xs); }
 .song-pattern-tools, .song-footer { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
@@ -2326,6 +2338,7 @@ body.style-drawer-open .app-shell {
 .song-section select { flex: 1 1 110px; }
 .song-repeats { display: flex; align-items: center; gap: 3px; color: var(--text-dim); }
 .song-repeats input { width: 54px; }
+.song-section-summary { width: 100%; padding-left: 26px; color: var(--text-dim); font-size: var(--fs-xs); text-transform: capitalize; }
 .song-section-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; padding-left: 26px; }
 .song-footer { justify-content: space-between; }
 .song-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }

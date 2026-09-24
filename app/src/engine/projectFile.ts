@@ -255,6 +255,9 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
     loopMode: meta.loopMode,
     playMode: meta.playMode === 'song' ? 'song' : 'pattern',
     currentSongSectionId: null,
+    auditionSectionId: null,
+    auditionScope: 'section',
+    playbackRunId: 0,
     metronomeEnabled: meta.metronomeEnabled,
     padLoopModeEnabled: meta.padLoopModeEnabled ?? false,
     // Older saved projects/autosave records predate these — default them in.

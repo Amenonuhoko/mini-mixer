@@ -106,6 +106,8 @@ describe('stateFromMeta', () => {
     expect(loaded.transport.playMode).toBe('song')
     expect(loaded.transport.isPlaying).toBe(false)
     expect(loaded.transport.currentSongSectionId).toBeNull()
+    expect(loaded.transport.auditionSectionId).toBeNull()
+    expect(loaded.transport.playbackRunId).toBe(0)
 
     delete meta.songSections
     delete meta.transport.playMode

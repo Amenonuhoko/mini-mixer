@@ -4,6 +4,38 @@ import { reducer } from '../state/reducer'
 import { buildSongTimeline, songStepAt } from './songTimeline'
 
 describe('song arrangement', () => {
+  it('makes a verse/chorus starter with a distinct editable chorus and linked repeats', () => {
+    let state = createInitialState()
+    const verseId = state.activePatternId
+    state = reducer(state, {
+      type: 'APPLY_SONG_TEMPLATE',
+      sections: ['Verse', 'Chorus', 'Verse', 'Chorus'],
+    })
+    const chorusId = state.songSections[1]!.patternId
+    expect(state.patterns.find((pattern) => pattern.id === verseId)?.name).toBe('Verse')
+    expect(state.patterns.find((pattern) => pattern.id === chorusId)?.name).toBe('Chorus')
+    expect(chorusId).not.toBe(verseId)
+    expect(state.songSections.map((section) => section.patternId)).toEqual([
+      verseId,
+      chorusId,
+      verseId,
+      chorusId,
+    ])
+    expect(state.transport.playMode).toBe('song')
+
+    state = reducer(state, {
+      type: 'AUDITION_SONG_SECTION',
+      sectionId: state.songSections[1]!.id,
+      scope: 'rest',
+    })
+    expect(state.transport.auditionSectionId).toBe(state.songSections[1]!.id)
+    expect(state.transport.auditionScope).toBe('rest')
+    expect(state.transport.isPlaying).toBe(true)
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Intro', 'Verse', 'Chorus'] })
+    expect(state.transport.auditionSectionId).toBeNull()
+    expect(state.transport.isPlaying).toBe(false)
+  })
+
   it('resolves sections, repeats, and patterns with different lengths', () => {
     let state = createInitialState()
     const verseId = state.activePatternId

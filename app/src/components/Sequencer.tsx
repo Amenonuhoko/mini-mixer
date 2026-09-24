@@ -61,6 +61,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [loadPickerOpen, setLoadPickerOpen] = useState(false)
   const [stylesOpen, setStylesOpen] = useState(false)
   const [stripOpen, setStripOpen] = useState<Record<string, boolean>>({})
+  const [songArrangeOpen, setSongArrangeOpen] = useState(state.transport.playMode === 'song')
   const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
   const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
 
@@ -121,7 +122,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   return (
     // The Styles dock sits in the same column as the sequencer it feeds.
     <div className="sequencer-column">
-    <SongArranger onBounced={onBounced} />
+    <SongArranger onBounced={onBounced} arrangerOpen={songArrangeOpen} setArrangerOpen={setSongArrangeOpen} />
     <section
       className={pattern.stepCount <= 16 ? 'module sequencer sequencer-fits-desktop' : 'module sequencer'}
       aria-label="Sequencer"
@@ -129,6 +130,10 @@ export function Sequencer({ onBounced }: SequencerProps) {
       <header className="module-head">
         <h2 className="module-title">Seq</h2>
         <span className="module-sub">{pattern.name}</span>
+        {!songArrangeOpen && state.songSections.length > 0 && <button type="button" className="chip-btn" onClick={() => {
+          setSongArrangeOpen(true)
+          requestAnimationFrame(() => document.querySelector('.song-arranger')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+        }}>↑ Song</button>}
         <Stepper
           label="Steps"
           value={pattern.stepCount}
