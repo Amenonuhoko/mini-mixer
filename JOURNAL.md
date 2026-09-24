@@ -2100,3 +2100,48 @@ The same probe on the production build, before and after:
   - an engine-paths check (gate release, dials, loop on/off, mixer fader, panic, notes after panic);
   - a real v1 autosave written by the old build (103 samples) loading in the new build and migrating to v2.
 - Everything passed with no page errors.
+
+## 2026-09-26 — Crackling and popping on phones: measured, then fixed at the cause
+
+Request: "I'm getting a lot of cracking and popping on mobile can you do a bulletproof fix for this it's been a problem for a while".
+
+**Measuring it first.** Crackles on a phone are the audio render thread missing deadlines (underruns), plus a few genuine discontinuities in the signal. Two measurements, both in headless Chromium on a production build with a phone viewport:
+
+- *Dropouts:* `AudioContext.playoutStats.fallbackFramesEvents` (behind `--enable-blink-features=AudioContextPlayoutStats`) counts underruns. A throwaway AudioWorklet burns a set share of each 128-frame render quantum; the headroom is the most it can burn before underruns start. It's noisy on a shared server, so medians of five runs.
+- *Cost:* the audio render thread's CPU time, read from `/proc/<pid>/task/<tid>/stat`, while a Drum & Bass beat plays (plus, for "heavy", a Wide Hall reverb on the whole drum bank and four looping pads). Switching single node types off one at a time showed where the time goes.
+
+**What it showed.**
+
+- The output buffer dominated: with the default `interactive` hint (~10 ms) even a blank page had under half a quantum of headroom. A 20–30 ms hint barely helped; 40 ms nearly doubled it (median 45% → 85%).
+- The reverb convolvers were about half of the heavy case (a decay between two rooms runs both, each convolving two channels).
+- The per-pad filter, echo delay and panner added up to roughly a third of the plain beat. 4× oversampling on the master ceiling and the per-pad meters were small.
+
+**Fixes.** All are in `project.md` → "Phone audio":
+
+- a device `AudioProfile` (40 ms buffer, 32 voices and a longer lookahead on phones);
+- light, mono-convolution reverb rooms on phones;
+- 2× master oversampling;
+- the filter wired in only while it's used;
+- a fade on every one-shot's natural end;
+- seamless loop cycles, with live trim handing over at the loop boundary, and a Stop that reaches a pending handover;
+- one AudioContext for the mic meter;
+- the iOS audio session set to playback, and play-and-record only while recording;
+- resuming the context after interruptions.
+
+**Results.**
+
+| Measurement | Before | After |
+|---|---|---|
+| Dropout headroom (median of 5) | 45% | 85% |
+| Audio-thread CPU, beat | 12% | 7% |
+| Audio-thread CPU, heavy | 25–29% | 17% |
+
+The heavy case plays 8 s with 0 dropouts. New checks:
+
+- `loopSeam.test.ts` (4 tests);
+- a phone audio run covering the 40 ms buffer, no dropouts, four loops, a trim drag on a loop, panic ending every loop, and recording on the one context (fake mic).
+
+The UI, sequencer, styles, tempo, bounce and engine-path suites all pass. The bounce and engine-path suites were updated for the new button locations.
+
+Trade-off, stated plainly: about 30 ms more delay between tapping a pad and hearing it, on phones only. Desktop keeps the smallest buffer.
+

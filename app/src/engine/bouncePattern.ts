@@ -135,7 +135,7 @@ async function renderHits(hits: ScheduledHit[], sequenceSeconds: number): Promis
     const duration = Math.max(0.01, window.duration)
     shapeEnvelope(env.gain, offsetSeconds, hit.level ?? 1, {
       fadeIn: window.offset > 0.001,
-      end: pad.trimEnd < 1 ? offsetSeconds + duration / (rate * Math.pow(2, detune / 1200)) : null,
+      end: offsetSeconds + duration / (rate * Math.pow(2, detune / 1200)),
     })
     source.start(offsetSeconds, window.offset, duration)
   })

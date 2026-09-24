@@ -1,3 +1,4 @@
+import { AUDIO_PROFILE } from '../engine/audioProfile'
 import { useEffect, useRef } from 'react'
 import { AudioEngine } from '../engine/AudioEngine'
 import { Scheduler } from '../engine/Scheduler'
@@ -77,7 +78,8 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
       },
-      { bpm: state.transport.bpm },
+      // A phone schedules further ahead, so a main-thread stall doesn't drop hits (see AudioProfile).
+      { bpm: state.transport.bpm, scheduleAheadSeconds: AUDIO_PROFILE.scheduleAheadSeconds },
     )
     schedulerRef.current = scheduler
     return () => scheduler.stop()

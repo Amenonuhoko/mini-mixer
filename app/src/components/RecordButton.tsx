@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { formatElapsed, useElapsedSeconds } from '../hooks/useElapsedSeconds'
 import { useRecorder } from '../hooks/useRecorder'
 import { useAppState } from '../state/AppStateContext'
@@ -28,7 +28,8 @@ interface RecordButtonProps {
 export function RecordButton({ sampleCount, onRecorded }: RecordButtonProps) {
   const { state } = useAppState()
   const engine = useEngine()
-  const { isRecording, error, analyserRef, start, stop } = useRecorder()
+  const getContext = useCallback(() => engine.getContext(), [engine])
+  const { isRecording, error, analyserRef, start, stop } = useRecorder(getContext)
   const [capturingPlaythrough, setCapturingPlaythrough] = useState(false)
   const elapsed = useElapsedSeconds(isRecording || capturingPlaythrough)
   const holdingRef = useRef(false)
