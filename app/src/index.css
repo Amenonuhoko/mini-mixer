@@ -2018,17 +2018,17 @@ button.list-item:hover .list-wave {
   text-overflow: ellipsis;
 }
 
-/* Loop presets. */
-.loopers-grid {
+/* Beat sheet: style cards with a tiny drum preview, and per-layer takes. */
+.style-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 6px;
 }
 
-.loop-preset-card {
+.style-card {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
   padding: var(--s2);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -2039,20 +2039,33 @@ button.list-item:hover .list-wave {
     transform var(--fast);
 }
 
-.loop-preset-card:hover:not(:disabled) {
+.style-card:hover:not(:disabled) {
   border-color: var(--cyan);
   box-shadow: var(--glow-cyan);
 }
 
-.loop-preset-card:active:not(:disabled) {
+.style-card:active:not(:disabled) {
   transform: scale(0.97);
 }
 
-.loop-preset-card:disabled {
+.style-card:disabled {
   opacity: 0.4;
 }
 
-.loop-preset-name {
+.style-card.on {
+  border-color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.08);
+  box-shadow: inset 0 0 0 1px var(--cyan-dim), var(--glow-cyan);
+}
+
+.style-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.style-card-name {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   letter-spacing: 0.08em;
@@ -2060,27 +2073,96 @@ button.list-item:hover .list-wave {
   color: var(--text);
 }
 
-.loop-preset-preview {
+.style-card-bpm {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.style-card-blurb {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+
+.style-preview {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-top: 2px;
 }
 
-.loop-preview-row {
+.style-preview-row {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
   gap: 1px;
 }
 
-.loop-preview-cell {
-  height: 4px;
+.style-preview-cell {
+  height: 3px;
   border-radius: 1px;
   background: rgb(var(--cyan-rgb) / 0.1);
 }
 
-.loop-preview-cell.on {
+.style-preview-cell.often {
+  background: rgb(var(--cyan-rgb) / 0.45);
+}
+
+.style-preview-cell.on {
   background: var(--cyan);
-  box-shadow: 0 0 4px rgb(var(--cyan-rgb) / 0.7);
+  box-shadow: 0 0 4px rgb(var(--cyan-rgb) / 0.5);
+}
+
+.beat-start {
+  width: 100%;
+  margin-top: var(--s3);
+}
+
+.layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 6px 6px 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.layer-row-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.layer-row-status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The sequencer's blank-canvas prompt. */
+.sequencer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: 10px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+}
+
+.sequencer-empty-text {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
 }
 
 /* --------------------------------------------------------------------------

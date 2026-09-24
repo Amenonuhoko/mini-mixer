@@ -10,8 +10,8 @@ import { computePeaks } from '../utils/waveform'
 import type { AudioEngine } from '../engine/AudioEngine'
 import type { Bank, Pad, Sample, SequenceTrace, Transport } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { CloseIcon, EyeIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon } from './icons'
-import { LoopPresetMenuButton } from './LoopPresetMenuButton'
+import { CloseIcon, EyeIcon, OpenIcon, PlusIcon, SaveIcon, SparkIcon, TrashIcon } from './icons'
+import { BeatSheet } from './BeatSheet'
 import { PadLibraryPicker } from './PadLibraryPicker'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
@@ -56,6 +56,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [previewOnClick, setPreviewOnClick] = useState(true)
   const [removingPadId, setRemovingPadId] = useState<string | null>(null)
   const [loadPickerOpen, setLoadPickerOpen] = useState(false)
+  const [beatSheetOpen, setBeatSheetOpen] = useState(false)
   const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
   const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
 
@@ -126,7 +127,15 @@ export function Sequencer({ onBounced }: SequencerProps) {
           incrementTitle="Add four steps"
         />
         <div className="module-head-tools">
-          <LoopPresetMenuButton />
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => setBeatSheetOpen(true)}
+            aria-label="Beat styles"
+            title="Start a beat from a style, or add a layer"
+          >
+            <SparkIcon />
+          </button>
         </div>
       </header>
 
@@ -206,6 +215,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
           </button>
         </div>
       </div>
+
+      {!patternHasSteps && (
+        <div className="sequencer-empty">
+          <span className="sequencer-empty-text">Blank canvas? Start from a style.</span>
+          <button type="button" className="chip-btn on" onClick={() => setBeatSheetOpen(true)}>
+            <SparkIcon size={14} />
+            Styles
+          </button>
+        </div>
+      )}
 
       <div className="sequencer-scroll" onWheel={handleTimelineWheel}>
         <div className="sequencer-grid">
@@ -305,6 +324,13 @@ export function Sequencer({ onBounced }: SequencerProps) {
       )}
       {swappingPadId && <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />}
       {loadPickerOpen && <SequenceLoadPicker onClose={() => setLoadPickerOpen(false)} />}
+      {beatSheetOpen && (
+        <BeatSheet
+          onClose={() => setBeatSheetOpen(false)}
+          // A fresh beat reads best folded to the rows it uses (a kit has up to 32).
+          onStarted={() => setExpandedOverride(Object.fromEntries(state.banks.map((bank) => [bank.id, false])))}
+        />
+      )}
       {removingPad && (
         <ConfirmDialog
           message={`Remove pad ${removingPadIndex + 1} from the sequencer? Its programmed steps go with it — its sample stays in the library, and every other row is unaffected.`}

@@ -4,14 +4,6 @@ import type { AppState, Bank, BankBuild, BankSound, PadMusic, Sample } from '../
 import { buildDrumKitKeys, DRUM_KITS } from './drumSynth'
 import { INSTRUMENT_PRESETS, mixBuffers, renderPresetNotes, renderRecordingNotes } from './synth'
 
-/** The sound a melodic bank gets when something needs it to play before the user has picked one. */
-export const DEFAULT_BANK_SOUNDS: Record<Bank['kind'], BankSound> = {
-  drums: { type: 'kit', kitId: 'acoustic-drums' },
-  bass: { type: 'preset', name: 'Bass' },
-  chords: { type: 'preset', name: 'Piano' },
-  melody: { type: 'preset', name: 'Pluck' },
-}
-
 export function soundName(sound: BankSound, samples: AppState['samples']): string {
   switch (sound.type) {
     case 'preset':

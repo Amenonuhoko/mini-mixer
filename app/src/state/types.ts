@@ -220,6 +220,16 @@ export interface PerformSettings {
   strumSpeed: StrumSpeed
 }
 
+/**
+ * The style a beat was written in (see src/styles): its seed fixes the
+ * progression every layer shares; each bank's take counts its rerolls.
+ */
+export interface Groove {
+  styleId: string
+  seed: number
+  takes: Partial<Record<BankKind, number>>
+}
+
 export interface AppState {
   /** The sample library ("arsenal") — first-class, independent of pad assignment. */
   samples: Record<string, Sample>
@@ -247,6 +257,8 @@ export interface AppState {
   fxBySound: Record<string, CharacterPreset>
   /** Note repeat / arpeggiator / strum — how held pads perform. */
   perform: PerformSettings
+  /** The style and seed of the beat being built, or null before one was generated. */
+  groove: Groove | null
   patterns: Pattern[]
   activePatternId: string
   transport: Transport

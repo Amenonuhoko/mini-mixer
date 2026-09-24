@@ -13,6 +13,7 @@ import type {
   PadLabelSettings,
   PadLayout,
   PerformSettings,
+  Groove,
   PadPlaybackMode,
   Pad,
   Pattern,
@@ -121,6 +122,7 @@ export interface ProjectMeta {
   padLayout?: PadLayout
   padLabels?: PadLabelSettings
   perform?: PerformSettings
+  groove?: Groove | null
   fxBySound?: Record<string, CharacterPreset>
   /** Legacy (pre-bank) projects only: how many of `pads` were showing. */
   visiblePadCount?: number
@@ -151,6 +153,7 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
     padLayout: state.padLayout,
     padLabels: state.padLabels,
     perform: state.perform,
+    groove: state.groove,
     fxBySound: state.fxBySound,
     patterns: state.patterns,
     activePatternId: state.activePatternId,
@@ -273,6 +276,7 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
     padLayout: meta.padLayout ?? 'guided',
     padLabels: meta.padLabels ?? DEFAULT_PAD_LABELS,
     perform: { ...DEFAULT_PERFORM, ...meta.perform },
+    groove: meta.groove ?? null,
     fxBySound: meta.fxBySound ?? {},
     patterns: normalizePatterns(meta.patterns, pads),
     activePatternId: meta.activePatternId,

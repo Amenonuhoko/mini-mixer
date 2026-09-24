@@ -28,6 +28,7 @@ import type {
   Pad,
   PadLabelSettings,
   PerformSettings,
+  Groove,
   PadLayout,
   PadPlaybackMode,
   Pattern,
@@ -60,6 +61,9 @@ export type Action =
     }
   | { type: 'SET_PAD_LABELS'; labels: PadLabelSettings }
   | { type: 'SET_PERFORM'; perform: Partial<PerformSettings> }
+  | { type: 'SET_GROOVE'; groove: Groove | null }
+  /** Empties a pattern and sets its exact length — the clean slate a starter beat is written onto. */
+  | { type: 'START_PATTERN'; patternId: string; stepCount: number }
   /** Replaces one bank's rows in a pattern (the other banks' rows are untouched) — how a preset adds a layer. */
   | { type: 'WRITE_BANK_PATTERN'; bankId: string; patternId: string; stepsByPadIndex: Record<number, number[]>; minStepCount: number }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
@@ -428,6 +432,20 @@ export function reducer(state: AppState, action: Action): AppState {
         next = { ...next, patterns: next.patterns.map((pattern) => remapPatternSteps(pattern, sampleMap, rowMoves)) }
       }
       return removeUnusedNoteSamples(next)
+    }
+
+    case 'SET_GROOVE':
+      return { ...state, groove: action.groove }
+
+    case 'START_PATTERN': {
+      const stepCount = Math.min(MAX_STEP_COUNT, Math.max(MIN_STEP_COUNT, action.stepCount))
+      return updatePattern(state, action.patternId, (pattern) => ({
+        ...pattern,
+        stepCount,
+        steps: Object.fromEntries(Object.keys(pattern.steps).map((padId) => [padId, new Array<string | null>(stepCount).fill(null)])),
+        traceSteps: null,
+        traceSource: null,
+      }))
     }
 
     case 'SET_PERFORM':

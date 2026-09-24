@@ -234,6 +234,16 @@ export const SparkIcon = (p: IconProps) => (
   </Svg>
 )
 
+export const DiceIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="4" y="4" width="16" height="16" rx="3" />
+    <circle cx="9" cy="9" r="0.9" fill="currentColor" />
+    <circle cx="15" cy="15" r="0.9" fill="currentColor" />
+    <circle cx="15" cy="9" r="0.9" fill="currentColor" />
+    <circle cx="9" cy="15" r="0.9" fill="currentColor" />
+  </Svg>
+)
+
 export const RecordDotIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="6" fill="currentColor" stroke="none" />

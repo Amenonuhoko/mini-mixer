@@ -92,6 +92,7 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
     padLayout: 'guided',
     padLabels: DEFAULT_PAD_LABELS,
     perform: DEFAULT_PERFORM,
+    groove: null,
     fxBySound: {},
     patterns: [pattern],
     activePatternId: pattern.id,

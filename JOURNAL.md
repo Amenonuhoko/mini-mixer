@@ -1897,3 +1897,69 @@ The change is CSS-only, made mostly through the design tokens, so every screen f
 ### Outcome
 - Screenshots at 390×844 and 1280×800 show the calmer panels, the soft edge lights, and the selected pad without brackets.
 - `vite build` is clean; no logic changed.
+
+---
+
+## 2026-09-24 — Phase 2: the style pipeline — starter beats and one-layer-at-a-time
+
+### Context
+Phase 2 of the blank-canvas plan: the user asked for a way to "inspire structure or coherence", specifically starter beats plus stackable layers. They also asked for a genre pipeline that is "as expansive as possible". The Phase 1 loop presets (fixed one-bar phrases) were always meant to fold into this.
+
+### Decision(s)
+- **A style is declarative data** (`StyleDef` in `src/styles/types.ts`), and the library in `src/styles/library.ts` holds 12 of them. Each style defines:
+  - tempo range, suitable moods, bar count, swing (stored now, applied in Phase 3), and a sound per bank;
+  - progressions as scale degrees, so every style works in every key and mood;
+  - drum lines per role, plus fills;
+  - bass rhythm and note odds, including an approach-note chance;
+  - chord rhythms;
+  - melody rhythms, leap chance and register.
+
+  Adding a genre is a data edit.
+- **Rhythm notation** is one bar of 16ths: `x` always, `o` often, `-` sometimes, `.` never. A line is rolled once and repeated. The last bar gets the fill, or a fresh roll if there's no fill.
+- **The generator** (`src/styles/generator.ts`) is pure and seeded (mulberry32; `mixSeed` gives each layer and take its own stream). It writes onto the bank's actual pads:
+  - Drum roles resolve through the loaded kit's voice names, then voice kinds.
+  - Bass puts the root on each bar's downbeat, then chooses root, fifth or octave by the style's odds, with approach notes into the next chord.
+  - Chords match pads by pitch-class set, falling back to the root. Every chord change is guaranteed a hit.
+  - Melody is a one-bar motif; strong beats snap to chord tones, and the last bar answers a step up.
+  - All layers share the beat's progression.
+- **State**:
+  - `AppState.groove` (`styleId`, `seed`, `takes` per bank) is saved with the project.
+  - `START_PATTERN` empties the pattern and sets its exact length.
+  - Layers go in through the existing `WRITE_BANK_PATTERN`.
+- **`useGroove`**:
+  - `startBeat`: builds all four banks' style sounds, sets BPM, keeps the current mood if the style suits it (otherwise uses the style's first mood), resets the pattern, and writes all four layers.
+  - `addLayer`: first add or new take. It builds a sound only if the bank has none suitable, and tiles the layer across a longer pattern.
+- **UI**:
+  - A `BeatSheet` replaces the loop-preset menu. It has style cards with a kick/backbeat/hat preview, a "Start a … beat" button, and per-bank "Add" / "New take" rows.
+  - An empty pattern shows "Blank canvas? Start from a style."
+  - After a starter beat, the sequencer folds each bank to its used rows.
+  - `LoopPresetMenuButton`, `engine/loopPresets.ts` (and its test), and `DEFAULT_BANK_SOUNDS` are removed.
+
+### Alternatives considered
+- **Keeping fixed loop presets as a "style" of their own.** The notation can express them exactly, since all-`x` lines are fixed patterns. They were one-bar and genre-less, though; the styles replace them outright.
+- **Genre-specific generator code.** Rejected in favour of one generic generator driven by data. Genre knowledge lives in patterns and odds, which are easy to add to and review.
+- **Choosing the mood strictly from the style.** Rejected because it would override a mood the user already picked. The style's mood is used only when the current one doesn't suit it.
+- **Leaving the drums bank expanded after a starter beat.** Rejected: a 32-voice kit buried the new beat under empty rows.
+
+### Reasoning
+- Seeded generation makes every beat reproducible (the saved `groove` can regenerate a layer exactly) and makes rerolls cheap.
+- Writing onto the pads that actually exist means the result is ordinary steps: editable, remappable on key or layout changes, playable by the performer, and bounceable. No special "generated" mode exists anywhere else in the app.
+
+### Outcome
+- `tsc -b` is clean, and `oxlint` shows only the three pre-existing warnings.
+- `vitest`: 134/134. The new tests check:
+  - every line in every style is well-formed;
+  - generation is deterministic, and a new take changes the result;
+  - roles resolve on every kit;
+  - the backbeat lands on 2 and 4;
+  - for every style, the bass roots each bar on its chord and every chord of the progression sounds;
+  - a pentatonic key works.
+- A Playwright pass (390×844) covered:
+  - an empty pattern shows the prompt;
+  - the Lo-fi starter built in about 5 s: 64 steps, 72–75 BPM, the Chill mood (D dorian), all four banks with steps;
+  - a Bass "New take" became take 2 and changed the pattern;
+  - playback triggered sources.
+
+### Open questions / carried forward
+- **Phase 3** (feel): apply each style's `swing`, plus humanize. The performer's grid snap should follow the same swing.
+- Per-style drum velocity or accents would need sample gain per step, which the step model doesn't carry yet.
