@@ -8,8 +8,8 @@ import { MAX_PAD_COUNT, MIN_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '..
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { computePeaks } from '../utils/waveform'
-import type { AudioEngine } from '../engine/AudioEngine'
-import type { Bank, Pad, Sample, SequenceTrace, Transport } from '../state/types'
+import type { AudioEngine, Voice } from '../engine/AudioEngine'
+import type { Bank, Pad, Sample, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CloseIcon, EyeIcon, OpenIcon, PlusIcon, SaveIcon, SparkIcon, TrashIcon } from './icons'
 import { LayerStrip } from './LayerStrip'
@@ -297,7 +297,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
                   steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
                   traceSteps={pattern.traceSteps?.[pad.id] ?? []}
                   sampleLabels={sampleLabels}
-                  transport={state.transport}
                   engine={engine}
                   sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
                   gateMode={sequencerGateMode}
@@ -378,7 +377,6 @@ interface SequencerRowProps {
   steps: Array<string | null>
   traceSteps: Array<string | null>
   sampleLabels: Record<string, string>
-  transport: Transport
   engine: AudioEngine
   sample: Sample | undefined
   gateMode: boolean
@@ -397,7 +395,6 @@ function SequencerRow({
   steps,
   traceSteps,
   sampleLabels,
-  transport,
   engine,
   sample,
   gateMode,
@@ -412,7 +409,7 @@ function SequencerRow({
   const looping = usePadLooping(engine, pad.id)
   const label = pad.music ? padLabel(pad.music, state.key, state.padLabels) : null
   const rowName = label ? `${BANK_NAMES[bank.kind]} ${label.name}` : `Pad ${padIndex + 1}`
-  const gateSources = useRef(new Map<number, AudioBufferSourceNode>())
+  const gateSources = useRef(new Map<number, Voice>())
   const rowRef = useRef<HTMLDivElement>(null)
   // A drag across several cells ("slide an instrument across multiple
   // beats") vs. a plain tap on one — tracked per-gesture so a real drag can
@@ -506,6 +503,7 @@ function SequencerRow({
           aria-label={label ? `${rowName} — play` : `Pad ${padIndex + 1}${sample ? `: ${sample.label}` : ', empty'} — swap sound`}
           title={label ? `${label.name} — tap to hear it` : sample ? `${sample.label} — tap to swap` : 'Empty — tap to load a sound'}
         >
+          <span className="row-glow" aria-hidden="true" />
           <span className="readout">{label ? label.name : String(padIndex + 1).padStart(2, '0')}</span>
           {looping && <span className="row-loop-badge" aria-hidden="true" />}
         </button>
@@ -528,7 +526,6 @@ function SequencerRow({
                   'step',
                   on ? 'on' : '',
                   traced ? 'trace' : '',
-                  stepIndex === transport.currentStep && transport.isPlaying ? 'current' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}

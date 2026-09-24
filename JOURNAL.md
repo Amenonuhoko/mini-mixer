@@ -2023,3 +2023,80 @@ Direction chosen with the user through questions:
 - Desktop (1280×800) and landscape (844×390) passes: inline dock versus drawer, two-style mix, no page errors.
 - The desktop run caught the dock landing in the wrong split-view column; this was fixed by giving the sequencer its own column.
 - Phase 1 and 1.5 regressions re-run clean: strum, arp timing, latch, step record, autosave round trip.
+
+---
+
+## 2026-09-25 — "The sounds are glitching": a measured, whole-pipeline audio fix
+
+### Context
+The user reported that sounds were "kinda glitching out" and asked for a comprehensive fix, then a ship to production. The report was vague, so the approach was to **measure before changing anything**.
+
+The test was a Playwright probe on the production build. It played a dense generated Funk beat, with every layer at full intensity, for 8 s at 4× CPU throttle to approximate a mid-range phone. It recorded:
+- late note starts;
+- reverb convolvers created;
+- main-thread long tasks;
+- style and script time;
+- the actual output level, via an analyser tapped onto everything reaching the speakers.
+
+### What was wrong (measured)
+1. **A whole effect chain per note.** Every note — each hi-hat, arp note and chord hit — built its own filter, waveshaper, echo loop, convolver, and **a freshly generated reverb impulse**. That impulse was about 96k random samples on the main thread, even with reverb at zero. The convolvers then ran on the audio thread for as long as each note rang, and the chains were never disconnected.
+   - Result: about 100 of 110 notes started late, the worst by 0.7–3.5 s; one convolver per note; the main thread 100% busy.
+2. **Clipping.** Nothing sat between the summed layers and the output. The output peaked at **4.5× full scale**, with 5,009 clipped samples in 8 s: heavy digital distortion. Bounces peaked at 2.9×, so saved sequences were distorted too.
+3. **The light show restyled everything every frame.** It wrote the `--beat` custom property to every pad each frame (only looping pads use it), and all glow went through custom properties. That is about 3 s of style recalculation per 8 s.
+4. **The playhead re-rendered the whole app on every 16th note.** It lived in React state (`SET_CURRENT_STEP`), and it was also drawn about 100 ms early.
+5. **Autosave re-encoded the entire library to WAV on every edit.** On a starter beat that's about 150 samples, written as one multi-MB record. The result was a second-long freeze shortly after any change.
+6. **The scheduler burst after stalls.** Every missed step fired at once.
+7. **Hard stops clicked.** Gate releases were abrupt `stop()`s, and there were no fades at trim points.
+
+### Decision(s)
+- **`engine/channel.ts`**:
+  - A persistent `Channel` per pad holds filter, grit (a null curve when clean, cached curves otherwise), volume, echo loop, fader, pan, and post-fader sends.
+  - `ReverbRooms` provides three shared rooms, built lazily, with the dial's decay crossfaded between them.
+  - `shapeEnvelope` adds declick fades.
+  - `createMasterStage` is the master chain: 0.7 headroom → fast limiter → a soft-clip `WaveShaper` ceiling. Web Audio's compressor applies its own make-up gain, so it can't promise a ceiling on its own.
+- **`AudioEngine`**:
+  - A note is a source plus an envelope into its pad's channel.
+  - Notes return a `Voice` whose `stop()` fades over 15 ms.
+  - Voice limits: 6 per pad and 48 in all, stealing the oldest note with a fade.
+  - Live dial updates go to the channel, so they're heard on everything the pad plays. Pitch and speed go to the loop's source.
+  - Panic fades and discards the channels and rooms, which also stops their echo and reverb tails.
+- **Bounce** renders through the same channels, rooms and master stage.
+- **Scheduler** skips steps more than 100 ms late and rejoins the grid.
+- **Playhead** moves out of React: `AudioEngine.getPlayheadStep()` is read by the light show, which marks `data-playhead` on the column being heard.
+- **Light show** writes plain `opacity` onto dedicated glow layers:
+  - `.row-glow` replaces a pseudo-element.
+  - The background mesh and shaft are now real layers.
+  - Element lists are cached and refreshed through a MutationObserver.
+  - Step cells no longer use CSS transitions, since each transition also fired events through React.
+- **Autosave v2**:
+  - The meta record and a `samples` store keyed by id, holding raw PCM.
+  - Each sample is written once, in batches of 6 between frames, and deleted when unused. Saves are serialized.
+  - v1 records still load and migrate on the next save.
+
+### Alternatives considered
+- **Per-pad convolvers instead of shared rooms.** Rejected: up to 128 pads would mean up to 128 convolutions. Three rooms with a crossfaded send keep the dial's sweep.
+- **Relying on `DynamicsCompressorNode` alone.** It still measured a 1.24 peak and 631 clipped samples, because of make-up gain and fast transients. The soft-clip ceiling guarantees the limit.
+- **Skipping late steps at 50 ms.** That dropped notes on ordinary 75 ms hiccups. 100 ms only catches real stalls.
+- **Not persisting rendered notes** (re-rendering them on load instead). Rejected: steps reference exact sample ids, and re-rendering would need remapping. Storing raw PCM once is simpler and fast.
+
+### Outcome
+The same probe on the production build, before and after:
+
+| | Before | After |
+|---|---|---|
+| Notes played | ~110 | 167–183 |
+| Late notes | ~100 | 0–1 (≤ 9 ms) |
+| Convolvers | 1 per note | 0 (1 shared with Cavern reverb) |
+| Output peak / clipped | 4.5× / 5,009 | 0.85 / 0 |
+| Main-thread busy | ~100% | ~45% (script 0.9 s / 8 s) |
+
+- Bounce: 5.9 s → 0.33 s, peak 2.9 → 0.81.
+- Unit tests: 143/143, including scheduler stall-skipping and reverb room weights.
+- Regressions:
+  - the 30-check Styles scenario;
+  - perform features (strum 0/35/70 ms, arp 9 notes at 125 ms, latch, step record);
+  - autosave reload;
+  - a new bounce check;
+  - an engine-paths check (gate release, dials, loop on/off, mixer fader, panic, notes after panic);
+  - a real v1 autosave written by the old build (103 samples) loading in the new build and migrating to v2.
+- Everything passed with no page errors.

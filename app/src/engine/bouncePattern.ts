@@ -1,17 +1,6 @@
 import type { AppState, EffectId, EffectSetting, Pad, Sample } from '../state/types'
-import {
-  buildGritCurve,
-  buildReverbImpulse,
-  dialToDetuneCents,
-  dialToEchoParams,
-  dialToFilterParams,
-  dialToGain,
-  dialToGritParams,
-  dialToPan,
-  dialToPlaybackRate,
-  dialToReverbParams,
-  mixLevelToGain,
-} from './dialMapping'
+import { Channel, createMasterStage, ReverbRooms, shapeEnvelope } from './channel'
+import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 import { playablePads } from '../state/banks'
 
@@ -70,64 +59,46 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
 
   const ctx = new OfflineAudioContext(2, Math.ceil(totalSeconds * sampleRate), sampleRate)
 
+  // The same signal path as live playback (engine/channel.ts): one channel
+  // strip per pad, three shared reverb rooms, the master stage — so a
+  // bounce sounds exactly like the pattern did, and rendering it doesn't
+  // build a reverb per hit.
+  const master = createMasterStage(ctx)
+  master.output.connect(ctx.destination)
+  const limiter = master.input
+  const rooms = new ReverbRooms(ctx, limiter)
+  const channels = new Map<string, Channel>()
+
   hits.forEach((hit, i) => {
     const { pad, sample, offsetSeconds } = hit
     const window = windows[i]!
     const effects = pad.effectsBypassed ? [] : pad.effects
 
+    let channel = channels.get(pad.id)
+    if (!channel) {
+      channel = new Channel(ctx, limiter, rooms)
+      channel.applyEffects(effects, false)
+      channel.setMixLevel(pad.mixLevel, false)
+      channels.set(pad.id, channel)
+    }
+
     const source = ctx.createBufferSource()
     source.buffer = sample.buffer
-    source.playbackRate.value = dialToPlaybackRate(effectValue(effects, 'speed'))
-    source.detune.value = dialToDetuneCents(effectValue(effects, 'pitch'))
+    const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
+    const detune = dialToDetuneCents(effectValue(effects, 'pitch'))
+    source.playbackRate.value = rate
+    source.detune.value = detune
 
-    const filter = ctx.createBiquadFilter()
-    const filterParams = dialToFilterParams(effectValue(effects, 'filter'))
-    filter.type = filterParams.type
-    filter.frequency.value = filterParams.frequencyHz
-
-    const shaper = ctx.createWaveShaper()
-    shaper.curve = buildGritCurve(dialToGritParams(effectValue(effects, 'grit')))
-    shaper.oversample = '2x'
-
-    const gain = ctx.createGain()
-    gain.gain.value = dialToGain(effectValue(effects, 'volume'))
-
-    const delay = ctx.createDelay(1)
-    const feedback = ctx.createGain()
-    const wet = ctx.createGain()
-    const echoParams = dialToEchoParams(effectValue(effects, 'echo'))
-    delay.delayTime.value = echoParams.delaySeconds
-    feedback.gain.value = echoParams.feedback
-    wet.gain.value = echoParams.wetMix
-
-    const convolver = ctx.createConvolver()
-    const reverbWet = ctx.createGain()
-    const reverbParams = dialToReverbParams(effectValue(effects, 'reverb'))
-    convolver.buffer = buildReverbImpulse(ctx, reverbParams.decaySeconds)
-    reverbWet.gain.value = reverbParams.wetMix
-
-    const mixGain = ctx.createGain()
-    mixGain.gain.value = mixLevelToGain(pad.mixLevel)
-
-    const panner = ctx.createStereoPanner()
-    panner.pan.value = dialToPan(effectValue(effects, 'pan'))
-
-    source.connect(filter)
-    filter.connect(shaper)
-    shaper.connect(gain)
-    gain.connect(mixGain)
-    gain.connect(delay)
-    delay.connect(feedback)
-    feedback.connect(delay)
-    delay.connect(wet)
-    wet.connect(mixGain)
-    gain.connect(convolver)
-    convolver.connect(reverbWet)
-    reverbWet.connect(mixGain)
-    mixGain.connect(panner)
-    panner.connect(ctx.destination)
-
-    source.start(offsetSeconds, window.offset, Math.max(0.01, window.duration))
+    const env = ctx.createGain()
+    env.gain.value = 0
+    source.connect(env)
+    env.connect(channel.input)
+    const duration = Math.max(0.01, window.duration)
+    shapeEnvelope(env.gain, offsetSeconds, 1, {
+      fadeIn: window.offset > 0.001,
+      end: pad.trimEnd < 1 ? offsetSeconds + duration / (rate * Math.pow(2, detune / 1200)) : null,
+    })
+    source.start(offsetSeconds, window.offset, duration)
   })
 
   return ctx.startRendering()

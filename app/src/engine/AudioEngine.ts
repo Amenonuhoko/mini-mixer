@@ -1,18 +1,7 @@
-import { DEFAULT_BPM, EFFECT_IDS, STEP_COUNT } from '../state/constants'
+import { DEFAULT_BPM, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
-import {
-  buildGritCurve,
-  buildReverbImpulse,
-  dialToDetuneCents,
-  dialToEchoParams,
-  dialToFilterParams,
-  dialToGain,
-  dialToGritParams,
-  dialToPan,
-  dialToPlaybackRate,
-  dialToReverbParams,
-  mixLevelToGain,
-} from './dialMapping'
+import { Channel, createMasterStage, PARAM_RAMP_SECONDS, ReverbRooms, shapeEnvelope } from './channel'
+import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { Performer } from './performer'
 import { trimToPlaybackWindow } from './trim'
 
@@ -21,7 +10,7 @@ function effectValue(effects: EffectSetting[], id: EffectId): number {
 }
 
 /**
- * The effects list playBuffer should actually read for this pad — an empty
+ * The effects list a pad's notes should actually use — an empty
  * array when bypassed, since effectValue's lookup already falls back to 0
  * (neutral) for any id it can't find, giving a bypass for free with no
  * separate "neutral effects" construction needed. Preserves the pad's real
@@ -31,8 +20,12 @@ function effectiveEffects(pad: Pad): EffectSetting[] {
   return pad.effectsBypassed ? [] : pad.effects
 }
 
-/** A short param ramp time (seconds) so live dial changes don't click/zipper. */
-const PARAM_RAMP_SECONDS = 0.015
+/** How long a stolen or released note takes to fade out. */
+const RELEASE_SECONDS = 0.015
+/** Most notes one pad may ring at once; the oldest fades out to make room. */
+const MAX_VOICES_PER_PAD = 6
+/** Most notes the whole app may ring at once. */
+const MAX_VOICES = 48
 
 /** Samples per meter read — ~5ms at 48kHz, short enough to track a drum transient frame to frame. */
 const METER_FFT_SIZE = 256
@@ -52,19 +45,17 @@ function fract(value: number): number {
   return value - Math.floor(value)
 }
 
-interface PlayingNodes {
+/** A playing note that can be stopped early — cleanly, with a short fade rather than a click. */
+export interface Voice {
+  stop(): void
+}
+
+interface LiveVoice extends Voice {
+  padId: string
   source: AudioBufferSourceNode
-  filter: BiquadFilterNode
-  shaper: WaveShaperNode
-  gain: GainNode
-  delay: DelayNode
-  feedback: GainNode
-  wet: GainNode
-  convolver: ConvolverNode
-  reverbWet: GainNode
-  /** The Mixer Mode fader gain — separate from `gain` (the Volume effect dial), applied after the dry/echo/reverb mix so it scales the pad's whole output including both tails; the panner comes after this and spatializes that already-scaled signal on its way to the master bus. */
-  mixGain: GainNode
-  panner: StereoPannerNode
+  loop: boolean
+  /** Fades the note out, from `at` (default: now). */
+  release(fadeSeconds?: number, at?: number): void
 }
 
 /**
@@ -75,14 +66,21 @@ interface PlayingNodes {
 export class AudioEngine {
   private ctx: AudioContext | null = null
   /** Pads currently looping, keyed by pad id — present only while actively playing. */
-  private readonly loopingNodes = new Map<string, PlayingNodes>()
+  private readonly loopingVoices = new Map<string, LiveVoice>()
+  /** Every sounding (or scheduled) note, oldest first — for voice limits and panic. */
+  private voices: LiveVoice[] = []
+  /** Each pad's persistent channel strip (see engine/channel.ts), built on its first note. */
+  private readonly channels = new Map<string, Channel>()
+  private rooms: ReverbRooms | null = null
+  /** Headroom, limiter and soft ceiling between the mix and the output (see createMasterStage). */
+  private masterStage: { input: GainNode; output: WaveShaperNode } | null = null
   /**
    * How many instances of each pad are currently audible (looping sustain counts as
    * one; each one-shot/sequencer hit counts for its own duration). Unifies "is this
    * pad making sound right now" across both playback styles for the UI.
    */
   private readonly activeInstanceCounts = new Map<string, number>()
-  /** Every currently-playing source — looping and one-shot alike — so stopAllSounds() can reach all of them. */
+  /** Preview sources (library audition, recording review) — so stopAllSounds() can reach them too. */
   private readonly activeSources = new Set<AudioBufferSourceNode>()
   private readonly listeners = new Set<() => void>()
   /** Kept in sync from the reducer's transport.bpm — see setBpm(). Used for loop-sync quantization. */
@@ -188,8 +186,10 @@ export class AudioEngine {
     const ctx = this.getContext()
     if (!this.masterBus) {
       this.masterBus = ctx.createGain()
+      this.masterStage = createMasterStage(ctx)
       this.masterOutput = ctx.createGain()
-      this.masterBus.connect(this.masterOutput)
+      this.masterBus.connect(this.masterStage.input)
+      this.masterStage.output.connect(this.masterOutput)
       this.masterOutput.connect(ctx.destination)
       this.masterMeter = this.createMeter(ctx)
       this.masterBus.connect(this.masterMeter)
@@ -272,6 +272,18 @@ export class AudioEngine {
     return (((last.index + offset) % last.count) + last.count) % last.count
   }
 
+  /**
+   * The sequencer step being heard right now, or null when the sequencer
+   * isn't playing — what the playhead shows. Steps are reported when they're
+   * scheduled (up to ~100 ms ahead), so this counts back from the last one.
+   */
+  getPlayheadStep(): number | null {
+    const last = this.lastStep
+    if (!last || !this.ctx || !this.sequencerPlaybackEnabled) return null
+    const offset = Math.floor((this.ctx.currentTime - last.time) / (60 / this.bpm / 4) + 1e-6)
+    return (((last.index + offset) % last.count) + last.count) % last.count
+  }
+
   /** Called by the lookahead scheduler on every quarter-note step, with that beat's scheduled audio time. */
   markBeat(time: number): void {
     this.lastBeatTime = time
@@ -290,7 +302,7 @@ export class AudioEngine {
       if (this.lastBeatTime !== null && Math.abs(now - this.lastBeatTime) < beatSeconds * 2) {
         return { phase: fract((now - this.lastBeatTime) / beatSeconds), locked: true }
       }
-      if (this.loopingNodes.size > 0 && this.loopEpoch !== null) {
+      if (this.loopingVoices.size > 0 && this.loopEpoch !== null) {
         return { phase: fract((now - this.loopEpoch) / beatSeconds), locked: true }
       }
     }
@@ -333,7 +345,7 @@ export class AudioEngine {
   }
 
   isPadLooping(padId: string): boolean {
-    return this.loopingNodes.has(padId)
+    return this.loopingVoices.has(padId)
   }
 
   isPadPlaying(padId: string): boolean {
@@ -369,139 +381,128 @@ export class AudioEngine {
     }
   }
 
-  private playBuffer(
-    padId: string,
-    buffer: AudioBuffer,
-    effects: EffectSetting[],
-    trim: { trimStart: number; trimEnd: number },
-    options: { loop: boolean; startTime?: number; cents?: number; level?: number },
-    mixLevel: number,
-  ): PlayingNodes {
+  private channelFor(padId: string): Channel {
+    let channel = this.channels.get(padId)
+    if (!channel) {
+      const ctx = this.getContext()
+      const master = this.getMasterBus()
+      this.rooms ??= new ReverbRooms(ctx, master)
+      channel = new Channel(ctx, master, this.rooms, this.getPadMeter(padId))
+      this.channels.set(padId, channel)
+    }
+    return channel
+  }
+
+  /**
+   * Starts one note of a pad: a buffer source and a tiny envelope into the
+   * pad's channel strip — nothing else is built per note, which is what keeps
+   * dense beats, arpeggios and note repeat glitch-free. The envelope fades in
+   * a trimmed start and fades out a trimmed end so cuts never click, and the
+   * pad's (and the app's) voice limits fade the oldest note out rather than
+   * letting notes pile up.
+   */
+  private startVoice(pad: Pad, buffer: AudioBuffer, options: { time?: number; loop?: boolean; cents?: number; level?: number } = {}): LiveVoice {
     const ctx = this.getContext()
+    const channel = this.channelFor(pad.id)
+    const effects = effectiveEffects(pad)
+    channel.applyEffects(effects, true)
+    channel.setMixLevel(pad.mixLevel, true)
+
+    // A note scheduled for a moment that has already passed plays now.
+    const start = Math.max(options.time ?? ctx.currentTime, ctx.currentTime)
+    const loop = options.loop ?? false
+    const level = options.level ?? 1
+
+    this.makeRoom(pad.id, start)
+
     const source = ctx.createBufferSource()
     source.buffer = buffer
-    source.loop = options.loop
-    source.playbackRate.value = dialToPlaybackRate(effectValue(effects, 'speed'))
-    source.detune.value = dialToDetuneCents(effectValue(effects, 'pitch')) + (options.cents ?? 0)
+    source.loop = loop
+    const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
+    const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (options.cents ?? 0)
+    source.playbackRate.value = rate
+    source.detune.value = detune
 
-    const filter = ctx.createBiquadFilter()
-    const filterParams = dialToFilterParams(effectValue(effects, 'filter'))
-    filter.type = filterParams.type
-    filter.frequency.value = filterParams.frequencyHz
+    const env = ctx.createGain()
+    env.gain.value = 0
+    source.connect(env)
+    env.connect(channel.input)
 
-    // Grit: a WaveShaper whose curve is recomputed on every trigger/update. Kept
-    // in the graph at all times (identity curve when clean) so the topology never
-    // changes, the same reasoning as Filter's always-present allpass at 0.
-    const shaper = ctx.createWaveShaper()
-    shaper.curve = buildGritCurve(dialToGritParams(effectValue(effects, 'grit')))
-    shaper.oversample = '2x'
+    const window = trimToPlaybackWindow(pad.trimStart, pad.trimEnd, buffer.duration)
+    shapeEnvelope(env.gain, start, level, {
+      fadeIn: window.offset > 0.001 || loop,
+      end: !loop && pad.trimEnd < 1 ? start + window.duration / (rate * Math.pow(2, detune / 1200)) : null,
+    })
 
-    const gain = ctx.createGain()
-    gain.gain.value = dialToGain(effectValue(effects, 'volume'))
-
-    // Echo: delay + feedback loop, always wired up (feedback/wet at 0 when the
-    // dial is neutral) so it too never needs graph surgery to turn on later.
-    const delay = ctx.createDelay(1)
-    const feedback = ctx.createGain()
-    const wet = ctx.createGain()
-    const echoParams = dialToEchoParams(effectValue(effects, 'echo'))
-    delay.delayTime.value = echoParams.delaySeconds
-    feedback.gain.value = echoParams.feedback
-    wet.gain.value = echoParams.wetMix
-
-    // Reverb: a parallel convolution branch off the same dry `gain` node Echo
-    // branches from, mixed back in alongside it — always wired up (wet at 0
-    // when the dial is neutral), same "never rewire the topology" reasoning.
-    const convolver = ctx.createConvolver()
-    const reverbWet = ctx.createGain()
-    const reverbParams = dialToReverbParams(effectValue(effects, 'reverb'))
-    convolver.buffer = buildReverbImpulse(ctx, reverbParams.decaySeconds)
-    reverbWet.gain.value = reverbParams.wetMix
-
-    // Mixer Mode's fader — separate from `gain` (the Volume effect dial) —
-    // scales the pad's whole output, dry signal and echo/reverb tails alike,
-    // rather than just the dry path.
-    const mixGain = ctx.createGain()
-    mixGain.gain.value = mixLevelToGain(mixLevel) * (options.level ?? 1)
-
-    // Pan: applied last, after Mixer Mode's fader, so it positions the final
-    // fader-scaled signal (every other effect included) rather than just the
-    // dry path.
-    const panner = ctx.createStereoPanner()
-    panner.pan.value = dialToPan(effectValue(effects, 'pan'))
-
-    const masterBus = this.getMasterBus()
-    source.connect(filter)
-    filter.connect(shaper)
-    shaper.connect(gain)
-    gain.connect(mixGain)
-    gain.connect(delay)
-    delay.connect(feedback)
-    feedback.connect(delay)
-    delay.connect(wet)
-    wet.connect(mixGain)
-    gain.connect(convolver)
-    convolver.connect(reverbWet)
-    reverbWet.connect(mixGain)
-    mixGain.connect(panner)
-    panner.connect(masterBus)
-    panner.connect(this.getPadMeter(padId))
-
-    this.markStarted(padId)
-    this.activeSources.add(source)
-    source.onended = () => {
-      this.markEnded(padId)
-      this.activeSources.delete(source)
+    let released = false
+    const voice: LiveVoice = {
+      padId: pad.id,
+      source,
+      loop,
+      release: (fadeSeconds = RELEASE_SECONDS, at = ctx.currentTime) => {
+        if (released) return
+        released = true
+        const from = Math.max(at, ctx.currentTime)
+        // Glide down from whatever level the note has reached — works before, during or after its attack.
+        env.gain.cancelScheduledValues(from)
+        env.gain.setTargetAtTime(0, from, fadeSeconds / 4)
+        try {
+          source.stop(from + fadeSeconds * 1.5)
+        } catch {
+          // Already stopped.
+        }
+      },
+      stop: () => voice.release(),
     }
 
-    const startTime = options.startTime ?? ctx.currentTime
-    const window = trimToPlaybackWindow(trim.trimStart, trim.trimEnd, buffer.duration)
-    if (options.loop) {
+    this.voices.push(voice)
+    this.markStarted(pad.id)
+    source.onended = () => {
+      source.disconnect()
+      env.disconnect()
+      this.voices = this.voices.filter((item) => item !== voice)
+      if (this.loopingVoices.get(pad.id) === voice) {
+        this.loopingVoices.delete(pad.id)
+      }
+      this.markEnded(pad.id)
+    }
+
+    if (loop) {
       source.loopStart = window.loopStart
       source.loopEnd = window.loopEnd
-      source.start(startTime, window.offset)
+      source.start(start, window.offset)
     } else {
-      source.start(startTime, window.offset, window.duration)
+      source.start(start, window.offset, window.duration)
     }
-    for (const listener of this.hitListeners) listener(padId, startTime)
-    return { source, filter, shaper, gain, delay, feedback, wet, convolver, reverbWet, mixGain, panner }
+    for (const listener of this.hitListeners) listener(pad.id, start)
+    return voice
+  }
+
+  /** Voice limits: fades out the oldest one-shot note of this pad (and of the whole app) when they're full. */
+  private makeRoom(padId: string, at: number): void {
+    const oneShots = this.voices.filter((voice) => !voice.loop)
+    const ofPad = oneShots.filter((voice) => voice.padId === padId)
+    if (ofPad.length >= MAX_VOICES_PER_PAD) ofPad[0]!.release(RELEASE_SECONDS, at)
+    if (oneShots.length >= MAX_VOICES) oneShots[0]!.release(RELEASE_SECONDS, at)
   }
 
   /**
    * Trigger a pad's sample from a manual tap/click — always a one-shot. Layers
-   * freely: each call fires a new, independent, overlapping playback instance,
-   * whether or not the pad is also currently looping via toggleLoop. Returns
-   * the underlying source node so a caller can stop it early (see PadGrid's
-   * gate-on-hold behavior) — calling .stop() on it is safe at any time and
-   * self-cleans via the onended handler already wired up here.
+   * freely with its other notes (up to the voice limit), whether or not the
+   * pad is also looping. Returns the note so a gated press can stop it on
+   * release — with a short fade, never a click.
    */
-  triggerPad(pad: Pad, buffer: AudioBuffer): AudioBufferSourceNode {
-    const { source } = this.playBuffer(
-      pad.id,
-      buffer,
-      effectiveEffects(pad),
-      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
-      { loop: false },
-      pad.mixLevel,
-    )
-    return source
+  triggerPad(pad: Pad, buffer: AudioBuffer): Voice {
+    return this.startVoice(pad, buffer)
   }
 
   /**
    * The loop button's action: start a continuous loop of this pad if it isn't
-   * already looping, or stop it if it is. Deliberately separate from
-   * triggerPad — tapping the pad body always plays it once; this is the only
-   * way looping starts or stops, so the button's own visual state (driven by
-   * isPadLooping) is always literally true.
-   *
-   * If no other pad is currently looping, this loop starts immediately and
-   * becomes the sync reference ("bar 0") for anything layered on top of it
-   * later. If at least one pad is already looping, the new loop is quantized
-   * to the next bar boundary instead of cutting in immediately, so layered
-   * loops stay in phase with each other rather than starting at an arbitrary
-   * offset. isPadLooping() (and so the UI's "looping" state) goes true as soon
-   * as the loop is scheduled, even if its audible start is still up to a bar
-   * away — matches how a "count-in" reads on a real sequencer.
+   * already looping, or stop it if it is. If no other pad is looping, this loop
+   * starts immediately and becomes the sync reference ("bar 0") for anything
+   * layered on top; otherwise it's quantized to the next bar boundary so
+   * layered loops stay in phase. isPadLooping() goes true as soon as the loop
+   * is scheduled, even if its audible start is still up to a bar away.
    */
   toggleLoop(pad: Pad, buffer: AudioBuffer): void {
     if (this.isPadLooping(pad.id)) {
@@ -511,7 +512,7 @@ export class AudioEngine {
 
     const ctx = this.getContext()
     let startTime = ctx.currentTime
-    if (this.loopingNodes.size === 0) {
+    if (this.loopingVoices.size === 0) {
       this.loopEpoch = startTime
     } else if (this.loopEpoch !== null) {
       const barSeconds = this.barSeconds()
@@ -519,163 +520,72 @@ export class AudioEngine {
       startTime = this.loopEpoch + barsElapsed * barSeconds
     }
 
-    const nodes = this.playBuffer(
-      pad.id,
-      buffer,
-      effectiveEffects(pad),
-      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
-      { loop: true, startTime },
-      pad.mixLevel,
-    )
-    this.loopingNodes.set(pad.id, nodes)
+    this.loopingVoices.set(pad.id, this.startVoice(pad, buffer, { time: startTime, loop: true }))
     this.notify()
-    const { source } = nodes
-    source.onended = () => {
-      this.markEnded(pad.id)
-      this.activeSources.delete(source)
-      if (this.loopingNodes.get(pad.id)?.source === source) {
-        this.loopingNodes.delete(pad.id)
-        this.notify()
-      }
-    }
   }
 
   /**
-   * Live-update one effect param on a pad that's currently looping, so dragging a
-   * dial is audible immediately on the sustained sound rather than only affecting
-   * the next trigger. No-op if the pad isn't currently looping — one-shot instances
-   * already in flight aren't retroactively editable (there could be several
-   * overlapping ones from layering, with no single "the" instance to update).
+   * Live-updates one dial of a pad, so dragging it is heard immediately.
+   * Pitch and speed belong to each note, so they reach the pad's loop (the
+   * one sustained note there is); every other dial is the pad's channel,
+   * heard on everything the pad is playing.
    */
   updateLoopingPadEffect(padId: string, effectId: EffectId, value: number): void {
-    const nodes = this.loopingNodes.get(padId)
-    if (!nodes) return
-    const ctx = this.getContext()
-    const { source, filter, shaper, gain, delay, feedback, wet, convolver, reverbWet, panner } = nodes
-    switch (effectId) {
-      case 'pitch':
-        source.detune.setTargetAtTime(dialToDetuneCents(value), ctx.currentTime, PARAM_RAMP_SECONDS)
-        break
-      case 'speed':
-        source.playbackRate.setTargetAtTime(
-          dialToPlaybackRate(value),
-          ctx.currentTime,
-          PARAM_RAMP_SECONDS,
-        )
-        break
-      case 'filter': {
-        const params = dialToFilterParams(value)
-        filter.type = params.type
-        filter.frequency.setTargetAtTime(params.frequencyHz, ctx.currentTime, PARAM_RAMP_SECONDS)
-        break
-      }
-      case 'volume':
-        gain.gain.setTargetAtTime(dialToGain(value), ctx.currentTime, PARAM_RAMP_SECONDS)
-        break
-      case 'grit':
-        // WaveShaper's curve isn't an AudioParam, so this is a plain reassignment
-        // rather than a click-free ramp — a small departure from the other dials'
-        // smoothness, accepted since grit is inherently a "character" jump, not a
-        // continuous sweep.
-        shaper.curve = buildGritCurve(dialToGritParams(value))
-        break
-      case 'echo': {
-        const params = dialToEchoParams(value)
-        delay.delayTime.setTargetAtTime(params.delaySeconds, ctx.currentTime, PARAM_RAMP_SECONDS)
-        feedback.gain.setTargetAtTime(params.feedback, ctx.currentTime, PARAM_RAMP_SECONDS)
-        wet.gain.setTargetAtTime(params.wetMix, ctx.currentTime, PARAM_RAMP_SECONDS)
-        break
-      }
-      case 'reverb': {
-        // Like Grit's curve, ConvolverNode.buffer isn't an AudioParam — swapping
-        // the impulse response is a plain reassignment (a room-size "jump"), but
-        // the wet mix level still ramps smoothly via its GainNode.
-        const params = dialToReverbParams(value)
-        convolver.buffer = buildReverbImpulse(ctx, params.decaySeconds)
-        reverbWet.gain.setTargetAtTime(params.wetMix, ctx.currentTime, PARAM_RAMP_SECONDS)
-        break
-      }
-      case 'pan':
-        panner.pan.setTargetAtTime(dialToPan(value), ctx.currentTime, PARAM_RAMP_SECONDS)
-        break
+    const ctx = this.ctx
+    if (!ctx) return
+    if (effectId === 'pitch' || effectId === 'speed') {
+      const loop = this.loopingVoices.get(padId)
+      if (!loop) return
+      const param = effectId === 'pitch' ? loop.source.detune : loop.source.playbackRate
+      const target = effectId === 'pitch' ? dialToDetuneCents(value) : dialToPlaybackRate(value)
+      param.setTargetAtTime(target, ctx.currentTime, PARAM_RAMP_SECONDS)
+      return
     }
+    this.channels.get(padId)?.setDial(effectId, value)
   }
 
-  /**
-   * Live-applies (or lifts) the effects bypass on a pad that's currently
-   * looping — reuses updateLoopingPadEffect once per dial rather than
-   * duplicating the per-effect param logic, same "empty array reads as all
-   * neutral" trick effectiveEffects() uses for a fresh trigger.
-   */
+  /** Live-applies (or lifts) the effects bypass on a pad — its channel and its loop. */
   updateLoopingPadEffectsBypass(padId: string, pad: Pad): void {
-    for (const effectId of EFFECT_IDS) {
-      this.updateLoopingPadEffect(padId, effectId, effectValue(effectiveEffects(pad), effectId))
-    }
+    const effects = effectiveEffects(pad)
+    this.channels.get(padId)?.applyEffects(effects, true)
+    for (const effectId of ['pitch', 'speed'] as const) this.updateLoopingPadEffect(padId, effectId, effectValue(effects, effectId))
   }
 
   /**
-   * Fire a single sequencer step hit for a pad, scheduled at a precise audio-clock
-   * time (from the lookahead Scheduler). Always a one-shot — a 16-step grid
-   * re-firing an indefinite loop on every active step would be incoherent.
-   * toggleLoop's continuous layer is a separate, manual performance action,
-   * untouched by programmed steps. Layers freely like any other retrigger.
+   * Fire a single sequencer step hit for a pad at a precise audio-clock time
+   * (from the lookahead Scheduler). Always a one-shot.
    */
   triggerStep(pad: Pad, buffer: AudioBuffer, time: number): void {
-    this.playBuffer(
-      pad.id,
-      buffer,
-      effectiveEffects(pad),
-      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
-      { loop: false, startTime: time },
-      pad.mixLevel,
-    )
+    this.startVoice(pad, buffer, { time })
   }
 
   /**
-   * A single performed note (note repeat, arpeggio, strum) through a pad's
-   * own effects chain, at an exact audio time — optionally nudged by `cents`
-   * when the exact pitch isn't in the bank's note pool, and scaled by `level`
-   * (a strum's notes share one chord's loudness). Returns the source so a
-   * gated performance can stop it on release.
+   * A single performed note (note repeat, arpeggio, strum) through the pad's
+   * channel at an exact audio time — optionally nudged by `cents` when the
+   * exact pitch isn't in the bank's note pool, and scaled by `level` (a
+   * strum's notes share one chord's loudness).
    */
-  triggerNote(pad: Pad, buffer: AudioBuffer, time: number, cents = 0, level = 1): AudioBufferSourceNode {
-    return this.playBuffer(
-      pad.id,
-      buffer,
-      effectiveEffects(pad),
-      { trimStart: pad.trimStart, trimEnd: pad.trimEnd },
-      { loop: false, startTime: time, cents, level },
-      pad.mixLevel,
-    ).source
+  triggerNote(pad: Pad, buffer: AudioBuffer, time: number, cents = 0, level = 1): Voice {
+    return this.startVoice(pad, buffer, { time, cents, level })
   }
 
-  /**
-   * Live-updates the Mixer Mode fader on a pad that's currently looping —
-   * dragging a fader slider is audible immediately on the sustained loop,
-   * same reasoning as updateLoopingPadEffect. One-shot/sequencer-step
-   * instances already in flight read whatever pad.mixLevel was at trigger
-   * time and aren't retroactively editable, same as every other dial.
-   */
+  /** Live-updates a pad's Mixer Mode fader — heard on everything the pad is playing. */
   updateLoopingPadMixLevel(padId: string, level: number): void {
-    const nodes = this.loopingNodes.get(padId)
-    if (!nodes) return
-    const ctx = this.getContext()
-    nodes.mixGain.gain.setTargetAtTime(mixLevelToGain(level), ctx.currentTime, PARAM_RAMP_SECONDS)
+    this.channels.get(padId)?.setMixLevel(level, true)
   }
 
   /**
    * Live-update the trim window on a pad that's currently looping — `loopStart`/
-   * `loopEnd` are plain settable properties on an already-playing source (unlike
-   * `offset`/`duration`, which are only meaningful at `.start()` time), so this
-   * takes effect on the source's next pass through the loop with no restart.
+   * `loopEnd` are plain settable properties on an already-playing source, so
+   * this takes effect on the loop's next pass with no restart.
    */
   updateLoopingPadTrim(padId: string, trimStart: number, trimEnd: number): void {
-    const nodes = this.loopingNodes.get(padId)
-    const buffer = nodes?.source.buffer
-    if (!nodes || !buffer) return
+    const loop = this.loopingVoices.get(padId)
+    const buffer = loop?.source.buffer
+    if (!loop || !buffer) return
     const window = trimToPlaybackWindow(trimStart, trimEnd, buffer.duration)
-    nodes.source.loopStart = window.loopStart
-    nodes.source.loopEnd = window.loopEnd
+    loop.source.loopStart = window.loopStart
+    loop.source.loopEnd = window.loopEnd
   }
 
   /**
@@ -724,10 +634,10 @@ export class AudioEngine {
   }
 
   stopPad(padId: string): void {
-    const nodes = this.loopingNodes.get(padId)
-    if (!nodes) return
-    this.loopingNodes.delete(padId)
-    nodes.source.stop()
+    const loop = this.loopingVoices.get(padId)
+    if (!loop) return
+    this.loopingVoices.delete(padId)
+    loop.release()
     this.notify()
   }
 
@@ -744,9 +654,10 @@ export class AudioEngine {
    */
   startPlaythroughRecording(): void {
     const ctx = this.getContext()
-    const masterBus = this.getMasterBus()
+    this.getMasterBus()
     const recordTap = ctx.createMediaStreamDestination()
-    masterBus.connect(recordTap)
+    // After the master stage: the recording is exactly the mix as heard (before the listening volume).
+    this.masterStage!.output.connect(recordTap)
     this.recordTap = recordTap
     this.playthroughChunks = []
 
@@ -769,7 +680,7 @@ export class AudioEngine {
         void (async () => {
           const blob = new Blob(this.playthroughChunks, { type: recorder.mimeType })
           const arrayBuffer = await blob.arrayBuffer()
-          if (this.recordTap) this.masterBus?.disconnect(this.recordTap)
+          if (this.recordTap) this.masterStage?.output.disconnect(this.recordTap)
           this.recordTap = null
           this.playthroughRecorder = null
           this.playthroughChunks = []
@@ -784,12 +695,13 @@ export class AudioEngine {
    * The panic-stop button's action: silences everything currently audible —
    * every looping pad, every in-flight one-shot (a manual tap, a sequencer hit,
    * a long recording still playing out), all at once. Deliberately stops
-   * `activeSources` directly rather than just `loopingNodes`, since a one-shot
-   * source is never itself stoppable any other way once started.
+   * every note (with a short fade, so even panic doesn't click), the preview
+   * sources, and the echo/reverb tails held in the channel strips.
    */
   stopAllSounds(): void {
     this.performer?.stopAll()
-    this.loopingNodes.clear()
+    this.loopingVoices.clear()
+    for (const voice of this.voices) voice.release(RELEASE_SECONDS)
     for (const source of Array.from(this.activeSources)) {
       try {
         source.stop()
@@ -797,6 +709,17 @@ export class AudioEngine {
         // Already stopped/ended between the snapshot above and this call — fine.
       }
     }
+    // Echo and reverb tails live in the channels and rooms: fade them out,
+    // then drop them entirely — fresh ones are built on the next note.
+    const channels = [...this.channels.values()]
+    const rooms = this.rooms
+    this.channels.clear()
+    this.rooms = null
+    for (const channel of channels) channel.fadeOut(0.03)
+    setTimeout(() => {
+      for (const channel of channels) channel.dispose()
+      rooms?.dispose()
+    }, 80)
     this.notify()
   }
 }

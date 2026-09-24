@@ -100,7 +100,6 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
       bpm: DEFAULT_BPM,
       isPlaying: false,
       loopMode: 'continuous',
-      currentStep: 0,
       metronomeEnabled: false,
       padPlaybackMode: 'gate',
       masterVolume: 100,

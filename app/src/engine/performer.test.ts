@@ -27,7 +27,7 @@ function rig(settings: Partial<PerformSettings>, anchor: number | null = null) {
       beatAnchor: () => anchor,
       play: (pad, note, time, level) => {
         played.push({ padId: pad.id, sampleId: note.sampleId, time, level })
-        return { stop: () => {} } as AudioBufferSourceNode
+        return { stop: () => {} }
       },
     },
     {

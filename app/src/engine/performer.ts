@@ -1,4 +1,5 @@
 import type { AppState, ArpPattern, Bank, Pad, PerformRate, PerformSettings, StrumSpeed } from '../state/types'
+import type { Voice } from './AudioEngine'
 
 /** One playable sound: a sample, nudged by `cents` when the exact pitch wasn't rendered. */
 export interface PerformNote {
@@ -22,7 +23,7 @@ export interface PerformHost {
   now(): number
   /** Audio time of a beat boundary while something is playing (so repeats land on the grid), else null. */
   beatAnchor(): number | null
-  play(pad: Pad, note: PerformNote, time: number, level: number): AudioBufferSourceNode
+  play(pad: Pad, note: PerformNote, time: number, level: number): Voice
 }
 
 /** Fired for every performed hit, as the sample a step-recording should write into that pad's row, at its audio time. */
@@ -117,7 +118,7 @@ export class Performer {
   private bpm = 120
   private readonly held = new Map<string, PerformVoice>()
   private latched: PerformVoice[] = []
-  private readonly gated = new Map<string, AudioBufferSourceNode[]>()
+  private readonly gated = new Map<string, Voice[]>()
   private timerId: ReturnType<typeof setInterval> | null = null
   private nextTime = 0
   private step = 0
@@ -173,7 +174,7 @@ export class Performer {
   }
 
   release(key: string): void {
-    for (const source of this.gated.get(key) ?? []) stopSafely(source)
+    for (const sound of this.gated.get(key) ?? []) sound.stop()
     this.gated.delete(key)
     if (!this.held.delete(key)) return
     if (this.activeVoices().length === 0) this.stopRunner()
@@ -259,7 +260,7 @@ export class Performer {
   }
 
   /** One hit of a pad: its own sound, or a strum across its notes. */
-  private hit(voice: PerformVoice, time: number): AudioBufferSourceNode[] {
+  private hit(voice: PerformVoice, time: number): Voice[] {
     const settings = this.settings!
     this.listener?.(voice.pad.id, voice.whole.sampleId, time)
     if (settings.strum === 'off' || voice.midis.length < 2) return [this.host.play(voice.pad, voice.whole, time, 1)]
@@ -270,13 +271,5 @@ export class Performer {
     const notes = midis.map((midi) => voice.resolve(midi))
     if (notes.some((note) => note === null)) return [this.host.play(voice.pad, voice.whole, time, 1)]
     return notes.map((note, i) => this.host.play(voice.pad, note!, time + i * gap, level))
-  }
-}
-
-function stopSafely(source: AudioBufferSourceNode): void {
-  try {
-    source.stop()
-  } catch {
-    // Already ended.
   }
 }

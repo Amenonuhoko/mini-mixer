@@ -99,7 +99,6 @@ export type Action =
   | { type: 'SET_PAD_LOOP_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_MIXER_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PLAYTHROUGH_RECORDING_ENABLED'; enabled: boolean }
-  | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
   | { type: 'LOAD_PROJECT'; state: AppState }
 
@@ -812,9 +811,6 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_PLAYTHROUGH_RECORDING_ENABLED':
       return { ...state, transport: { ...state.transport, playthroughRecordingEnabled: action.enabled } }
-
-    case 'SET_CURRENT_STEP':
-      return { ...state, transport: { ...state.transport, currentStep: action.stepIndex } }
 
     case 'CLEAR_ALL':
       return createInitialState(getSamplerBank(state).visibleCount)

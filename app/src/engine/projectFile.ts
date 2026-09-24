@@ -243,7 +243,7 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
   })
 }
 
-/** isPlaying/currentStep are transient session state, not project data — always reset. */
+/** isPlaying is transient session state, not project data — always reset. */
 export function buildTransport(meta: ProjectMeta['transport']): Transport {
   return {
     bpm: meta.bpm,
@@ -256,7 +256,6 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
     padMixerModeEnabled: meta.padMixerModeEnabled ?? false,
     playthroughRecordingEnabled: meta.playthroughRecordingEnabled ?? false,
     isPlaying: false,
-    currentStep: 0,
   }
 }
 

@@ -10,7 +10,7 @@ import { BANK_NAMES, bankColumns, getActiveBank, visibleBankPads } from '../stat
 import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useEngine } from '../state/EngineContext'
 import { drumVoiceIcon, instrumentIconForName } from '../utils/instrumentIcon'
-import type { AudioEngine } from '../engine/AudioEngine'
+import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
 import { BankSoundPicker } from './BankSoundPicker'
 import { BankTabs } from './BankTabs'
@@ -105,7 +105,8 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
     performer.setListener((padId, sampleId, time) => {
       const { armed, state: current } = recordRef.current
       if (!armed || !current.transport.isPlaying) return
-      const stepIndex = engine.stepAt(time) ?? current.transport.currentStep
+      const stepIndex = engine.stepAt(time)
+      if (stepIndex === null) return
       dispatch({ type: 'SET_STEP_SAMPLE', patternId: current.activePatternId, padId, stepIndex, sampleId })
     })
     return () => performer.setListener(null)
@@ -334,7 +335,7 @@ function PadButton({
   // A physical input is independently tracked by pointer id. A Map (rather
   // than one source ref) is what lets multiple fingers hold separate pads—or
   // even retrigger the same pad—without one release cutting off another.
-  const activeSourcesRef = useRef(new Map<number, AudioBufferSourceNode>())
+  const activeSourcesRef = useRef(new Map<number, Voice>())
   // Pointers whose press went to the performer (repeat / arp / strum), released there too.
   const performingRef = useRef(new Set<number>())
 
@@ -359,7 +360,7 @@ function PadButton({
       type: 'SET_STEP_SAMPLE',
       patternId: state.activePatternId,
       padId: pad.id,
-      stepIndex: state.transport.currentStep,
+      stepIndex: engine.stepAt(engine.getAudioTime() ?? 0) ?? 0,
       sampleId: pad.sampleId,
     })
   }

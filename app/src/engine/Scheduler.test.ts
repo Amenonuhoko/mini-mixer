@@ -47,8 +47,10 @@ describe('Scheduler', () => {
     expect(onStep.mock.calls.map((call) => call[0])).toEqual([1, 2])
 
     onStep.mockClear()
-    clock.advance(0.5)
-    scheduler.tick()
+    for (let i = 0; i < 5; i++) {
+      clock.advance(0.1)
+      scheduler.tick()
+    }
     // Should wrap back around to step 0 after passing step 3 (stepCount = 4).
     expect(onStep.mock.calls.map((call) => call[0])).toContain(0)
   })
@@ -65,5 +67,24 @@ describe('Scheduler', () => {
     scheduler.stop()
     expect(scheduler.isRunning).toBe(false)
     expect(clearIntervalFn).toHaveBeenCalled()
+  })
+
+  it('skips steps it fell far behind on instead of firing them in a burst', () => {
+    const clock = new FakeClock()
+    const onStep = vi.fn()
+    const scheduler = new Scheduler(clock, onStep, { bpm: 120, stepCount: 16, scheduleAheadSeconds: 0.1 })
+    scheduler.start()
+    scheduler.tick()
+    onStep.mockClear()
+
+    // A one-second stall: eight 16ths (0.125 s each) went by.
+    clock.advance(1)
+    scheduler.tick()
+    const times = onStep.mock.calls.map((call) => call[1] as number)
+    // Only steps inside the lookahead window play — none of them in the past.
+    expect(times.every((time) => time >= clock.now() - 0.1)).toBe(true)
+    expect(onStep.mock.calls.length).toBeLessThanOrEqual(2)
+    // The step count kept its place in the bar.
+    expect(onStep.mock.calls[0]![0]).toBe(8)
   })
 })

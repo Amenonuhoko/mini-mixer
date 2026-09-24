@@ -14,18 +14,18 @@ const FLASH_KEYFRAMES: Keyframe[] = [{ opacity: 1 }, { opacity: 0 }]
 
 /**
  * The light show: one requestAnimationFrame loop that reads the audio engine's
- * meters and beat clock and writes the results straight onto the DOM as CSS
- * custom properties, which index.css turns into glow. Deliberately outside
- * React's render cycle — re-rendering the pad grid 60 times a second would
- * cost far more than the light show is worth, while a handful of
- * style.setProperty calls per frame is nearly free.
+ * meters and beat clock and writes the results straight onto the DOM.
+ * Deliberately outside React's render cycle — re-rendering the pad grid 60
+ * times a second would cost far more than the light show is worth.
  *
- * Writes are scoped on purpose: a custom property set on :root invalidates
- * style for the whole document every frame, so values go only onto the
- * elements that use them — each `[data-glow-pad]` element (pads and their
- * sequencer row chips) gets --level/--beat, `[data-beat]` indicators get
- * --beat, and the fixed background layer this component renders gets the
- * scene-wide --scene/--beat.
+ * Every write is a plain `opacity` on a layer that exists only to glow (each
+ * pad's `.pad-glow`, each sequencer row's `.row-glow`, the beat LED, the
+ * background mesh and shaft), and only when it moved enough to see. The
+ * compositor fades those without restyling anything else. An earlier version
+ * wrote CSS custom properties instead, which made the browser restyle every
+ * pad each frame and starved the sequencer's timer on phones (dropped and
+ * late notes). The playhead is marked here too (`data-playhead` on the
+ * column being heard), rather than through React state on every step.
  *
  * Hit bloom uses the Web Animations API on each pad's own bloom/flash layers,
  * timed to the audio clock so a sequencer step (scheduled ~100ms ahead)
@@ -38,11 +38,29 @@ export function LightShow() {
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const levels = new Map<string, number>()
-    const written = new WeakMap<HTMLElement, { level: number; beat: number }>()
+    const written = new WeakMap<HTMLElement, number>()
+    const glowLayers = new WeakMap<HTMLElement, HTMLElement | null>()
+    /** Writes an opacity only when it moved enough to see. */
+    const setOpacity = (el: HTMLElement, value: number) => {
+      const last = written.get(el)
+      if (last !== undefined && Math.abs(last - value) <= WRITE_EPSILON) return
+      el.style.opacity = value.toFixed(3)
+      written.set(el, value)
+    }
     let scene = 0
-    let lastScene = -1
-    let lastFieldBeat = -1
     let frame = 0
+    let playhead: number | null = null
+    let playheadCells: HTMLElement[] = []
+
+    // The glowing elements, looked up again only when the page's structure
+    // changes — not with a document-wide query every frame.
+    let glowEls: HTMLElement[] = []
+    let beatEls: HTMLElement[] = []
+    let stale = true
+    const observer = new MutationObserver(() => {
+      stale = true
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
 
     const tick = () => {
       frame = requestAnimationFrame(tick)
@@ -54,39 +72,66 @@ export function LightShow() {
       // idle screen breathes gently and a playing one actually thumps.
       const beat = reducedMotion.matches ? 0 : Math.pow(1 - phase, 3) * (locked ? 1 : 0.3)
 
-      for (const el of document.querySelectorAll<HTMLElement>('[data-glow-pad]')) {
-        const padId = el.dataset.glowPad!
-        const raw = engine.getPadLevel(padId)
-        const previous = levels.get(padId) ?? 0
-        const level = raw >= previous ? raw : Math.max(raw, previous * RELEASE)
-        levels.set(padId, level)
-
-        const last = written.get(el)
-        if (!last || Math.abs(last.level - level) > WRITE_EPSILON || Math.abs(last.beat - beat) > WRITE_EPSILON) {
-          el.style.setProperty('--level', level.toFixed(3))
-          el.style.setProperty('--beat', beat.toFixed(3))
-          written.set(el, { level, beat })
+      // One meter read per pad per frame (a pad and its sequencer row share it),
+      // and none at all for pads that are silent and already dark.
+      const frameLevels = new Map<string, number>()
+      const levelOf = (padId: string) => {
+        let level = frameLevels.get(padId)
+        if (level === undefined) {
+          const previous = levels.get(padId) ?? 0
+          const raw = engine.isPadPlaying(padId) || previous > 0.002 ? engine.getPadLevel(padId) : 0
+          level = raw >= previous ? raw : Math.max(raw, previous * RELEASE)
+          if (level < 0.002) level = 0
+          levels.set(padId, level)
+          frameLevels.set(padId, level)
         }
+        return level
       }
 
-      if (Math.abs(beat - lastFieldBeat) > WRITE_EPSILON) {
-        for (const el of document.querySelectorAll<HTMLElement>('[data-beat]')) {
-          el.style.setProperty('--beat', beat.toFixed(3))
-        }
+      // Glow layers get a plain opacity, written straight onto the layer: the
+      // compositor fades it without restyling anything else — the whole
+      // reason the light show can run every frame alongside the audio.
+      if (stale) {
+        glowEls = [...document.querySelectorAll<HTMLElement>('[data-glow-pad]')]
+        beatEls = [...document.querySelectorAll<HTMLElement>('[data-beat]')]
+        stale = false
+        playhead = null // re-mark the playhead on any new cells
       }
+
+      for (const el of glowEls) {
+        let glow = glowLayers.get(el)
+        if (glow === undefined) {
+          glow = el.querySelector<HTMLElement>('.pad-glow, .row-glow')
+          glowLayers.set(el, glow)
+        }
+        if (!glow) continue
+        const level = levelOf(el.dataset.glowPad!)
+        // Looping pads also breathe with the beat.
+        const opacity = el.classList.contains('looping') ? Math.min(1, 0.2 + beat * 0.55 + level * 0.5) : level
+        setOpacity(glow, opacity)
+      }
+
+      // The playhead marks the step being heard right now, straight on the
+      // DOM — no React render per step, and in time with the audio rather
+      // than with the scheduler running ~100 ms ahead.
+      const step = engine.getPlayheadStep()
+      if (step !== playhead) {
+        for (const cell of playheadCells) cell.removeAttribute('data-playhead')
+        playheadCells = step === null ? [] : [...document.querySelectorAll<HTMLElement>(`.sequencer-grid [data-step-index="${step}"]`)]
+        for (const cell of playheadCells) cell.setAttribute('data-playhead', '')
+        playhead = step
+      }
+
+      for (const el of beatEls) setOpacity(el, 0.15 + beat * 0.85)
 
       const master = engine.getMasterLevel()
       scene = master >= scene ? master : Math.max(master, scene * RELEASE)
       const field = fieldRef.current
       if (field) {
-        if (Math.abs(scene - lastScene) > WRITE_EPSILON) {
-          field.style.setProperty('--scene', scene.toFixed(3))
-          lastScene = scene
-        }
-        if (Math.abs(beat - lastFieldBeat) > WRITE_EPSILON) {
-          field.style.setProperty('--beat', beat.toFixed(3))
-          lastFieldBeat = beat
-        }
+        const mesh = field.firstElementChild as HTMLElement | null
+        const shaft = field.lastElementChild as HTMLElement | null
+        if (mesh) setOpacity(mesh, 0.16 + beat * 0.08 + scene * 0.14)
+        if (shaft) setOpacity(shaft, 0.55 + scene * 0.35 + beat * 0.1)
       }
     }
     frame = requestAnimationFrame(tick)
@@ -123,10 +168,16 @@ export function LightShow() {
 
     return () => {
       cancelAnimationFrame(frame)
+      observer.disconnect()
       unsubscribe()
       for (const timer of timers) window.clearTimeout(timer)
     }
   }, [engine])
 
-  return <div ref={fieldRef} className="light-field" aria-hidden="true" />
+  return (
+    <div ref={fieldRef} className="light-field" aria-hidden="true">
+      <div className="light-field-mesh" />
+      <div className="light-field-shaft" />
+    </div>
+  )
 }

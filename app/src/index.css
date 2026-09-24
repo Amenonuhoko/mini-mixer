@@ -190,8 +190,7 @@ button:disabled {
   overflow: hidden;
 }
 
-.light-field::before {
-  content: '';
+.light-field-mesh {
   position: absolute;
   inset: 0;
   /* Backlit hex mesh, strongest at the sides like the panels flanking a corridor. */
@@ -202,12 +201,11 @@ button:disabled {
     linear-gradient(180deg, transparent 0%, #000 25%, #000 75%, transparent 100%);
   mask-composite: intersect;
   -webkit-mask-composite: source-in;
-  opacity: calc(0.16 + var(--beat, 0) * 0.08 + var(--scene, 0) * 0.14);
+  opacity: 0.16;
   will-change: opacity;
 }
 
-.light-field::after {
-  content: '';
+.light-field-shaft {
   position: absolute;
   inset: 0;
   /* The light shaft: a soft glow from above that swells gently with the mix. */
@@ -215,7 +213,7 @@ button:disabled {
     radial-gradient(ellipse 12% 70% at 50% 0%, rgb(var(--haze-rgb) / 0.12), transparent 75%),
     radial-gradient(ellipse 45% 55% at 50% 0%, rgb(var(--haze-rgb) / 0.14), transparent 70%),
     radial-gradient(ellipse 70% 40% at 50% 110%, rgb(var(--haze-rgb) / 0.08), transparent 70%);
-  opacity: calc(0.55 + var(--scene, 0) * 0.35 + var(--beat, 0) * 0.1);
+  opacity: 0.55;
   will-change: opacity;
 }
 
@@ -893,8 +891,9 @@ button:disabled {
   height: 7px;
   border-radius: 50%;
   background: var(--cyan);
-  opacity: calc(0.15 + var(--beat, 0) * 0.85);
-  box-shadow: 0 0 calc(2px + var(--beat, 0) * 10px) var(--cyan);
+  opacity: 0.15;
+  box-shadow: 0 0 8px var(--cyan);
+  will-change: opacity;
 }
 
 .bpm-control {
@@ -1208,7 +1207,8 @@ button:disabled {
   box-shadow:
     0 0 34px 6px rgb(var(--cyan-rgb) / 0.35),
     inset 0 0 26px rgb(var(--cyan-rgb) / 0.3);
-  opacity: var(--level, 0);
+  /* LightShow writes this layer's opacity directly (its pad's live level). */
+  opacity: 0;
   pointer-events: none;
   will-change: opacity;
 }
@@ -1319,7 +1319,6 @@ button:disabled {
   box-shadow:
     0 0 30px 4px rgb(var(--orange-rgb) / 0.55),
     inset 0 0 22px rgb(var(--orange-rgb) / 0.45);
-  opacity: min(1, calc(0.2 + var(--beat, 0) * 0.55 + var(--level, 0) * 0.5));
 }
 
 .pad.looping .pad-num {
@@ -1557,15 +1556,15 @@ button:disabled {
 }
 
 /* The row's number chip lights up with its pad's live level. */
-.sequencer-row-label::after {
-  content: '';
+.sequencer-row-label .row-glow {
   position: absolute;
   inset: -1px;
   border: 1px solid var(--cyan);
   border-radius: inherit;
   box-shadow: 0 0 12px rgb(var(--cyan-rgb) / 0.7);
-  opacity: var(--level, 0);
+  opacity: 0;
   pointer-events: none;
+  will-change: opacity;
 }
 
 .row-looping .sequencer-row-label {
@@ -1611,10 +1610,8 @@ button:disabled {
   border-radius: var(--r-sm);
   background: rgb(var(--cyan-rgb) / 0.025);
   touch-action: pan-x;
-  transition:
-    background 80ms,
-    border-color 80ms,
-    box-shadow 80ms;
+  /* No transitions: the playhead moves every 16th, and each transition would
+     also fire events through React — steps just switch, like a hardware grid. */
 }
 
 /* Downbeat of each group reads slightly brighter, so the bar's shape is visible at a glance. Only while empty — a lit or traced step keeps its own look. */
@@ -1639,13 +1636,13 @@ button:disabled {
   background: transparent;
 }
 
-.step.current {
+.step[data-playhead] {
   border-color: var(--orange);
   box-shadow: inset 0 0 8px rgb(var(--orange-rgb) / 0.45), 0 0 6px rgb(var(--orange-rgb) / 0.4);
 }
 
 /* The playhead crossing a lit step flashes it white-hot. */
-.step.on.current {
+.step.on[data-playhead] {
   border-color: #fff;
   background: #e6feff;
   box-shadow:

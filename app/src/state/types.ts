@@ -167,7 +167,6 @@ export interface Transport {
   bpm: number
   isPlaying: boolean
   loopMode: LoopMode
-  currentStep: number
   metronomeEnabled: boolean
   /** Controls normal pad tap duration; Loop Mode has its own distinct behavior. */
   padPlaybackMode: PadPlaybackMode

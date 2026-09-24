@@ -5,6 +5,9 @@ import { BPM_MAX, BPM_MIN, STEP_COUNT } from '../state/constants'
  * (seconds, monotonically increasing). Injectable so the scheduler is testable
  * without a real AudioContext.
  */
+/** How late a step may be and still play; later ones are skipped rather than burst out together. */
+const LATE_TOLERANCE_SECONDS = 0.1
+
 export interface SchedulerClock {
   now(): number
 }
@@ -94,7 +97,17 @@ export class Scheduler {
 
   /** Exposed for tests that want to drive scheduling without relying on a real timer. */
   tick = (): void => {
-    const horizon = this.clock.now() + this.scheduleAheadSeconds
+    const now = this.clock.now()
+    // After a stall (a busy main thread, a backgrounded tab), steps whose time
+    // has long passed would all fire at once — a burst. Skip them instead and
+    // rejoin the grid, keeping the step count in place, as a drum machine
+    // would.
+    if (this.nextStepTime < now - LATE_TOLERANCE_SECONDS) {
+      const missed = Math.ceil((now - this.nextStepTime) / this.secondsPerStep())
+      this.nextStepTime += missed * this.secondsPerStep()
+      this.currentStep = (this.currentStep + missed) % this.stepCount
+    }
+    const horizon = now + this.scheduleAheadSeconds
     while (this.nextStepTime < horizon) {
       this.onStep(this.currentStep, this.nextStepTime)
       this.nextStepTime += this.secondsPerStep()
