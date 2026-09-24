@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState } from '../state/defaults'
 import { reducer } from '../state/reducer'
-import { buildSongTimeline, sectionBankLevel, songStepAt } from './songTimeline'
+import { buildSongTimeline, sectionBankGain, sectionBankLevel, songStepAt } from './songTimeline'
 
 describe('song arrangement', () => {
   it('makes a verse/chorus starter with a distinct editable chorus and linked repeats', () => {
@@ -123,5 +123,41 @@ describe('song arrangement', () => {
     state = reducer(state, { type: 'SET_SONG_SECTION_BANK_VOLUME', sectionId: state.songSections[1]!.id, bank: 'drums', level: 120 })
     expect(sectionBankLevel(state.songSections[0]!, 'drums')).toBe(0.35)
     expect(sectionBankLevel(state.songSections[1]!, 'drums')).toBe(1)
+  })
+
+  it('keeps an edited section selected for looping after stop and replay', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Verse', 'Chorus', 'Verse'] })
+    const chorus = state.songSections[1]!
+    state = reducer(state, { type: 'SET_LOOP_MODE', loopMode: 'once' })
+    state = reducer(state, { type: 'SET_ACTIVE_PATTERN', patternId: chorus.patternId })
+    state = reducer(state, { type: 'AUDITION_SONG_SECTION', sectionId: chorus.id, scope: 'loop' })
+    expect(state.transport.auditionScope).toBe('loop')
+    expect(state.transport.auditionSectionId).toBe(chorus.id)
+    expect(state.transport.isPlaying).toBe(true)
+    expect(buildSongTimeline(state).find((span) => span.section.id === chorus.id)?.startStep).toBe(64)
+
+    state = reducer(state, { type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+    expect(state.transport.auditionSectionId).toBe(chorus.id)
+    state = reducer(state, { type: 'SET_TRANSPORT_PLAYING', isPlaying: true })
+    expect(state.transport.auditionSectionId).toBe(chorus.id)
+    state = reducer(state, { type: 'AUDITION_SONG_SECTION', sectionId: state.songSections[0]!.id, scope: 'rest' })
+    expect(state.transport.auditionScope).toBe('rest')
+    state = reducer(state, { type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+    expect(state.transport.auditionSectionId).toBeNull()
+  })
+
+  it('removes and restores a sound group from one section without erasing its mix or linked pattern', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Verse', 'Chorus', 'Verse'] })
+    const first = state.songSections[0]!
+    const last = state.songSections[2]!
+    state = reducer(state, { type: 'SET_SONG_SECTION_BANK_VOLUME', sectionId: first.id, bank: 'chords', level: 45 })
+    state = reducer(state, { type: 'SET_SONG_SECTION_BANK_INCLUDED', sectionId: first.id, bank: 'chords', included: false })
+    expect(sectionBankGain(state.songSections[0]!, 'chords')).toBe(0)
+    expect(sectionBankGain(state.songSections[2]!, 'chords')).toBe(1)
+    expect(state.songSections[0]!.patternId).toBe(last.patternId)
+    state = reducer(state, { type: 'SET_SONG_SECTION_BANK_INCLUDED', sectionId: first.id, bank: 'chords', included: true })
+    expect(sectionBankGain(state.songSections[0]!, 'chords')).toBe(0.45)
   })
 })

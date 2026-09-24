@@ -94,11 +94,12 @@ export type Action =
   | { type: 'ADD_SONG_SECTION'; afterId?: string }
   | { type: 'UPDATE_SONG_SECTION'; sectionId: string; name?: string; patternId?: string; repeats?: number }
   | { type: 'SET_SONG_SECTION_BANK_VOLUME'; sectionId: string; bank: BankKind; level: number }
+  | { type: 'SET_SONG_SECTION_BANK_INCLUDED'; sectionId: string; bank: BankKind; included: boolean }
   | { type: 'DUPLICATE_SONG_SECTION'; sectionId: string }
   | { type: 'MOVE_SONG_SECTION'; sectionId: string; direction: -1 | 1 }
   | { type: 'REMOVE_SONG_SECTION'; sectionId: string }
   | { type: 'SET_PLAY_MODE'; mode: 'pattern' | 'song' }
-  | { type: 'AUDITION_SONG_SECTION'; sectionId: string; scope: 'section' | 'rest' }
+  | { type: 'AUDITION_SONG_SECTION'; sectionId: string; scope: 'section' | 'rest' | 'loop' }
   | { type: 'APPLY_SONG_TEMPLATE'; sections: readonly string[] }
   | { type: 'SET_CURRENT_SONG_SECTION'; sectionId: string | null }
   /** Resizes one bank's showing pads (the active bank unless bankId is given). */
@@ -893,6 +894,19 @@ export function reducer(state: AppState, action: Action): AppState {
         ),
       }
 
+    case 'SET_SONG_SECTION_BANK_INCLUDED':
+      if (!state.banks.some((bank) => bank.kind === action.bank)) return state
+      return {
+        ...state,
+        songSections: state.songSections.map((section) => {
+          if (section.id !== action.sectionId) return section
+          const excluded = new Set(section.excludedBanks ?? [])
+          if (action.included) excluded.delete(action.bank)
+          else excluded.add(action.bank)
+          return { ...section, excludedBanks: [...excluded] }
+        }),
+      }
+
     case 'DUPLICATE_SONG_SECTION': {
       const index = state.songSections.findIndex((section) => section.id === action.sectionId)
       if (index < 0) return state
@@ -948,7 +962,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state.transport,
         isPlaying: action.isPlaying,
         currentSongSectionId: action.isPlaying ? state.transport.currentSongSectionId : null,
-        auditionSectionId: null,
+        auditionSectionId: state.transport.auditionScope === 'loop' ? state.transport.auditionSectionId : null,
         playbackRunId: action.isPlaying ? state.transport.playbackRunId + 1 : state.transport.playbackRunId,
       } }
 

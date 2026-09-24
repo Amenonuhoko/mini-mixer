@@ -8,6 +8,11 @@ export function sectionBankLevel(section: SongSection, bank: BankKind): number {
     : 1
 }
 
+/** Audible gain also accounts for a bank removed from this song section. */
+export function sectionBankGain(section: SongSection, bank: BankKind): number {
+  return section.excludedBanks?.includes(bank) ? 0 : sectionBankLevel(section, bank)
+}
+
 export interface SongSpan {
   section: SongSection
   pattern: Pattern

@@ -64,6 +64,9 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [songArrangeOpen, setSongArrangeOpen] = useState(state.transport.playMode === 'song')
   const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
   const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
+  const editingSection = state.transport.auditionScope === 'loop'
+    ? state.songSections.find((section) => section.id === state.transport.auditionSectionId)
+    : undefined
 
   const patternHasSteps = pattern
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
@@ -129,7 +132,9 @@ export function Sequencer({ onBounced }: SequencerProps) {
     >
       <header className="module-head">
         <h2 className="module-title">Seq</h2>
-        <span className="module-sub">{pattern.name}</span>
+        <span className="module-sub">
+          {pattern.name}{editingSection ? ` · ${state.transport.isPlaying ? 'Looping' : 'Loop ready'} ${editingSection.name}` : ''}
+        </span>
         {!songArrangeOpen && state.songSections.length > 0 && <button type="button" className="chip-btn" onClick={() => {
           setSongArrangeOpen(true)
           requestAnimationFrame(() => document.querySelector('.song-arranger')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))

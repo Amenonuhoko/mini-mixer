@@ -101,8 +101,11 @@ export function SongArranger({
     setArrangerOpen(true)
   }
 
-  const editSection = (patternId: string) => {
+  const editSection = (sectionId: string, patternId: string) => {
+    engine.setSequencerPlaybackEnabled(false)
+    engine.stopAllSounds()
     dispatch({ type: 'SET_ACTIVE_PATTERN', patternId })
+    dispatch({ type: 'AUDITION_SONG_SECTION', sectionId, scope: 'loop' })
     setArrangerOpen(false)
     requestAnimationFrame(() =>
       document.querySelector('.sequencer')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
@@ -187,7 +190,7 @@ export function SongArranger({
               ▶ Hear whole song
             </button>
             <span>
-              Listen to the pattern changes, then use ▶ From here on a section to check a
+              Edit a section to loop it while you change its pattern. Use ▶ From here to check a
               transition.
             </span>
           </div>
@@ -245,12 +248,15 @@ export function SongArranger({
               const linkedPattern = state.patterns.find(
                 (pattern) => pattern.id === section.patternId,
               )
-              const soundingBanks = state.banks
+              const programmedBanks = state.banks
                 .filter((bank) =>
                   bank.padIds.some((padId) => linkedPattern?.steps[padId]?.some(Boolean)),
                 )
                 .map((bank) => bank.kind)
-              const loweredBanks = BANK_KINDS.filter((kind) => sectionBankLevel(section, kind) < 1)
+              const soundingBanks = programmedBanks.filter((kind) => !section.excludedBanks?.includes(kind))
+              const loweredBanks = BANK_KINDS.filter((kind) =>
+                !section.excludedBanks?.includes(kind) && sectionBankLevel(section, kind) < 1,
+              )
               const spanIndex = timeline.findIndex((span) => span.section.id === section.id)
               const restHasSteps = timeline
                 .slice(spanIndex)
@@ -311,22 +317,23 @@ export function SongArranger({
                     />
                   </label>
                   <span className="song-section-summary">
-                    {soundingBanks.length
-                      ? soundingBanks.map((kind) => {
+                    {programmedBanks.length
+                      ? programmedBanks.map((kind) => {
+                          if (section.excludedBanks?.includes(kind)) return `${BANK_NAMES[kind]} removed`
                           const level = Math.round(sectionBankLevel(section, kind) * 100)
                           return `${BANK_NAMES[kind]}${level < 100 ? ` ${level}%` : ''}`
                         }).join(' · ')
                       : 'Empty pattern — edit to add sounds'}
-                    {!soundingBanks.length && loweredBanks.length > 0
-                      ? ` · Mix set for ${loweredBanks.map((kind) => BANK_NAMES[kind]).join(', ')}`
+                    {!programmedBanks.length && (loweredBanks.length > 0 || section.excludedBanks?.length)
+                      ? ' · Section mix is set'
                       : ''}
                   </span>
                   <div className="song-section-actions">
                     <button
                       type="button"
                       className="chip-btn on"
-                      onClick={() => editSection(section.patternId)}
-                      aria-label={`Edit ${section.name} pattern in sequencer`}
+                      onClick={() => editSection(section.id, section.patternId)}
+                      aria-label={`Edit ${section.name} pattern in sequencer and loop this section`}
                     >
                       Edit {linkedPattern?.name ?? 'pattern'} ↓
                     </button>
@@ -406,27 +413,44 @@ export function SongArranger({
                   </div>
                   {mixSectionId === section.id && (
                     <div className="song-section-mix" role="group" aria-label={`${section.name} section volumes`}>
-                      <p>Set each group’s level for this section. The pattern stays the same.</p>
+                      <p>Set levels or remove a group from this section. Its pattern stays saved, so you can restore it later.</p>
                       <div className="song-section-faders">
                         {BANK_KINDS.map((kind) => {
                           const level = Math.round(sectionBankLevel(section, kind) * 100)
+                          const removed = section.excludedBanks?.includes(kind) ?? false
                           return (
-                            <label className="song-section-fader" key={kind}>
-                              <span>{BANK_NAMES[kind]} <strong>{level}%</strong></span>
-                              <input
-                                type="range"
-                                min={0}
-                                max={100}
-                                value={level}
-                                aria-label={`${section.name} ${BANK_NAMES[kind]} volume`}
-                                onChange={(event) => dispatch({
-                                  type: 'SET_SONG_SECTION_BANK_VOLUME',
+                            <div className={removed ? 'song-section-fader removed' : 'song-section-fader'} key={kind}>
+                              <label>
+                                <span>{BANK_NAMES[kind]} <strong>{removed ? 'Removed' : `${level}%`}</strong></span>
+                                <input
+                                  type="range"
+                                  min={0}
+                                  max={100}
+                                  value={level}
+                                  disabled={removed}
+                                  aria-label={`${section.name} ${BANK_NAMES[kind]} volume`}
+                                  onChange={(event) => dispatch({
+                                    type: 'SET_SONG_SECTION_BANK_VOLUME',
+                                    sectionId: section.id,
+                                    bank: kind,
+                                    level: Number(event.target.value),
+                                  })}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                className={removed ? 'chip-btn on' : 'chip-btn'}
+                                onClick={() => dispatch({
+                                  type: 'SET_SONG_SECTION_BANK_INCLUDED',
                                   sectionId: section.id,
                                   bank: kind,
-                                  level: Number(event.target.value),
+                                  included: removed,
                                 })}
-                              />
-                            </label>
+                                aria-label={`${removed ? 'Restore' : 'Remove'} ${BANK_NAMES[kind]} ${removed ? 'to' : 'from'} ${section.name} section`}
+                              >
+                                {removed ? 'Restore' : 'Remove'}
+                              </button>
+                            </div>
                           )
                         })}
                       </div>

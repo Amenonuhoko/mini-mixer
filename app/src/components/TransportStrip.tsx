@@ -45,8 +45,12 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
   }
 
   const auditioning = Boolean(state.transport.auditionSectionId)
-  const continuous = loopMode === 'continuous' && !auditioning
-  const scope = auditioning ? 'preview' : state.transport.playMode === 'song' ? 'song' : 'pattern'
+  const sectionLoop = auditioning && state.transport.auditionScope === 'loop'
+  const editingSection = state.songSections.find((section) => section.id === state.transport.auditionSectionId)
+  const continuous = sectionLoop || (loopMode === 'continuous' && !auditioning)
+  const scope = sectionLoop
+    ? `${editingSection?.name || 'section'} section`
+    : auditioning ? 'preview' : state.transport.playMode === 'song' ? 'song' : 'pattern'
 
   return (
     <header className="transport">
@@ -71,8 +75,8 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
           onClick={() => dispatch({ type: 'SET_LOOP_MODE', loopMode: continuous ? 'once' : 'continuous' })}
           disabled={auditioning}
           aria-pressed={continuous}
-          aria-label={auditioning ? 'Preview plays once' : continuous ? `${scope} loops continuously` : `${scope} plays once`}
-          title={auditioning ? 'Preview stops at the end' : continuous ? `Loop ${scope} — tap to play once` : `Play ${scope} once — tap to loop`}
+          aria-label={sectionLoop ? `${scope} loops continuously` : auditioning ? 'Preview plays once' : continuous ? `${scope} loops continuously` : `${scope} plays once`}
+          title={sectionLoop ? `Looping ${scope} while editing` : auditioning ? 'Preview stops at the end' : continuous ? `Loop ${scope} — tap to play once` : `Play ${scope} once — tap to loop`}
         >
           {continuous ? <LoopIcon /> : <OnceIcon />}
         </button>

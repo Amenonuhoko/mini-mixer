@@ -2344,9 +2344,12 @@ body.style-drawer-open .app-shell {
 .song-section-mix p { margin: 0 0 8px; color: var(--text-dim); font-size: var(--fs-xs); }
 .song-section-faders { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
 .song-section-fader { display: flex; flex-direction: column; gap: 5px; color: var(--text); font-size: var(--fs-xs); }
+.song-section-fader label { display: flex; flex-direction: column; gap: 5px; }
 .song-section-fader span { display: flex; justify-content: space-between; gap: 6px; }
 .song-section-fader strong { color: var(--cyan); font-family: var(--font-mono); }
 .song-section-fader input[type='range'] { width: 100%; min-height: 26px; padding: 0; accent-color: var(--cyan); cursor: pointer; }
+.song-section-fader.removed input[type='range'] { opacity: .4; cursor: default; }
+.song-section-fader .chip-btn { align-self: flex-start; }
 .song-footer { justify-content: space-between; }
 .song-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
 

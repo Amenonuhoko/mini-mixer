@@ -4,7 +4,7 @@ import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
 import { playablePads } from '../state/banks'
-import { buildSongTimeline, sectionBankLevel, songStepAt } from '../engine/songTimeline'
+import { buildSongTimeline, sectionBankGain, songStepAt } from '../engine/songTimeline'
 
 /**
  * Owns the single AudioEngine + Scheduler pair for the app's lifetime and keeps
@@ -60,7 +60,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             const sample = current.samples[sampleId]
             if (!sample) continue
             const bank = bankByPad.get(pad.id)
-            const level = songPosition && bank ? sectionBankLevel(songPosition.span.section, bank) : 1
+            const level = songPosition && bank ? sectionBankGain(songPosition.span.section, bank) : 1
             engine.triggerStep(pad, sample.buffer, time, level)
           }
         }
@@ -69,7 +69,10 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           : song.length && current.transport.playMode === 'song'
           ? song[song.length - 1]!.endStep - 1
           : (pattern?.stepCount ?? 16) - 1
-        if ((auditionSpan || current.transport.loopMode === 'once') && pattern && stepIndex === finalStep) {
+        const shouldStop = auditionSpan
+          ? current.transport.auditionScope !== 'loop'
+          : current.transport.loopMode === 'once'
+        if (shouldStop && pattern && stepIndex === finalStep) {
           engine.setSequencerPlaybackEnabled(false)
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
@@ -93,7 +96,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     if (auditionSpan) {
       schedulerRef.current?.setRange(
         auditionSpan.startStep,
-        state.transport.auditionScope === 'section' ? auditionSpan.endStep : end,
+        state.transport.auditionScope === 'rest' ? end : auditionSpan.endStep,
       )
     }
   }, [state.activePatternId, state.patterns, state.songSections, state.transport.playMode, state.transport.auditionSectionId, state.transport.auditionScope])

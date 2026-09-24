@@ -167,6 +167,8 @@ export interface SongSection {
   repeats: number
   /** Per-section levels for the four sound banks; missing values play at 100%. */
   bankVolumes?: Partial<Record<BankKind, number>>
+  /** Banks removed from this section's playback without deleting the shared pattern. */
+  excludedBanks?: BankKind[]
 }
 
 export type LoopMode = 'once' | 'continuous'
@@ -178,9 +180,9 @@ export interface Transport {
   isPlaying: boolean
   playMode: 'pattern' | 'song'
   currentSongSectionId: string | null
-  /** A section audition starts here; 'section' ends at its boundary, 'rest' at the song end. */
+  /** The selected song range; a loop remains selected while playback is paused. */
   auditionSectionId: string | null
-  auditionScope: 'section' | 'rest'
+  auditionScope: 'section' | 'rest' | 'loop'
   playbackRunId: number
   loopMode: LoopMode
   metronomeEnabled: boolean

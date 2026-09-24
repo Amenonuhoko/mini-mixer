@@ -328,6 +328,9 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
             : []
         })),
       } : {}),
+      ...(section.excludedBanks ? {
+        excludedBanks: BANK_KINDS.filter((kind) => section.excludedBanks?.includes(kind)),
+      } : {}),
     })),
     transport: buildTransport(meta.transport),
   }
