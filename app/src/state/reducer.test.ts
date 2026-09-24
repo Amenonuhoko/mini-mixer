@@ -722,4 +722,28 @@ describe('reducer', () => {
     expect(pattern.traceSource).toBeNull()
   })
 
+
+  it('clears one step, fills a row exactly, and repeats bar one across the pattern', () => {
+    let state = createInitialState(2)
+    const [kick, hat] = state.pads
+    const patternId = state.activePatternId
+    state = reducer(state, { type: 'ADD_SAMPLE', sample: makeSample('kick') })
+    state = reducer(state, { type: 'ADD_SAMPLE', sample: makeSample('hat') })
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId, padId: kick!.id, stepIndex: 3, sampleId: 'kick' })
+    state = reducer(state, { type: 'CLEAR_STEP', patternId, padId: kick!.id, stepIndex: 3 })
+    expect(state.patterns[0]!.steps[kick!.id]![3]).toBeNull()
+
+    state = reducer(state, { type: 'SET_ROW_STEPS', patternId, padId: hat!.id, steps: [0, 2, 4, 6], sampleId: 'hat' })
+    expect(state.patterns[0]!.steps[hat!.id]!.flatMap((cell, i) => (cell ? [i] : []))).toEqual([0, 2, 4, 6])
+    state = reducer(state, { type: 'SET_ROW_STEPS', patternId, padId: hat!.id, steps: [1], sampleId: 'hat' })
+    expect(state.patterns[0]!.steps[hat!.id]!.flatMap((cell, i) => (cell ? [i] : []))).toEqual([1])
+
+    state = reducer(state, { type: 'ADD_PATTERN_STEPS', patternId })
+    state = reducer(state, { type: 'ADD_PATTERN_STEPS', patternId })
+    state = reducer(state, { type: 'ADD_PATTERN_STEPS', patternId })
+    state = reducer(state, { type: 'ADD_PATTERN_STEPS', patternId })
+    state = reducer(state, { type: 'REPEAT_FIRST_BAR', patternId })
+    expect(state.patterns[0]!.stepCount).toBe(32)
+    expect(state.patterns[0]!.steps[hat!.id]!.flatMap((cell, i) => (cell ? [i] : []))).toEqual([1, 17])
+  })
 })

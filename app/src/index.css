@@ -964,6 +964,60 @@ button:disabled {
   margin-top: 2px;
 }
 
+/* Tempo panel: opens from the BPM readout, on the strip's left. */
+.bpm-nudge {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bpm-readout.open .bpm-value {
+  color: var(--text);
+}
+
+.tempo-popover {
+  /* Pinned to the screen, not the control, so it always fits a phone. */
+  position: fixed;
+  top: calc(var(--strip-h) + var(--safe-top) + 6px);
+  left: 10px;
+  right: auto;
+  width: min(340px, calc(100vw - 20px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.tempo-popover-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.tempo-popover-value {
+  font-size: 1.4rem;
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
+
+.tempo-steps {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.tempo-steps .chip-btn,
+.tempo-presets .chip-btn {
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.tempo-presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
 /* --------------------------------------------------------------------------
    Tab bar + record
    -------------------------------------------------------------------------- */
@@ -1502,7 +1556,7 @@ button:disabled {
   align-items: center;
   gap: 4px;
   flex: none;
-  width: 66px;
+  width: 126px;
   padding-right: 4px;
   background: var(--deck-solid);
   box-shadow: 6px 0 8px -6px rgb(0 0 0 / 0.9);
@@ -1512,43 +1566,124 @@ button:disabled {
   box-shadow: none;
 }
 
-.sequencer-row-remove {
+.sequencer-row-menu {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
   width: 20px;
-  height: 20px;
-  border: 1px solid transparent;
+  height: 30px;
   border-radius: var(--r-sm);
   color: var(--text-faint);
-  transition:
-    color var(--fast),
-    border-color var(--fast);
+  transition: color var(--fast);
 }
 
-.sequencer-row-remove:hover:not(:disabled) {
-  border-color: rgb(255 81 69 / 0.5);
-  color: var(--danger);
-}
-
-.sequencer-row-remove:disabled {
-  opacity: 0.25;
+.sequencer-row-menu:hover {
+  color: var(--cyan);
 }
 
 .sequencer-row-label {
   position: relative;
-  display: inline-flex;
+  display: flex;
+  flex: 1;
   align-items: center;
-  justify-content: center;
-  width: 38px;
+  gap: 4px;
+  min-width: 0;
   height: 30px;
+  padding: 0 6px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
   background: var(--void);
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  text-align: left;
   transition: border-color var(--fast);
+}
+
+.row-num {
+  flex: none;
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.row-icon {
+  flex: none;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Long names wrap onto a second line rather than cutting off — the name is what tells rows apart. */
+.row-name {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  /* The body face is narrower than mono, so whole words fit the slim column. */
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--text);
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* The selected pad — the same one the Pads page has selected. */
+.sequencer-row.selected .sequencer-row-label {
+  border-color: var(--orange);
+  box-shadow: inset 0 0 10px rgb(var(--orange-rgb) / 0.18);
+}
+
+.sequencer-row.selected .row-name {
+  color: var(--orange);
+}
+
+.sequencer-row.selected .step:not(.on):not(.trace) {
+  border-color: rgb(var(--orange-rgb) / 0.22);
+}
+
+/* Paint tool: a finger drag paints instead of scrolling. */
+.sequencer-grid.painting .step {
+  touch-action: none;
+}
+
+/* Row menu: one-tap fills with a preview of each. */
+.row-fills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.row-fill {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: left;
+  transition: border-color var(--fast);
+}
+
+.row-fill:hover:not(:disabled) {
+  border-color: var(--cyan);
+}
+
+.row-fill:disabled {
+  opacity: 0.4;
+}
+
+.row-fill-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.row-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
 }
 
 .sequencer-row-label:hover {
@@ -1571,7 +1706,7 @@ button:disabled {
   border-color: var(--orange);
 }
 
-.row-looping .sequencer-row-label .readout {
+.row-looping .sequencer-row-label .row-name {
   color: var(--orange);
 }
 
@@ -3302,12 +3437,6 @@ body.style-drawer-open .app-shell {
 
 .sequencer-bank-toggle:hover {
   color: var(--text);
-}
-
-.sequencer-row-label.named .readout {
-  font-size: var(--fs-xs);
-  letter-spacing: 0;
-  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------------------

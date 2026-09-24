@@ -234,6 +234,21 @@ export const SparkIcon = (p: IconProps) => (
   </Svg>
 )
 
+export const BrushIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14.5 4.5l5 5L11 18l-5-5z" />
+    <path d="M6 13c-2 .5-3 2-3 4.5 0 1 .5 2.5 2.5 2.5 2.5 0 4-1 4.5-3" />
+  </Svg>
+)
+
+export const MoreIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="18" cy="12" r="1" fill="currentColor" />
+  </Svg>
+)
+
 export const DiceIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="4" y="4" width="16" height="16" rx="3" />

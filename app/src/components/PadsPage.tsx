@@ -21,8 +21,7 @@ import { PadLibraryPicker } from './PadLibraryPicker'
 export function PadsPage() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const { goToEditPad } = useNavigation()
-  const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
+  const { goToEditPad, selectedPadId, selectPad: setSelectedPadId } = useNavigation()
   const [pickingLibrary, setPickingLibrary] = useState(false)
   const bank = getActiveBank(state)
   const visiblePads = visibleBankPads(state, bank)

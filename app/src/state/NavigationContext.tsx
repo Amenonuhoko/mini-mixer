@@ -11,6 +11,13 @@ interface NavigationValue {
   goToLibrary: () => void
   goToEditPad: (padId: string) => void
   goBackFromEdit: () => void
+  /**
+   * The pad you're working with, shared by the Pads grid and the Sequencer —
+   * pick a pad on one and the other shows the same one, so going back and
+   * forth never loses your place.
+   */
+  selectedPadId: string | null
+  selectPad: (padId: string | null) => void
 }
 
 const NavigationContext = createContext<NavigationValue | null>(null)
@@ -26,6 +33,7 @@ const NavigationContext = createContext<NavigationValue | null>(null)
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<Page>('pads')
   const [editingPadId, setEditingPadId] = useState<string | null>(null)
+  const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
 
   const value: NavigationValue = {
     page,
@@ -35,6 +43,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     goToLibrary: () => setPage('library'),
     goToEditPad: (padId: string) => setEditingPadId(padId),
     goBackFromEdit: () => setEditingPadId(null),
+    selectedPadId,
+    selectPad: setSelectedPadId,
   }
 
   return <NavigationContext value={value}>{children}</NavigationContext>

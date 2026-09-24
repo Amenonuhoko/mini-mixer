@@ -1,16 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
-import { BPM_MAX, BPM_MIN } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import { TempoControl } from './TempoControl'
 import { GearIcon, LoopIcon, MetronomeIcon, OnceIcon, PanicIcon, PlayIcon, StopIcon, VolumeIcon } from './icons'
 
 interface TransportStripProps {
   onOpenSettings: () => void
 }
-
-/** Pixels of drag per BPM step when scrubbing the tempo readout. */
-const SCRUB_PX_PER_BPM = 4
 
 /**
  * The always-visible top strip: everything about *time* lives here — play,
@@ -66,7 +63,7 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
 
       <span className="beat-led" data-beat aria-hidden="true" />
 
-      <BpmControl bpm={bpm} onChange={(next) => dispatch({ type: 'SET_BPM', bpm: next })} />
+      <TempoControl bpm={bpm} onChange={(next) => dispatch({ type: 'SET_BPM', bpm: next })} />
 
       <div className="transport-tools">
         <button
@@ -137,89 +134,5 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
         </button>
       </div>
     </header>
-  )
-}
-
-interface BpmControlProps {
-  bpm: number
-  onChange: (bpm: number) => void
-}
-
-/**
- * Tempo as a compact readout with nudge buttons — easy to learn (tap − / +)
- * — that also scrubs: drag the number left/right (or up/down) to sweep the
- * tempo fast, or use the arrow keys once it has focus.
- */
-function BpmControl({ bpm, onChange }: BpmControlProps) {
-  const scrubRef = useRef<{ startX: number; startY: number; startBpm: number } | null>(null)
-  const clampBpm = (value: number) => Math.min(BPM_MAX, Math.max(BPM_MIN, Math.round(value)))
-
-  const handlePointerDown = (event: React.PointerEvent<HTMLOutputElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId)
-    scrubRef.current = { startX: event.clientX, startY: event.clientY, startBpm: bpm }
-  }
-
-  const handlePointerMove = (event: React.PointerEvent<HTMLOutputElement>) => {
-    const scrub = scrubRef.current
-    if (!scrub) return
-    const travel = event.clientX - scrub.startX - (event.clientY - scrub.startY)
-    const next = clampBpm(scrub.startBpm + travel / SCRUB_PX_PER_BPM)
-    if (next !== bpm) onChange(next)
-  }
-
-  const endScrub = () => {
-    scrubRef.current = null
-  }
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLOutputElement>) => {
-    const step = event.shiftKey ? 10 : 1
-    if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
-      event.preventDefault()
-      onChange(clampBpm(bpm + step))
-    } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
-      event.preventDefault()
-      onChange(clampBpm(bpm - step))
-    }
-  }
-
-  return (
-    <div className="bpm-control" role="group" aria-label="Tempo">
-      <button
-        type="button"
-        className="bpm-nudge"
-        onClick={() => onChange(clampBpm(bpm - 1))}
-        disabled={bpm <= BPM_MIN}
-        aria-label="Slower"
-      >
-        −
-      </button>
-      <output
-        className="bpm-readout"
-        tabIndex={0}
-        role="slider"
-        aria-label="Tempo in BPM — drag or use arrow keys"
-        aria-valuemin={BPM_MIN}
-        aria-valuemax={BPM_MAX}
-        aria-valuenow={bpm}
-        title="Drag to change tempo"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endScrub}
-        onPointerCancel={endScrub}
-        onKeyDown={handleKeyDown}
-      >
-        <span className="bpm-value">{bpm}</span>
-        <span className="bpm-unit">BPM</span>
-      </output>
-      <button
-        type="button"
-        className="bpm-nudge"
-        onClick={() => onChange(clampBpm(bpm + 1))}
-        disabled={bpm >= BPM_MAX}
-        aria-label="Faster"
-      >
-        +
-      </button>
-    </div>
   )
 }

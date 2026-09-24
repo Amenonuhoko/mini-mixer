@@ -81,6 +81,11 @@ export type Action =
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
   | { type: 'SET_STEP_SAMPLE'; patternId: string; padId: string; stepIndex: number; sampleId: string }
+  | { type: 'CLEAR_STEP'; patternId: string; padId: string; stepIndex: number }
+  /** Sets one row to exactly these steps (every one playing `sampleId`) — the row fills. */
+  | { type: 'SET_ROW_STEPS'; patternId: string; padId: string; steps: number[]; sampleId: string | null }
+  /** Copies the first bar of every row onto every later bar. */
+  | { type: 'REPEAT_FIRST_BAR'; patternId: string }
   | { type: 'CLEAR_PATTERN'; patternId: string }
   | { type: 'CLEAR_BANK_PATTERN'; patternId: string; bankId: string }
   | { type: 'ADD_PATTERN_STEPS'; patternId: string }
@@ -600,6 +605,42 @@ export function reducer(state: AppState, action: Action): AppState {
         },
       }))
     }
+
+    case 'CLEAR_STEP': {
+      const pattern = state.patterns.find((item) => item.id === action.patternId)
+      const row = pattern?.steps[action.padId]
+      if (!row || !row[action.stepIndex]) return state
+      const cleared = updatePattern(state, action.patternId, (current) => ({
+        ...current,
+        steps: { ...current.steps, [action.padId]: row.map((cell, i) => (i === action.stepIndex ? null : cell)) },
+      }))
+      return removeUnusedNoteSamples(cleared)
+    }
+
+    case 'SET_ROW_STEPS': {
+      const pattern = state.patterns.find((item) => item.id === action.patternId)
+      if (!pattern || (action.sampleId !== null && !state.samples[action.sampleId])) return state
+      const on = new Set(action.steps)
+      const written = updatePattern(state, action.patternId, (current) => ({
+        ...current,
+        steps: {
+          ...current.steps,
+          [action.padId]: Array.from({ length: current.stepCount }, (_, i) => (on.has(i) ? action.sampleId : null)),
+        },
+      }))
+      return removeUnusedNoteSamples(written)
+    }
+
+    case 'REPEAT_FIRST_BAR':
+      return updatePattern(state, action.patternId, (pattern) => ({
+        ...pattern,
+        steps: Object.fromEntries(
+          Object.entries(pattern.steps).map(([padId, row]) => [
+            padId,
+            Array.from({ length: pattern.stepCount }, (_, i) => row[i % 16] ?? null),
+          ]),
+        ),
+      }))
 
     case 'CLEAR_PATTERN': {
       const cleared = updatePattern(state, action.patternId, (pattern) => ({

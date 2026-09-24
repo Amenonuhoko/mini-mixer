@@ -1,17 +1,19 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
-import { padLabel } from '../music/theory'
 import { styleById } from '../styles/library'
 import { BANK_NAMES, playablePads, visibleBankPads } from '../state/banks'
 import { MAX_PAD_COUNT, MIN_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
+import { useNavigation } from '../state/NavigationContext'
+import { padIdentity } from '../utils/padIdentity'
 import { computePeaks } from '../utils/waveform'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { Bank, Pad, Sample, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { CloseIcon, EyeIcon, OpenIcon, PlusIcon, SaveIcon, SparkIcon, TrashIcon } from './icons'
+import { BrushIcon, EyeIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, SparkIcon, SwapIcon, TrashIcon } from './icons'
+import { Overlay } from './Overlay'
 import { LayerStrip } from './LayerStrip'
 import { StyleDock } from './StyleBrowser'
 import { PadLibraryPicker } from './PadLibraryPicker'
@@ -21,6 +23,27 @@ import { Stepper } from './Stepper'
 import { SongArranger } from './SongArranger'
 
 const GROUP_SIZE = 4
+/** Painting near the scroll area's edge scrolls it: how close (px), and how fast (px per frame). */
+const PAINT_EDGE_PX = 28
+const PAINT_SCROLL_PX = 9
+
+interface PaintCell {
+  key: string
+  padId: string
+  step: number
+  on: boolean
+}
+
+/** A drag across step cells: draws, or erases if it started on a lit cell. */
+interface Painting {
+  mode: 'draw' | 'erase'
+  origin: PaintCell
+  applied: Set<string>
+  painted: boolean
+  x: number
+  y: number
+  frame: number
+}
 const WAVEFORM_BUCKETS = 80
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -63,6 +86,22 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [stylesOpen, setStylesOpen] = useState(false)
   const [stripOpen, setStripOpen] = useState<Record<string, boolean>>({})
   const [songArrangeOpen, setSongArrangeOpen] = useState(state.transport.playMode === 'song')
+  const [paintMode, setPaintMode] = useState(false)
+  const [menuPadId, setMenuPadId] = useState<string | null>(null)
+  const [confirmRepeat, setConfirmRepeat] = useState(false)
+  const { selectedPadId, selectPad } = useNavigation()
+  const gridRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const paintRef = useRef<Painting | null>(null)
+  const padsById = new Map(state.pads.map((pad) => [pad.id, pad]))
+
+  // Arriving from the Pads page: bring the selected pad's row into view.
+  useEffect(() => {
+    if (!selectedPadId) return
+    document.querySelector(`[data-row-pad="${CSS.escape(selectedPadId)}"]`)?.scrollIntoView({ block: 'center' })
+    // Only on arrival — scrolling on every selection would yank the page while you play.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const removingPad = removingPadId ? state.pads.find((pad) => pad.id === removingPadId) : undefined
   const deletingBank = deletingBankId ? state.banks.find((bank) => bank.id === deletingBankId) : undefined
   const removingPadIndex = removingPad ? visiblePads.indexOf(removingPad) : -1
@@ -105,6 +144,144 @@ export function Sequencer({ onBounced }: SequencerProps) {
     } finally {
       setBouncing(false)
     }
+  }
+
+  /** Tapping a row's name: hear it, select that pad (the Pads page follows), without reshuffling the rows. */
+  const pickRow = (bank: Bank, pad: Pad) => {
+    selectPad(pad.id)
+    if (bank.id !== state.activeBankId) {
+      // Keep every bank folded or open exactly as it is now.
+      setExpandedOverride((current) =>
+        Object.fromEntries(state.banks.map((item) => [item.id, current[item.id] ?? item.id === state.activeBankId])),
+      )
+      dispatch({ type: 'SET_ACTIVE_BANK', bankId: bank.id })
+    }
+    const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
+    if (sample && !pad.muted) engine.triggerPad(pad, sample.buffer)
+  }
+
+  // --- Painting ------------------------------------------------------------
+  // A drag along a row fills (or, starting on a lit cell, erases) every cell
+  // it crosses, scrolling the grid when it nears an edge. With a
+  // mouse that's always on; on touch it's the Paint tool, since a finger drag
+  // otherwise scrolls.
+  const toCell = (el: HTMLElement): PaintCell | null => {
+    const padId = el.dataset.padId
+    if (!padId) return null
+    const step = Number(el.dataset.stepIndex)
+    return { key: `${padId}:${step}`, padId, step, on: el.classList.contains('on') }
+  }
+
+  const cellAt = (x: number, y: number): PaintCell | null => {
+    const el = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-step-index]')
+    return el && gridRef.current?.contains(el) ? toCell(el) : null
+  }
+
+  /**
+   * The step under `x` in the stroke's own row. A stroke stays in the row it
+   * started in: a finger drifting up or down can't spill onto a neighbour, and
+   * the grid shifting mid-stroke (the empty-pattern hint vanishing on the
+   * first step) can't move it onto another row.
+   */
+  const strokeCellAt = (paint: Painting, x: number): PaintCell | null => {
+    const row = gridRef.current?.querySelector(`[data-row-pad="${paint.origin.padId}"]`)
+    if (!row) return null
+    for (const el of row.querySelectorAll<HTMLElement>('[data-step-index]')) {
+      const box = el.getBoundingClientRect()
+      if (x >= box.left && x < box.right) return toCell(el)
+    }
+    return null
+  }
+
+  const paintCell = (cell: PaintCell) => {
+    const paint = paintRef.current
+    if (!paint || !pattern || paint.applied.has(cell.key)) return
+    paint.applied.add(cell.key)
+    paint.painted = true
+    const pad = padsById.get(cell.padId)
+    if (!pad) return
+    if (paint.mode === 'erase') {
+      if (cell.on) dispatch({ type: 'CLEAR_STEP', patternId: pattern.id, padId: pad.id, stepIndex: cell.step })
+      return
+    }
+    if (cell.on || !pad.sampleId) return
+    dispatch({ type: 'SET_STEP_SAMPLE', patternId: pattern.id, padId: pad.id, stepIndex: cell.step, sampleId: pad.sampleId })
+    // Hear the first cell of a stroke, so you know what you're painting with.
+    const sample = state.samples[pad.sampleId]
+    if (paint.applied.size === 1 && previewOnClick && sample && !pad.muted) engine.triggerPad(pad, sample.buffer)
+  }
+
+  const autoScroll = () => {
+    const paint = paintRef.current
+    const scroller = scrollRef.current
+    if (!paint || !scroller) return
+    const box = scroller.getBoundingClientRect()
+    const fixed = scroller.querySelector('.sequencer-row-fixed')?.getBoundingClientRect().width ?? 0
+    const delta = paint.x < box.left + fixed + PAINT_EDGE_PX ? -PAINT_SCROLL_PX : paint.x > box.right - PAINT_EDGE_PX ? PAINT_SCROLL_PX : 0
+    if (delta !== 0) {
+      scroller.scrollLeft += delta
+      const cell = paint.painted ? strokeCellAt(paint, paint.x) : null
+      if (cell) paintCell(cell)
+    }
+    paint.frame = requestAnimationFrame(autoScroll)
+  }
+
+  const handleGridPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (sequencerGateMode || event.button > 0) return
+    const cell = cellAt(event.clientX, event.clientY)
+    if (!cell) return
+    if (event.pointerType !== 'mouse' && !paintMode) return
+    const paint: Painting = { mode: cell.on ? 'erase' : 'draw', origin: cell, applied: new Set(), painted: false, x: event.clientX, y: event.clientY, frame: 0 }
+    paintRef.current = paint
+    // Paint mode strokes from the first touch. A mouse press is left alone
+    // until it drags, so a plain click still reaches the step and toggles it.
+    if (paintMode) startStroke(paint, event.pointerId)
+  }
+
+  const startStroke = (paint: Painting, pointerId: number) => {
+    gridRef.current?.setPointerCapture(pointerId)
+    paintCell(paint.origin)
+    paint.frame = requestAnimationFrame(autoScroll)
+  }
+
+  const handleGridPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const paint = paintRef.current
+    if (!paint) return
+    // A mouse released outside the grid before it dragged never sent us its pointerup.
+    if (event.buttons === 0) return handleGridPointerEnd()
+    paint.x = event.clientX
+    paint.y = event.clientY
+    const cell = strokeCellAt(paint, event.clientX)
+    if (!cell || (cell.key === paint.origin.key && !paint.painted)) return
+    // A mouse drag starts painting once it leaves the first cell.
+    if (!paint.painted) startStroke(paint, event.pointerId)
+    paintCell(cell)
+  }
+
+  const handleGridPointerEnd = () => {
+    const paint = paintRef.current
+    if (!paint) return
+    cancelAnimationFrame(paint.frame)
+    // The click that follows a stroke must not toggle its first cell back;
+    // clear the stroke once that click (if any) has been handled.
+    window.setTimeout(() => {
+      if (paintRef.current === paint) paintRef.current = null
+    }, 0)
+  }
+
+  const handleGridClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (paintRef.current?.painted) {
+      event.stopPropagation()
+      event.preventDefault()
+    }
+  }
+
+  const laterBarsHaveSteps = pattern
+    ? Object.values(pattern.steps).some((row) => row.some((cell, i) => i >= 16 && cell !== null))
+    : false
+  const repeatFirstBar = () => {
+    if (pattern) dispatch({ type: 'REPEAT_FIRST_BAR', patternId: pattern.id })
+    setConfirmRepeat(false)
   }
 
   const handleTimelineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
@@ -210,6 +387,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
           >
             Preview
           </button>
+          <button
+            type="button"
+            className={paintMode ? 'chip-btn on' : 'chip-btn'}
+            onClick={() => setPaintMode((enabled) => !enabled)}
+            aria-pressed={paintMode}
+            title={paintMode ? 'Paint on — drag across steps to fill them (start on a lit step to erase)' : 'Paint — drag a finger across steps to fill them'}
+          >
+            <BrushIcon size={14} />
+            Paint
+          </button>
         </div>
         <div className="toolbar-group">
           <button
@@ -222,6 +409,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
             <SaveIcon size={14} />
             {bouncing ? 'Saving…' : 'Save'}
           </button>
+          {pattern.stepCount > 16 && (
+            <button
+              type="button"
+              className="chip-btn"
+              onClick={() => (laterBarsHaveSteps ? setConfirmRepeat(true) : repeatFirstBar())}
+              title="Copy the first bar onto every bar"
+            >
+              Bar 1 → all
+            </button>
+          )}
           <button
             type="button"
             className="chip-btn"
@@ -277,8 +474,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
         </div>
       )}
 
-      <div className="sequencer-scroll" onWheel={handleTimelineWheel}>
-        <div className="sequencer-grid">
+      <div className="sequencer-scroll" onWheel={handleTimelineWheel} ref={scrollRef}>
+        <div
+          className={paintMode ? 'sequencer-grid painting' : 'sequencer-grid'}
+          ref={gridRef}
+          onPointerDown={handleGridPointerDown}
+          onPointerMove={handleGridPointerMove}
+          onPointerUp={handleGridPointerEnd}
+          onPointerCancel={handleGridPointerEnd}
+          onClickCapture={handleGridClickCapture}
+        >
           <div className="sequencer-row sequencer-header-row" aria-hidden="true">
             <div className="sequencer-row-fixed" />
             {chunk(
@@ -299,7 +504,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
             const ordered = melodic
               ? [...bankPads].sort((a, b) => (b.music?.midis[0] ?? 0) - (a.music?.midis[0] ?? 0))
               : bankPads
-            const rows = expanded ? ordered : ordered.filter(used)
+            // A folded bank still shows the selected pad's row, so a pad picked on the Pads page is always here.
+            const rows = expanded ? ordered : ordered.filter((pad) => used(pad) || pad.id === selectedPadId)
             const removedFromPart = targetSection?.excludedBanks?.includes(bank.kind) ?? false
             const bankHasSteps = bankPads.some(used)
             return (
@@ -353,35 +559,26 @@ export function Sequencer({ onBounced }: SequencerProps) {
                 </div>
                 {removedFromPart && <p className="sequencer-bank-removed">Removed from {targetSection?.name}. Restore it to hear these steps again.</p>}
                 {!removedFromPart && stripOpen[bank.id] && <LayerStrip kind={bank.kind} />}
-                {!removedFromPart && rows.map((pad) => {
-                  const padIndex = bankPads.indexOf(pad)
-                  return (
+                {!removedFromPart && rows.map((pad) => (
                 <SequencerRow
                   key={pad.id}
                   pad={pad}
-                  padIndex={padIndex}
                   bank={bank}
-                  patternId={pattern.id}
                   steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
                   traceSteps={pattern.traceSteps?.[pad.id] ?? []}
                   sampleLabels={sampleLabels}
                   engine={engine}
                   sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
+                  selected={pad.id === selectedPadId}
                   gateMode={sequencerGateMode}
                   previewOnClick={previewOnClick}
                   onToggleStep={(stepIndex) =>
                     dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
                   }
-                  onFillStep={(stepIndex) => {
-                    if (!pad.sampleId) return
-                    dispatch({ type: 'SET_STEP_SAMPLE', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
-                  }}
-                  onSwapSound={() => setSwappingPadId(pad.id)}
-                  onRemove={() => setRemovingPadId(pad.id)}
-                  removeDisabled={bank.padIds.length <= MIN_PAD_COUNT}
+                  onPick={() => pickRow(bank, pad)}
+                  onOpenMenu={() => setMenuPadId(pad.id)}
                 />
-                  )
-                })}
+                ))}
                 {!removedFromPart && !melodic && expanded && bank.visibleCount < MAX_PAD_COUNT && (
                   <div className="sequencer-add-row-slot">
                     <div className="sequencer-row-fixed" />
@@ -423,6 +620,31 @@ export function Sequencer({ onBounced }: SequencerProps) {
           onCancel={() => setDeletingBankId(null)}
         />
       )}
+      {menuPadId && (() => {
+        const pad = padsById.get(menuPadId)
+        const bank = state.banks.find((item) => item.padIds.includes(menuPadId))
+        if (!pad || !bank) return null
+        const close = () => setMenuPadId(null)
+        return (
+          <RowMenu
+            pad={pad}
+            bank={bank}
+            stepCount={pattern.stepCount}
+            onFill={(steps) => dispatch({ type: 'SET_ROW_STEPS', patternId: pattern.id, padId: pad.id, steps, sampleId: pad.sampleId })}
+            onSwap={bank.kind === 'drums' ? () => { close(); setSwappingPadId(pad.id) } : null}
+            onRemove={bank.kind === 'drums' && bank.padIds.length > MIN_PAD_COUNT ? () => { close(); setRemovingPadId(pad.id) } : null}
+            onClose={close}
+          />
+        )
+      })()}
+      {confirmRepeat && (
+        <ConfirmDialog
+          message="Copy bar 1 onto every bar? The steps already in the later bars are replaced."
+          confirmLabel="Copy"
+          onConfirm={repeatFirstBar}
+          onCancel={() => setConfirmRepeat(false)}
+        />
+      )}
       {swappingPadId && <PadLibraryPicker padId={swappingPadId} onClose={() => setSwappingPadId(null)} />}
       {loadPickerOpen && <SequenceLoadPicker onClose={() => setLoadPickerOpen(false)} />}
       {removingPad && (
@@ -450,61 +672,49 @@ export function Sequencer({ onBounced }: SequencerProps) {
 
 interface SequencerRowProps {
   pad: Pad
-  padIndex: number
   bank: Bank
-  patternId: string
   steps: Array<string | null>
   traceSteps: Array<string | null>
   sampleLabels: Record<string, string>
   engine: AudioEngine
   sample: Sample | undefined
+  selected: boolean
   gateMode: boolean
   previewOnClick: boolean
   onToggleStep: (stepIndex: number) => void
-  onFillStep: (stepIndex: number) => void
-  onSwapSound: () => void
-  onRemove: () => void
-  removeDisabled: boolean
+  /** Tapping the row's name: hear it, and make it the selected pad (on the Pads page too). */
+  onPick: () => void
+  onOpenMenu: () => void
 }
 
+/**
+ * One pad's row: its name (number, kit glyph, sound — the same name the pad
+ * grid shows), a row menu, and its steps. Painting across cells is handled
+ * by the grid (see Sequencer), so it can cross rows and auto-scroll.
+ */
 function SequencerRow({
   pad,
-  padIndex,
   bank,
   steps,
   traceSteps,
   sampleLabels,
   engine,
   sample,
+  selected,
   gateMode,
   previewOnClick,
   onToggleStep,
-  onFillStep,
-  onSwapSound,
-  onRemove,
-  removeDisabled,
+  onPick,
+  onOpenMenu,
 }: SequencerRowProps) {
   const { state } = useAppState()
   const looping = usePadLooping(engine, pad.id)
-  const label = pad.music ? padLabel(pad.music, state.key, state.padLabels) : null
-  const rowName = label ? `${BANK_NAMES[bank.kind]} ${label.name}` : `Pad ${padIndex + 1}`
+  const identity = padIdentity(state, bank, pad)
+  const rowName = pad.music ? `${BANK_NAMES[bank.kind]} ${identity.name}` : `Pad ${identity.number}, ${identity.name}`
   const gateSources = useRef(new Map<number, Voice>())
-  const rowRef = useRef<HTMLDivElement>(null)
-  // A drag across several cells ("slide an instrument across multiple
-  // beats") vs. a plain tap on one — tracked per-gesture so a real drag can
-  // suppress the click event the browser still fires on the origin cell
-  // afterward, without a second, spurious toggle undoing what the drag just
-  // painted there.
-  const paintRef = useRef<{ originIndex: number; painted: boolean } | null>(null)
 
   const stopGateSource = (pointerId: number) => {
-    const source = gateSources.current.get(pointerId)
-    if (!source) return
-    try {
-      source.stop()
-    } catch {
-      // A short sound may have ended between press and release.
-    }
+    gateSources.current.get(pointerId)?.stop()
     gateSources.current.delete(pointerId)
   }
 
@@ -514,15 +724,7 @@ function SequencerRow({
     gateSources.current.set(event.pointerId, engine.triggerPad(pad, sample.buffer))
   }
 
-  const fillAndAudition = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number) => {
-    if (paintRef.current?.painted) {
-      // The drag already set this exact cell's final state; the click the
-      // browser fires right after pointerup on the same element is not a
-      // second, independent tap and must not toggle it back.
-      paintRef.current = null
-      return
-    }
-    paintRef.current = null
+  const toggle = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number) => {
     onToggleStep(stepIndex)
     if (on || !sample || pad.muted || !previewOnClick) return
     // In Gate mode the note began on pointer-down and is stopped by release.
@@ -530,60 +732,25 @@ function SequencerRow({
     if (!gateMode || event.detail === 0) engine.triggerPad(pad, sample.buffer)
   }
 
-  // Dragging fills a run of cells on, the same direction a plain tap-to-fill
-  // already goes — a drag never erases, so the result of painting across a
-  // mix of on/off cells is always predictable. Only active outside Gate
-  // mode, which already owns the pointer-hold gesture for live audition.
-  const startPaint = (event: React.PointerEvent<HTMLButtonElement>, stepIndex: number) => {
-    if (gateMode || !sample || pad.muted) return
-    paintRef.current = { originIndex: stepIndex, painted: false }
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  const continuePaint = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const paint = paintRef.current
-    if (!paint || gateMode) return
-    const target = document.elementFromPoint(event.clientX, event.clientY)
-    const stepEl = target instanceof Element ? target.closest<HTMLElement>('[data-step-index]') : null
-    if (!stepEl || !rowRef.current?.contains(stepEl)) return
-    const stepIndex = Number(stepEl.dataset.stepIndex)
-    if (stepIndex === paint.originIndex && !paint.painted) return
-    paint.painted = true
-    onFillStep(stepIndex)
-  }
-
-  const endPaint = () => {
-    const paint = paintRef.current
-    if (paint?.painted) onFillStep(paint.originIndex)
-  }
-
   return (
-    <div className={looping ? 'sequencer-row row-looping' : 'sequencer-row'} ref={rowRef}>
+    <div className={['sequencer-row', looping ? 'row-looping' : '', selected ? 'selected' : ''].filter(Boolean).join(' ')} data-row-pad={pad.id}>
       <div className="sequencer-row-fixed">
-        {label ? (
-          <span className="sequencer-row-remove" aria-hidden="true" />
-        ) : (
-          <button
-            type="button"
-            className="sequencer-row-remove"
-            onClick={onRemove}
-            disabled={removeDisabled}
-            aria-label={`Remove pad ${padIndex + 1} from the sequencer`}
-            title={removeDisabled ? 'At least one pad must remain' : 'Remove this row'}
-          >
-            <CloseIcon size={12} />
-          </button>
-        )}
+        <button type="button" className="sequencer-row-menu" onClick={onOpenMenu} aria-label={`${rowName}: row options`} title="Fill, swap or remove this row">
+          <MoreIcon size={14} />
+        </button>
         <button
           type="button"
-          className={label ? 'sequencer-row-label named' : 'sequencer-row-label'}
+          className="sequencer-row-label"
           data-glow-pad={pad.id}
-          onClick={label ? () => sample && !pad.muted && engine.triggerPad(pad, sample.buffer) : onSwapSound}
-          aria-label={label ? `${rowName} — play` : `Pad ${padIndex + 1}${sample ? `: ${sample.label}` : ', empty'} — swap sound`}
-          title={label ? `${label.name} — tap to hear it` : sample ? `${sample.label} — tap to swap` : 'Empty — tap to load a sound'}
+          onClick={onPick}
+          aria-pressed={selected}
+          aria-label={`${rowName}: play and select`}
+          title={`${identity.name} — tap to hear it and select it`}
         >
           <span className="row-glow" aria-hidden="true" />
-          <span className="readout">{label ? label.name : String(padIndex + 1).padStart(2, '0')}</span>
+          {!pad.music && <span className="row-num readout">{identity.number}</span>}
+          {identity.icon && <span className="row-icon" aria-hidden="true">{identity.icon}</span>}
+          <span className="row-name">{identity.name}</span>
           {looping && <span className="row-loop-badge" aria-hidden="true" />}
         </button>
       </div>
@@ -601,27 +768,12 @@ function SequencerRow({
                 key={stepIndex}
                 type="button"
                 data-step-index={stepIndex}
-                className={[
-                  'step',
-                  on ? 'on' : '',
-                  traced ? 'trace' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                onPointerDown={(event) => {
-                  startGate(event)
-                  startPaint(event, stepIndex)
-                }}
-                onPointerMove={continuePaint}
-                onPointerUp={(event) => {
-                  stopGateSource(event.pointerId)
-                  endPaint()
-                }}
-                onPointerCancel={(event) => {
-                  stopGateSource(event.pointerId)
-                  endPaint()
-                }}
-                onClick={(event) => fillAndAudition(event, on, stepIndex)}
+                data-pad-id={pad.id}
+                className={['step', on ? 'on' : '', traced ? 'trace' : ''].filter(Boolean).join(' ')}
+                onPointerDown={startGate}
+                onPointerUp={(event) => stopGateSource(event.pointerId)}
+                onPointerCancel={(event) => stopGateSource(event.pointerId)}
+                onClick={(event) => toggle(event, on, stepIndex)}
                 aria-label={sampleLabel ? `step ${stepIndex + 1} for ${rowName}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for ${rowName}: ${traceLabel}` : `step ${stepIndex + 1} for ${rowName}`}
                 title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace: ${traceLabel}` : `Step ${stepIndex + 1}`}
               />
@@ -630,5 +782,76 @@ function SequencerRow({
         </div>
       ))}
     </div>
+  )
+}
+
+/** One-tap row fills, across the whole pattern. */
+const ROW_FILLS: Array<{ id: string; label: string; hits: (step: number) => boolean }> = [
+  { id: 'beats', label: 'Every beat', hits: (i) => i % 4 === 0 },
+  { id: 'eighths', label: 'Every 8th', hits: (i) => i % 2 === 0 },
+  { id: 'sixteenths', label: 'Every 16th', hits: () => true },
+  { id: 'offbeats', label: 'Offbeats', hits: (i) => i % 4 === 2 },
+  { id: 'backbeat', label: 'Beats 2 & 4', hits: (i) => i % 16 === 4 || i % 16 === 12 },
+  { id: 'clear', label: 'Clear row', hits: () => false },
+]
+
+interface RowMenuProps {
+  pad: Pad
+  bank: Bank
+  stepCount: number
+  onFill: (steps: number[]) => void
+  onSwap: (() => void) | null
+  onRemove: (() => void) | null
+  onClose: () => void
+}
+
+/** A row's options: fill it in one tap (the fast way to program a lot on a phone), or swap / remove it. */
+function RowMenu({ pad, bank, stepCount, onFill, onSwap, onRemove, onClose }: RowMenuProps) {
+  const { state } = useAppState()
+  const identity = padIdentity(state, bank, pad)
+  const fill = (hits: (step: number) => boolean) => {
+    onFill(Array.from({ length: stepCount }, (_, i) => i).filter(hits))
+    onClose()
+  }
+  return (
+    <Overlay
+      onClose={onClose}
+      title={`${identity.icon ? `${identity.icon} ` : ''}${identity.name}`}
+      subtitle={pad.sampleId ? 'Fill the whole row in one tap — then tap single steps to tweak.' : 'This pad has no sound yet.'}
+    >
+      <section className="sheet-section" aria-label="Fill">
+        <h3 className="label">Fill</h3>
+        <div className="row-fills">
+          {ROW_FILLS.map((option) => (
+            <button key={option.id} type="button" className="row-fill" onClick={() => fill(option.hits)} disabled={!pad.sampleId && option.id !== 'clear'}>
+              <span className="row-fill-name">{option.label}</span>
+              <span className="style-preview-row" aria-hidden="true">
+                {Array.from({ length: 16 }, (_, i) => (
+                  <span key={i} className={option.hits(i) ? 'style-preview-cell on' : 'style-preview-cell'} />
+                ))}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+      {(onSwap || onRemove) && (
+        <section className="sheet-section" aria-label="Row">
+          <div className="row-menu-actions">
+            {onSwap && (
+              <button type="button" className="btn" onClick={onSwap}>
+                <SwapIcon size={16} />
+                Swap sound
+              </button>
+            )}
+            {onRemove && (
+              <button type="button" className="btn btn-danger" onClick={onRemove}>
+                <TrashIcon size={16} />
+                Remove row
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+    </Overlay>
   )
 }
