@@ -96,6 +96,24 @@ describe('isSerializedProject', () => {
 })
 
 describe('stateFromMeta', () => {
+  it('round-trips song structure and defaults older projects to pattern playback', () => {
+    const state = createInitialState()
+    state.songSections[0]!.name = 'Intro'
+    state.transport.playMode = 'song'
+    const meta = JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta
+    const loaded = stateFromMeta(meta, {})
+    expect(loaded.songSections).toEqual(state.songSections)
+    expect(loaded.transport.playMode).toBe('song')
+    expect(loaded.transport.isPlaying).toBe(false)
+    expect(loaded.transport.currentSongSectionId).toBeNull()
+
+    delete meta.songSections
+    delete meta.transport.playMode
+    const legacy = stateFromMeta(meta, {})
+    expect(legacy.songSections).toEqual([])
+    expect(legacy.transport.playMode).toBe('pattern')
+  })
+
   it('round-trips banks, key and label settings', () => {
     const state = { ...createInitialState(3), mood: null, key: { tonic: 2, scale: 'dorian' as const, chordColor: 'seventh' as const } }
     const loaded = stateFromMeta(JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta, {})

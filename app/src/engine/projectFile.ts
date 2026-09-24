@@ -23,6 +23,7 @@ import type {
   Sample,
   SampleKind,
   SequenceTrace,
+  SongSection,
   Transport,
 } from '../state/types'
 import type { AudioEngine } from './AudioEngine'
@@ -131,9 +132,11 @@ export interface ProjectMeta {
   visiblePadCount?: number
   patterns: Pattern[]
   activePatternId: string
+  songSections?: SongSection[]
   transport: {
     bpm: number
     loopMode: LoopMode
+    playMode?: 'pattern' | 'song'
     metronomeEnabled: boolean
     /** Optional for backwards-compatible import of projects saved before this control. */
     masterVolume?: number
@@ -160,9 +163,11 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
     fxBySound: state.fxBySound,
     patterns: state.patterns,
     activePatternId: state.activePatternId,
+    songSections: state.songSections,
     transport: {
       bpm: state.transport.bpm,
       loopMode: state.transport.loopMode,
+      playMode: state.transport.playMode,
       metronomeEnabled: state.transport.metronomeEnabled,
       masterVolume: state.transport.masterVolume,
       padPlaybackMode: state.transport.padPlaybackMode,
@@ -248,6 +253,8 @@ export function buildTransport(meta: ProjectMeta['transport']): Transport {
   return {
     bpm: meta.bpm,
     loopMode: meta.loopMode,
+    playMode: meta.playMode === 'song' ? 'song' : 'pattern',
+    currentSongSectionId: null,
     metronomeEnabled: meta.metronomeEnabled,
     padLoopModeEnabled: meta.padLoopModeEnabled ?? false,
     // Older saved projects/autosave records predate these — default them in.
@@ -288,6 +295,8 @@ export function normalizeGroove(saved: unknown): Groove | null {
 export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>): AppState {
   const pads = normalizePads(meta.pads)
   const banks = normalizeBanks(meta)
+  const patterns = normalizePatterns(meta.patterns, pads)
+  const patternIds = new Set(patterns.map((pattern) => pattern.id))
   return {
     samples,
     sampleOrder: meta.sampleOrder,
@@ -301,8 +310,14 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
     perform: { ...DEFAULT_PERFORM, ...meta.perform },
     groove: normalizeGroove(meta.groove),
     fxBySound: meta.fxBySound ?? {},
-    patterns: normalizePatterns(meta.patterns, pads),
-    activePatternId: meta.activePatternId,
+    patterns,
+    activePatternId: patternIds.has(meta.activePatternId) ? meta.activePatternId : patterns[0]?.id ?? '',
+    songSections: (meta.songSections ?? []).filter((section) => patternIds.has(section.patternId)).map((section) => ({
+      id: section.id,
+      name: section.name,
+      patternId: section.patternId,
+      repeats: Math.min(32, Math.max(1, Math.round(section.repeats) || 1)),
+    })),
     transport: buildTransport(meta.transport),
   }
 }

@@ -45,6 +45,7 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
   }
 
   const continuous = loopMode === 'continuous'
+  const scope = state.transport.playMode === 'song' ? 'song' : 'pattern'
 
   return (
     <header className="transport">
@@ -52,8 +53,8 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
         type="button"
         className={isPlaying ? 'transport-play on' : 'transport-play'}
         onClick={togglePlayback}
-        aria-label={isPlaying ? 'Stop sequencer' : 'Play sequencer'}
-        title={isPlaying ? 'Stop' : 'Play'}
+        aria-label={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
+        title={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
       >
         {isPlaying ? <StopIcon size={20} /> : <PlayIcon size={20} />}
       </button>
@@ -68,8 +69,8 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
           className={continuous ? 'icon-btn on' : 'icon-btn'}
           onClick={() => dispatch({ type: 'SET_LOOP_MODE', loopMode: continuous ? 'once' : 'continuous' })}
           aria-pressed={continuous}
-          aria-label={continuous ? 'Pattern loops continuously' : 'Pattern plays once'}
-          title={continuous ? 'Loop: on — tap to play once' : 'Play once — tap to loop'}
+          aria-label={continuous ? `${scope} loops continuously` : `${scope} plays once`}
+          title={continuous ? `Loop ${scope} — tap to play once` : `Play ${scope} once — tap to loop`}
         >
           {continuous ? <LoopIcon /> : <OnceIcon />}
         </button>

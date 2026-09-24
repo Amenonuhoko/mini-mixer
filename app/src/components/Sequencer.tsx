@@ -18,6 +18,7 @@ import { PadLibraryPicker } from './PadLibraryPicker'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
 import { Stepper } from './Stepper'
+import { SongArranger } from './SongArranger'
 
 const GROUP_SIZE = 4
 const WAVEFORM_BUCKETS = 80
@@ -120,6 +121,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   return (
     // The Styles dock sits in the same column as the sequencer it feeds.
     <div className="sequencer-column">
+    <SongArranger onBounced={onBounced} />
     <section
       className={pattern.stepCount <= 16 ? 'module sequencer sequencer-fits-desktop' : 'module sequencer'}
       aria-label="Sequencer"

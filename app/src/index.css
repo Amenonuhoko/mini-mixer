@@ -2301,6 +2301,35 @@ body.style-drawer-open .app-shell {
   min-width: 0;
 }
 
+.song-arranger { min-width: 0; }
+.song-editor { display: flex; flex-direction: column; gap: 10px; }
+.song-mode { display: flex; gap: 4px; }
+.song-hint { margin: 0; color: var(--text-dim); font-size: var(--fs-xs); }
+.song-pattern-tools, .song-footer { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.song-field { display: flex; flex-direction: column; gap: 4px; color: var(--text-dim); font-size: var(--fs-xs); }
+.song-arranger input, .song-arranger select {
+  min-height: var(--control-sm);
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(4 10 15 / 0.8);
+  color: var(--text);
+  font: inherit;
+}
+.song-pattern-name { flex: 1 1 130px; }
+.song-sections { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.song-section { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.song-section.playing { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / 0.09); box-shadow: var(--glow-cyan); }
+.song-section-number { width: 20px; color: var(--cyan); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.song-section-name { flex: 1 1 100px; }
+.song-section select { flex: 1 1 110px; }
+.song-repeats { display: flex; align-items: center; gap: 3px; color: var(--text-dim); }
+.song-repeats input { width: 54px; }
+.song-section-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; padding-left: 26px; }
+.song-footer { justify-content: space-between; }
+.song-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
+
 /* The sequencer's blank-canvas prompt. */
 .sequencer-empty {
   display: flex;

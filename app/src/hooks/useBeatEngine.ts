@@ -4,6 +4,7 @@ import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
 import { playablePads } from '../state/banks'
+import { buildSongTimeline, songStepAt } from '../engine/songTimeline'
 
 /**
  * Owns the single AudioEngine + Scheduler pair for the app's lifetime and keeps
@@ -16,6 +17,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
   engineRef.current ??= new AudioEngine()
 
   const schedulerRef = useRef<Scheduler | null>(null)
+  const lastSongSectionRef = useRef<string | null>(null)
   const stateRef = useRef(state)
   useEffect(() => {
     stateRef.current = state
@@ -36,22 +38,33 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           engine.playMetronomeClick(time, stepIndex === 0)
         }
         if (!current.transport.isPlaying || !engine.isSequencerPlaybackEnabled()) return
-        const pattern = current.patterns.find((p) => p.id === current.activePatternId)
-        engine.markStep(stepIndex, time, pattern?.stepCount ?? 16)
+        const song = current.transport.playMode === 'song' ? buildSongTimeline(current) : []
+        const songPosition = songStepAt(song, stepIndex)
+        const pattern = songPosition?.span.pattern ?? current.patterns.find((p) => p.id === current.activePatternId)
+        const patternStep = songPosition?.patternStep ?? stepIndex
+        if (songPosition && lastSongSectionRef.current !== songPosition.span.section.id) {
+          lastSongSectionRef.current = songPosition.span.section.id
+          dispatch({ type: 'SET_CURRENT_SONG_SECTION', sectionId: songPosition.span.section.id })
+        }
+        engine.markStep(patternStep, time, pattern?.stepCount ?? 16)
         if (pattern) {
           const visiblePads = playablePads(current)
           for (const pad of visiblePads) {
             if (pad.muted) continue
             // A programmed cell owns its source reference. The pad may have
             // been reassigned since this step was entered.
-            const sampleId = pattern.steps[pad.id]?.[stepIndex] ?? null
+            const sampleId = pattern.steps[pad.id]?.[patternStep] ?? null
             if (!sampleId) continue
             const sample = current.samples[sampleId]
             if (!sample) continue
             engine.triggerStep(pad, sample.buffer, time)
           }
         }
-        if (current.transport.loopMode === 'once' && pattern && stepIndex === pattern.stepCount - 1) {
+        const finalStep = song.length && current.transport.playMode === 'song'
+          ? song[song.length - 1]!.endStep - 1
+          : (pattern?.stepCount ?? 16) - 1
+        if (current.transport.loopMode === 'once' && pattern && stepIndex === finalStep) {
+          engine.setSequencerPlaybackEnabled(false)
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
       },
@@ -65,8 +78,11 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
 
   useEffect(() => {
     const pattern = state.patterns.find((item) => item.id === state.activePatternId)
-    schedulerRef.current?.setStepCount(pattern?.stepCount ?? 16)
-  }, [state.activePatternId, state.patterns])
+    const song = state.transport.playMode === 'song'
+      ? buildSongTimeline({ patterns: state.patterns, songSections: state.songSections })
+      : []
+    schedulerRef.current?.setStepCount(song.length ? song[song.length - 1]!.endStep : pattern?.stepCount ?? 16)
+  }, [state.activePatternId, state.patterns, state.songSections, state.transport.playMode])
 
   useEffect(() => {
     schedulerRef.current?.setBpm(state.transport.bpm)
@@ -94,17 +110,20 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     const isPlaying = state.transport.isPlaying
     const metronomeEnabled = state.transport.metronomeEnabled
     if (isPlaying && !wasPlayingRef.current) {
+      lastSongSectionRef.current = null
+      dispatch({ type: 'SET_CURRENT_SONG_SECTION', sectionId: null })
       engineRef.current?.setSequencerPlaybackEnabled(true)
       scheduler.stop()
       scheduler.start()
     } else if (isPlaying || metronomeEnabled) {
       scheduler.start() // no-op if the clock is already running
     } else {
+      lastSongSectionRef.current = null
       engineRef.current?.setSequencerPlaybackEnabled(false)
       scheduler.stop()
     }
     wasPlayingRef.current = isPlaying
-  }, [state.transport.isPlaying, state.transport.metronomeEnabled])
+  }, [dispatch, state.transport.isPlaying, state.transport.metronomeEnabled])
 
   return engineRef.current
 }

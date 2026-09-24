@@ -3,6 +3,7 @@ import { Channel, createMasterStage, ReverbRooms, shapeEnvelope } from './channe
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 import { playablePads } from '../state/banks'
+import { buildSongTimeline } from './songTimeline'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
   return effects.find((effect) => effect.id === id)?.value ?? 0
@@ -47,15 +48,48 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
     throw new Error('renderPatternToBuffer: pattern has no active steps to bounce')
   }
 
+  return renderHits(hits, pattern.stepCount * secondsPerStep)
+}
+
+/** Renders the ordered arrangement, including every section repeat, as one sample. */
+export async function renderSongToBuffer(state: AppState): Promise<AudioBuffer> {
+  const timeline = buildSongTimeline(state)
+  if (timeline.length === 0) throw new Error('Add a song section first')
+  const secondsPerStep = 60 / state.transport.bpm / 4
+  const songSeconds = timeline[timeline.length - 1]!.endStep * secondsPerStep
+  if (songSeconds > 600) throw new Error('Song is too long to render at once (10 minute limit)')
+  const pads = playablePads(state)
+  const hits: ScheduledHit[] = []
+  for (const span of timeline) {
+    for (let repeat = 0; repeat < span.section.repeats; repeat++) {
+      for (const pad of pads) {
+        if (pad.muted) continue
+        span.pattern.steps[pad.id]?.forEach((sampleId, patternStep) => {
+          const sample = sampleId ? state.samples[sampleId] : undefined
+          if (sample) hits.push({
+            pad,
+            sample,
+            offsetSeconds: (span.startStep + repeat * span.pattern.stepCount + patternStep) * secondsPerStep,
+          })
+        })
+      }
+    }
+  }
+  if (hits.length === 0) throw new Error('Song has no active steps to render')
+  return renderHits(hits, songSeconds)
+}
+
+async function renderHits(hits: ScheduledHit[], sequenceSeconds: number): Promise<AudioBuffer> {
+
   const sampleRate = hits[0]!.sample.buffer.sampleRate
-  const patternSeconds = pattern.stepCount * secondsPerStep
   const windows = hits.map((hit) =>
     trimToPlaybackWindow(hit.pad.trimStart, hit.pad.trimEnd, hit.sample.buffer.duration),
   )
   const tailSeconds = 0.15
-  const totalSeconds =
-    Math.max(patternSeconds, ...hits.map((hit, i) => hit.offsetSeconds + windows[i]!.duration)) +
-    tailSeconds
+  const totalSeconds = hits.reduce(
+    (latest, hit, i) => Math.max(latest, hit.offsetSeconds + windows[i]!.duration),
+    sequenceSeconds,
+  ) + tailSeconds
 
   const ctx = new OfflineAudioContext(2, Math.ceil(totalSeconds * sampleRate), sampleRate)
 

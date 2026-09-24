@@ -14,7 +14,7 @@ import {
   MIX_LEVEL_MIN,
 } from './constants'
 import { bankOfPad, getActiveBank, getSamplerBank, soundKey } from './banks'
-import { createInitialState, createNeutralEffects, createPad } from './defaults'
+import { createId, createInitialState, createNeutralEffects, createPad } from './defaults'
 import { resolveSequenceTraceCell } from '../utils/sequenceTraceLoad'
 import type {
   AppState,
@@ -87,6 +87,16 @@ export type Action =
   | { type: 'RESTORE_PATTERN_TRACE'; patternId: string }
   | { type: 'CLEAR_PATTERN_TRACE'; patternId: string }
   | { type: 'LOAD_SEQUENCE_TRACE'; patternId: string; trace: SequenceTrace; markerSampleId: string }
+  | { type: 'ADD_PATTERN'; copyFromId?: string }
+  | { type: 'RENAME_PATTERN'; patternId: string; name: string }
+  | { type: 'SET_ACTIVE_PATTERN'; patternId: string }
+  | { type: 'ADD_SONG_SECTION'; afterId?: string }
+  | { type: 'UPDATE_SONG_SECTION'; sectionId: string; name?: string; patternId?: string; repeats?: number }
+  | { type: 'DUPLICATE_SONG_SECTION'; sectionId: string }
+  | { type: 'MOVE_SONG_SECTION'; sectionId: string; direction: -1 | 1 }
+  | { type: 'REMOVE_SONG_SECTION'; sectionId: string }
+  | { type: 'SET_PLAY_MODE'; mode: 'pattern' | 'song' }
+  | { type: 'SET_CURRENT_SONG_SECTION'; sectionId: string | null }
   /** Resizes one bank's showing pads (the active bank unless bankId is given). */
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number; bankId?: string }
   | { type: 'REMOVE_PAD'; padId: string }
@@ -773,8 +783,86 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'SET_BPM':
       return { ...state, transport: { ...state.transport, bpm: clamp(action.bpm, BPM_MIN, BPM_MAX) } }
 
+    case 'ADD_PATTERN': {
+      const source = state.patterns.find((pattern) => pattern.id === action.copyFromId)
+      const pattern: Pattern = {
+        id: createId('pattern'),
+        name: `Pattern ${state.patterns.length + 1}`,
+        stepCount: source?.stepCount ?? 16,
+        steps: Object.fromEntries(state.pads.map((pad) => [
+          pad.id,
+          source ? [...(source.steps[pad.id] ?? new Array<string | null>(source.stepCount).fill(null))] : new Array<string | null>(16).fill(null),
+        ])),
+        traceSteps: null,
+        traceSource: null,
+      }
+      return { ...state, patterns: [...state.patterns, pattern], activePatternId: pattern.id }
+    }
+
+    case 'RENAME_PATTERN':
+      return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, name: action.name.slice(0, 40) }))
+
+    case 'SET_ACTIVE_PATTERN':
+      return state.patterns.some((pattern) => pattern.id === action.patternId)
+        ? { ...state, activePatternId: action.patternId }
+        : state
+
+    case 'ADD_SONG_SECTION': {
+      const section = { id: createId('section'), name: 'New section', patternId: state.activePatternId, repeats: 4 }
+      const index = action.afterId ? state.songSections.findIndex((item) => item.id === action.afterId) : state.songSections.length - 1
+      const songSections = [...state.songSections]
+      songSections.splice(index + 1, 0, section)
+      return { ...state, songSections }
+    }
+
+    case 'UPDATE_SONG_SECTION':
+      return {
+        ...state,
+        songSections: state.songSections.map((section) => section.id !== action.sectionId ? section : {
+          ...section,
+          ...(action.name !== undefined ? { name: action.name.slice(0, 40) } : {}),
+          ...(action.patternId !== undefined && state.patterns.some((pattern) => pattern.id === action.patternId) ? { patternId: action.patternId } : {}),
+          ...(action.repeats !== undefined ? { repeats: clamp(Math.round(action.repeats), 1, 32) } : {}),
+        }),
+      }
+
+    case 'DUPLICATE_SONG_SECTION': {
+      const index = state.songSections.findIndex((section) => section.id === action.sectionId)
+      if (index < 0) return state
+      const songSections = [...state.songSections]
+      songSections.splice(index + 1, 0, { ...songSections[index]!, id: createId('section') })
+      return { ...state, songSections }
+    }
+
+    case 'MOVE_SONG_SECTION': {
+      const index = state.songSections.findIndex((section) => section.id === action.sectionId)
+      const nextIndex = index + action.direction
+      if (index < 0 || nextIndex < 0 || nextIndex >= state.songSections.length) return state
+      const songSections = [...state.songSections]
+      ;[songSections[index], songSections[nextIndex]] = [songSections[nextIndex]!, songSections[index]!]
+      return { ...state, songSections }
+    }
+
+    case 'REMOVE_SONG_SECTION': {
+      const songSections = state.songSections.filter((section) => section.id !== action.sectionId)
+      return {
+        ...state,
+        songSections,
+        transport: songSections.length ? state.transport : { ...state.transport, playMode: 'pattern', currentSongSectionId: null },
+      }
+    }
+
+    case 'SET_PLAY_MODE':
+      return { ...state, transport: { ...state.transport, playMode: action.mode, currentSongSectionId: null } }
+
+    case 'SET_CURRENT_SONG_SECTION':
+      return state.transport.currentSongSectionId === action.sectionId ? state : {
+        ...state,
+        transport: { ...state.transport, currentSongSectionId: action.sectionId },
+      }
+
     case 'SET_TRANSPORT_PLAYING':
-      return { ...state, transport: { ...state.transport, isPlaying: action.isPlaying } }
+      return { ...state, transport: { ...state.transport, isPlaying: action.isPlaying, currentSongSectionId: action.isPlaying ? state.transport.currentSongSectionId : null } }
 
     case 'SET_LOOP_MODE':
       return { ...state, transport: { ...state.transport, loopMode: action.loopMode } }
@@ -825,7 +913,10 @@ export function reducer(state: AppState, action: Action): AppState {
           ...action.state.transport,
           masterVolume: action.state.transport.masterVolume ?? 100,
           padPlaybackMode: action.state.transport.padPlaybackMode ?? 'gate',
+          playMode: action.state.transport.playMode ?? 'pattern',
+          currentSongSectionId: null,
         },
+        songSections: action.state.songSections ?? [],
       }
 
     default: {

@@ -159,6 +159,14 @@ export interface Pattern {
   traceSource?: 'hidden' | 'reference' | null
 }
 
+/** An ordered part of a song. Reusing a pattern keeps repeated parts linked while editing. */
+export interface SongSection {
+  id: string
+  name: string
+  patternId: string
+  repeats: number
+}
+
 export type LoopMode = 'once' | 'continuous'
 /** Normal pad presses either stop on release (gate) or play the whole file (one-shot). */
 export type PadPlaybackMode = 'gate' | 'oneshot'
@@ -166,6 +174,8 @@ export type PadPlaybackMode = 'gate' | 'oneshot'
 export interface Transport {
   bpm: number
   isPlaying: boolean
+  playMode: 'pattern' | 'song'
+  currentSongSectionId: string | null
   loopMode: LoopMode
   metronomeEnabled: boolean
   /** Controls normal pad tap duration; Loop Mode has its own distinct behavior. */
@@ -270,5 +280,6 @@ export interface AppState {
   groove: Groove | null
   patterns: Pattern[]
   activePatternId: string
+  songSections: SongSection[]
   transport: Transport
 }

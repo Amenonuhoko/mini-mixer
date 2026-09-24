@@ -96,9 +96,12 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
     fxBySound: {},
     patterns: [pattern],
     activePatternId: pattern.id,
+    songSections: [{ id: createId('section'), name: 'Verse', patternId: pattern.id, repeats: 4 }],
     transport: {
       bpm: DEFAULT_BPM,
       isPlaying: false,
+      playMode: 'pattern',
+      currentSongSectionId: null,
       loopMode: 'continuous',
       metronomeEnabled: false,
       padPlaybackMode: 'gate',
