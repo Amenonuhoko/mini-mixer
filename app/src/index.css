@@ -2340,6 +2340,13 @@ body.style-drawer-open .app-shell {
 .song-repeats input { width: 54px; }
 .song-section-summary { width: 100%; padding-left: 26px; color: var(--text-dim); font-size: var(--fs-xs); text-transform: capitalize; }
 .song-section-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; padding-left: 26px; }
+.song-section-mix { width: 100%; margin-left: 26px; padding: 9px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .04); }
+.song-section-mix p { margin: 0 0 8px; color: var(--text-dim); font-size: var(--fs-xs); }
+.song-section-faders { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.song-section-fader { display: flex; flex-direction: column; gap: 5px; color: var(--text); font-size: var(--fs-xs); }
+.song-section-fader span { display: flex; justify-content: space-between; gap: 6px; }
+.song-section-fader strong { color: var(--cyan); font-family: var(--font-mono); }
+.song-section-fader input[type='range'] { width: 100%; min-height: 26px; padding: 0; accent-color: var(--cyan); cursor: pointer; }
 .song-footer { justify-content: space-between; }
 .song-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
 

@@ -1,4 +1,12 @@
-import type { AppState, Pattern, SongSection } from '../state/types'
+import type { AppState, BankKind, Pattern, SongSection } from '../state/types'
+
+/** Old songs have no mix settings, so every bank starts at full level. */
+export function sectionBankLevel(section: SongSection, bank: BankKind): number {
+  const value = section.bankVolumes?.[bank]
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(100, value)) / 100
+    : 1
+}
 
 export interface SongSpan {
   section: SongSection

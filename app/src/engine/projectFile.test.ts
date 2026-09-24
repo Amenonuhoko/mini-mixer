@@ -99,6 +99,7 @@ describe('stateFromMeta', () => {
   it('round-trips song structure and defaults older projects to pattern playback', () => {
     const state = createInitialState()
     state.songSections[0]!.name = 'Intro'
+    state.songSections[0]!.bankVolumes = { drums: 45, melody: 80 }
     state.transport.playMode = 'song'
     const meta = JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta
     const loaded = stateFromMeta(meta, {})

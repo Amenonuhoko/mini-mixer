@@ -3,7 +3,7 @@ import { Channel, createMasterStage, ReverbRooms, shapeEnvelope } from './channe
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 import { playablePads } from '../state/banks'
-import { buildSongTimeline } from './songTimeline'
+import { buildSongTimeline, sectionBankLevel } from './songTimeline'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
   return effects.find((effect) => effect.id === id)?.value ?? 0
@@ -13,6 +13,7 @@ interface ScheduledHit {
   pad: Pad
   sample: Sample
   offsetSeconds: number
+  level?: number
 }
 
 /**
@@ -59,16 +60,20 @@ export async function renderSongToBuffer(state: AppState): Promise<AudioBuffer> 
   const songSeconds = timeline[timeline.length - 1]!.endStep * secondsPerStep
   if (songSeconds > 600) throw new Error('Song is too long to render at once (10 minute limit)')
   const pads = playablePads(state)
+  const bankByPad = new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const)))
   const hits: ScheduledHit[] = []
   for (const span of timeline) {
     for (let repeat = 0; repeat < span.section.repeats; repeat++) {
       for (const pad of pads) {
         if (pad.muted) continue
+        const bank = bankByPad.get(pad.id)
+        const level = bank ? sectionBankLevel(span.section, bank) : 1
         span.pattern.steps[pad.id]?.forEach((sampleId, patternStep) => {
           const sample = sampleId ? state.samples[sampleId] : undefined
           if (sample) hits.push({
             pad,
             sample,
+            level,
             offsetSeconds: (span.startStep + repeat * span.pattern.stepCount + patternStep) * secondsPerStep,
           })
         })
@@ -128,7 +133,7 @@ async function renderHits(hits: ScheduledHit[], sequenceSeconds: number): Promis
     source.connect(env)
     env.connect(channel.input)
     const duration = Math.max(0.01, window.duration)
-    shapeEnvelope(env.gain, offsetSeconds, 1, {
+    shapeEnvelope(env.gain, offsetSeconds, hit.level ?? 1, {
       fadeIn: window.offset > 0.001,
       end: pad.trimEnd < 1 ? offsetSeconds + duration / (rate * Math.pow(2, detune / 1200)) : null,
     })

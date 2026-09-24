@@ -19,6 +19,7 @@ import { resolveSequenceTraceCell } from '../utils/sequenceTraceLoad'
 import type {
   AppState,
   Bank,
+  BankKind,
   BankBuild,
   CharacterPreset,
   EffectId,
@@ -92,6 +93,7 @@ export type Action =
   | { type: 'SET_ACTIVE_PATTERN'; patternId: string }
   | { type: 'ADD_SONG_SECTION'; afterId?: string }
   | { type: 'UPDATE_SONG_SECTION'; sectionId: string; name?: string; patternId?: string; repeats?: number }
+  | { type: 'SET_SONG_SECTION_BANK_VOLUME'; sectionId: string; bank: BankKind; level: number }
   | { type: 'DUPLICATE_SONG_SECTION'; sectionId: string }
   | { type: 'MOVE_SONG_SECTION'; sectionId: string; direction: -1 | 1 }
   | { type: 'REMOVE_SONG_SECTION'; sectionId: string }
@@ -870,6 +872,25 @@ export function reducer(state: AppState, action: Action): AppState {
           ...(action.patternId !== undefined && state.patterns.some((pattern) => pattern.id === action.patternId) ? { patternId: action.patternId } : {}),
           ...(action.repeats !== undefined ? { repeats: clamp(Math.round(action.repeats), 1, 32) } : {}),
         }),
+      }
+
+    case 'SET_SONG_SECTION_BANK_VOLUME':
+      if (!Number.isFinite(action.level) || !state.banks.some((bank) => bank.kind === action.bank)) {
+        return state
+      }
+      return {
+        ...state,
+        songSections: state.songSections.map((section) =>
+          section.id === action.sectionId
+            ? {
+                ...section,
+                bankVolumes: {
+                  ...section.bankVolumes,
+                  [action.bank]: clamp(Math.round(action.level), 0, 100),
+                },
+              }
+            : section,
+        ),
       }
 
     case 'DUPLICATE_SONG_SECTION': {

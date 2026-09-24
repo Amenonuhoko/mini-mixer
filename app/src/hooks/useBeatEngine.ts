@@ -4,7 +4,7 @@ import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
 import { playablePads } from '../state/banks'
-import { buildSongTimeline, songStepAt } from '../engine/songTimeline'
+import { buildSongTimeline, sectionBankLevel, songStepAt } from '../engine/songTimeline'
 
 /**
  * Owns the single AudioEngine + Scheduler pair for the app's lifetime and keeps
@@ -50,6 +50,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         engine.markStep(patternStep, time, pattern?.stepCount ?? 16)
         if (pattern) {
           const visiblePads = playablePads(current)
+          const bankByPad = new Map(current.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const)))
           for (const pad of visiblePads) {
             if (pad.muted) continue
             // A programmed cell owns its source reference. The pad may have
@@ -58,7 +59,9 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             if (!sampleId) continue
             const sample = current.samples[sampleId]
             if (!sample) continue
-            engine.triggerStep(pad, sample.buffer, time)
+            const bank = bankByPad.get(pad.id)
+            const level = songPosition && bank ? sectionBankLevel(songPosition.span.section, bank) : 1
+            engine.triggerStep(pad, sample.buffer, time, level)
           }
         }
         const finalStep = auditionSpan && current.transport.auditionScope === 'section'

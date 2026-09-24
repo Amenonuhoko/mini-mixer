@@ -165,6 +165,8 @@ export interface SongSection {
   name: string
   patternId: string
   repeats: number
+  /** Per-section levels for the four sound banks; missing values play at 100%. */
+  bankVolumes?: Partial<Record<BankKind, number>>
 }
 
 export type LoopMode = 'once' | 'continuous'

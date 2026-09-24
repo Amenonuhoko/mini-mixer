@@ -264,7 +264,7 @@ interface AppState {
   };
   patterns: Pattern[];
   activePatternId: string;
-  songSections: SongSection[];        // ordered pattern references with names and repeat counts
+  songSections: SongSection[];        // ordered pattern references, repeats, and per-section Drums/Bass/Chords/Melody levels
   transport: Transport;
 }
 ```

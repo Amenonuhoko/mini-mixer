@@ -555,8 +555,8 @@ export class AudioEngine {
    * Fire a single sequencer step hit for a pad at a precise audio-clock time
    * (from the lookahead Scheduler). Always a one-shot.
    */
-  triggerStep(pad: Pad, buffer: AudioBuffer, time: number): void {
-    this.startVoice(pad, buffer, { time })
+  triggerStep(pad: Pad, buffer: AudioBuffer, time: number, level = 1): void {
+    if (level > 0) this.startVoice(pad, buffer, { time, level })
   }
 
   /**

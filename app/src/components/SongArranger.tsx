@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
-import { buildSongTimeline } from '../engine/songTimeline'
+import { buildSongTimeline, sectionBankLevel } from '../engine/songTimeline'
 import { renderSongToBuffer } from '../engine/bouncePattern'
 import { encodeWav } from '../engine/projectFile'
 import { computePeaks } from '../utils/waveform'
 import { SONG_TEMPLATES } from '../engine/songTemplates'
+import { BANK_KINDS, BANK_NAMES } from '../state/banks'
 import { ConfirmDialog } from './ConfirmDialog'
 import type { PendingRecording } from './RecordingReview'
 
@@ -29,6 +30,7 @@ export function SongArranger({
   const [exporting, setExporting] = useState(false)
   const [bounceError, setBounceError] = useState('')
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
+  const [mixSectionId, setMixSectionId] = useState<string | null>(null)
   const songHasSteps = timeline.some(({ pattern }) =>
     Object.values(pattern.steps).some((row) => row.some(Boolean)),
   )
@@ -248,6 +250,7 @@ export function SongArranger({
                   bank.padIds.some((padId) => linkedPattern?.steps[padId]?.some(Boolean)),
                 )
                 .map((bank) => bank.kind)
+              const loweredBanks = BANK_KINDS.filter((kind) => sectionBankLevel(section, kind) < 1)
               const spanIndex = timeline.findIndex((span) => span.section.id === section.id)
               const restHasSteps = timeline
                 .slice(spanIndex)
@@ -309,8 +312,14 @@ export function SongArranger({
                   </label>
                   <span className="song-section-summary">
                     {soundingBanks.length
-                      ? soundingBanks.join(' · ')
+                      ? soundingBanks.map((kind) => {
+                          const level = Math.round(sectionBankLevel(section, kind) * 100)
+                          return `${BANK_NAMES[kind]}${level < 100 ? ` ${level}%` : ''}`
+                        }).join(' · ')
                       : 'Empty pattern — edit to add sounds'}
+                    {!soundingBanks.length && loweredBanks.length > 0
+                      ? ` · Mix set for ${loweredBanks.map((kind) => BANK_NAMES[kind]).join(', ')}`
+                      : ''}
                   </span>
                   <div className="song-section-actions">
                     <button
@@ -338,6 +347,15 @@ export function SongArranger({
                       aria-label={`Hear song from ${section.name}`}
                     >
                       ▶ From here
+                    </button>
+                    <button
+                      type="button"
+                      className={mixSectionId === section.id ? 'chip-btn on' : 'chip-btn'}
+                      onClick={() => setMixSectionId(mixSectionId === section.id ? null : section.id)}
+                      aria-expanded={mixSectionId === section.id}
+                      aria-label={`Mix ${section.name} section`}
+                    >
+                      Mix section
                     </button>
                     <button
                       type="button"
@@ -386,6 +404,34 @@ export function SongArranger({
                       Remove
                     </button>
                   </div>
+                  {mixSectionId === section.id && (
+                    <div className="song-section-mix" role="group" aria-label={`${section.name} section volumes`}>
+                      <p>Set each group’s level for this section. The pattern stays the same.</p>
+                      <div className="song-section-faders">
+                        {BANK_KINDS.map((kind) => {
+                          const level = Math.round(sectionBankLevel(section, kind) * 100)
+                          return (
+                            <label className="song-section-fader" key={kind}>
+                              <span>{BANK_NAMES[kind]} <strong>{level}%</strong></span>
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                value={level}
+                                aria-label={`${section.name} ${BANK_NAMES[kind]} volume`}
+                                onChange={(event) => dispatch({
+                                  type: 'SET_SONG_SECTION_BANK_VOLUME',
+                                  sectionId: section.id,
+                                  bank: kind,
+                                  level: Number(event.target.value),
+                                })}
+                              />
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </li>
               )
             })}

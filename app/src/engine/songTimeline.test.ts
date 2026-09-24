@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState } from '../state/defaults'
 import { reducer } from '../state/reducer'
-import { buildSongTimeline, songStepAt } from './songTimeline'
+import { buildSongTimeline, sectionBankLevel, songStepAt } from './songTimeline'
 
 describe('song arrangement', () => {
   it('makes a verse/chorus starter with a distinct editable chorus and linked repeats', () => {
@@ -105,5 +105,23 @@ describe('song arrangement', () => {
     })
     expect(state.songSections.map((section) => section.name)).toEqual(['Verse', 'Chorus'])
     expect(state.songSections[1]!.repeats).toBe(32)
+  })
+
+  it('mixes each sound group per song section without changing its shared pattern', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Verse', 'Chorus', 'Verse'] })
+    const [verse, chorus, lastVerse] = state.songSections
+    state = reducer(state, { type: 'SET_SONG_SECTION_BANK_VOLUME', sectionId: verse!.id, bank: 'drums', level: 35 })
+    state = reducer(state, { type: 'SET_SONG_SECTION_BANK_VOLUME', sectionId: chorus!.id, bank: 'bass', level: -20 })
+    expect(sectionBankLevel(state.songSections[0]!, 'drums')).toBe(0.35)
+    expect(sectionBankLevel(state.songSections[1]!, 'bass')).toBe(0)
+    expect(sectionBankLevel(state.songSections[1]!, 'drums')).toBe(1)
+    expect(sectionBankLevel(state.songSections[2]!, 'drums')).toBe(1)
+    expect(state.songSections[0]!.patternId).toBe(lastVerse!.patternId)
+
+    state = reducer(state, { type: 'DUPLICATE_SONG_SECTION', sectionId: verse!.id })
+    state = reducer(state, { type: 'SET_SONG_SECTION_BANK_VOLUME', sectionId: state.songSections[1]!.id, bank: 'drums', level: 120 })
+    expect(sectionBankLevel(state.songSections[0]!, 'drums')).toBe(0.35)
+    expect(sectionBankLevel(state.songSections[1]!, 'drums')).toBe(1)
   })
 })

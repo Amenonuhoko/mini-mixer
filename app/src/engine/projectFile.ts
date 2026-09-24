@@ -320,6 +320,14 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
       name: section.name,
       patternId: section.patternId,
       repeats: Math.min(32, Math.max(1, Math.round(section.repeats) || 1)),
+      ...(section.bankVolumes ? {
+        bankVolumes: Object.fromEntries(BANK_KINDS.flatMap((kind) => {
+          const level = section.bankVolumes?.[kind]
+          return typeof level === 'number' && Number.isFinite(level)
+            ? [[kind, Math.min(100, Math.max(0, Math.round(level)))]]
+            : []
+        })),
+      } : {}),
     })),
     transport: buildTransport(meta.transport),
   }
