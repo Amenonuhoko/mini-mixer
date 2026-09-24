@@ -1,5 +1,4 @@
 import type { DrumVoiceKind } from '../engine/drumSynth'
-import type { Instrument } from '../state/types'
 
 /** Bundled presets get a recognizable glyph by name; anything else falls back by source. */
 const PRESET_ICONS: Record<string, string> = {
@@ -11,23 +10,22 @@ const PRESET_ICONS: Record<string, string> = {
   Organ: '⛪',
   Bell: '🔔',
   Guitar: '🎸',
+  'Alto Saxophone': '🎷',
+  Trumpet: '🎺',
+  Flute: '🪈',
+  Clarinet: '🎶',
   'Acoustic Drums': '🥁',
   'Cymbals & Metal': '💿',
   'Hand Percussion': '🪘',
   'Electronic Drums': '⚡',
 }
 
-/** A small, stable glyph for an instrument — shown on any pad holding one of its keys. */
-export function instrumentIcon(instrument: Instrument): string {
-  return PRESET_ICONS[instrument.name] ?? (instrument.source === 'recording' ? '🎤' : '🎼')
-}
-
-/** Looks up a bundled preset's glyph by name alone — for places (like a preset picker) that have a preset's name but no full Instrument object yet to hand instrumentIcon(). */
+/** A bundled sound's glyph by name — shown on bank tabs and in the sound picker. */
 export function instrumentIconForName(name: string): string {
   return PRESET_ICONS[name] ?? '🎼'
 }
 
-/** A distinct glyph per drum voice kind — shown on a pad instead of instrumentIcon()'s single per-instrument glyph, since a Drum Kit's keys are genuinely different sounds (kick vs. snare vs. hi-hat), not the same sound pitch-shifted like every other bundled preset's keys are. */
+/** A distinct glyph per drum voice kind — a kit's pads are genuinely different sounds (kick vs. snare vs. hi-hat), so each gets its own. */
 const DRUM_VOICE_ICONS: Record<DrumVoiceKind, string> = {
   kick: '🥁',
   snare: '🪘',

@@ -11,6 +11,7 @@ import { EffectsSwitch } from './EffectsSwitch'
 import { LoopIcon } from './icons'
 import { InfoTip } from './InfoTip'
 import { WaveformTrimEditor } from './WaveformTrimEditor'
+import { bankOfPad, visibleBankPads } from '../state/banks'
 
 const EFFECT_LABELS: Record<EffectId, string> = {
   pitch: 'Pitch',
@@ -102,11 +103,13 @@ export function PadEditPage() {
   }
 
   if (!pad) return null
+  const padBank = bankOfPad(state, pad.id)
+  const switcherPads = padBank ? visibleBankPads(state, padBank) : [pad]
 
   return (
     <div className="edit-pad">
       <PadSwitcherStrip
-        pads={state.pads.slice(0, state.visiblePadCount)}
+        pads={switcherPads}
         currentPadId={pad.id}
         engine={engine}
         onSwitch={goToEditPad}

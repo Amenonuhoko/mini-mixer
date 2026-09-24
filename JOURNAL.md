@@ -1719,3 +1719,90 @@ The pass caught and fixed three issues: lit steps on downbeats rendered dim (a s
 ### Open questions / carried forward
 - **Power moves** (long-press pad menu, keyboard shortcuts, haptics, first-run hints) — deliberately deferred; to be designed in a follow-up session.
 - The recorded-sample fetch timeout gap noted in earlier entries is still open.
+
+---
+
+## 2026-09-24 — Phase 1 of the blank-canvas work: pad banks, mood-first key, labeled pads
+
+### Context
+The first real obstacle for an average user is starting: every pad looked the same, and "which note do I play?" had no direction. The user framed it as three problems, to be solved in phases: **(1) what to play**, labeled so musicians and non-musicians alike can read it; **(2) structure**, via starter beats and stackable layers; **(3) manipulation**, via feel (swing and humanize) plus a key or mood shift. Phase plan agreed with the user:
+- **Phase 1:** banks, mood/key, layouts, labels, key shift.
+- **Phase 1.5:** arpeggiator, note repeat, strum.
+- **Phase 2:** declarative style pipeline, seeded generator, starter beats, add-a-layer. The old loop presets fold into it.
+- **Phase 3:** swing and humanize.
+
+This entry covers Phase 1.
+
+### Decision(s)
+Direction chosen with the user via questions:
+- **Layout and labels are two separate toggles, not skill levels.**
+- **Mood first, key under the hood**, with one key per project.
+- **Layers live in pad banks.**
+- **Genres** get an expansive pipeline, which is Phase 2.
+
+What Phase 1 built:
+- **Music theory module** (`src/music/theory.ts`, 17 tests):
+  - Scales, including modes, both pentatonics and blues.
+  - Key-aware ♯/♭ spelling.
+  - Diatonic triads and sevenths.
+  - Roman numerals written against the major scale.
+  - Plain-language feel words for notes and chords (Home, Lift, Tension, Sad…).
+  - Seven moods, each mapped to a key.
+  - Bank layouts and pad labels.
+- **Four banks: Drums · Bass · Chords · Melody.**
+  - The banks sit over the existing flat pad registry. Each bank has its own slots, showing count and sound, and the 32-pad cap applies per bank.
+  - Drums doubles as the sampler, so recordings and library sounds still have one obvious home.
+  - The **KEYS mode and its auto-instrument machinery are gone.** The mode switch is now `PLAY · LOOP · MIX`. The `Instrument` type is gone too, along with the add/apply/remove-instrument and auto-instrument actions, `InstrumentPicker` and `autoInstrumentSnapshot`.
+- **Sound rendering** (`engine/bankBuilder.ts`):
+  - A sound is rendered per MIDI note (`renderPresetNotes` / `renderRecordingNotes` in `synth.ts`).
+  - Recorded packs pitch their nearest zone. Zones are fetched once and cached per file, and a failed fetch is retried later.
+  - Chords are mixed from their notes.
+  - Every rendered note also goes into the bank's `noteSampleIds` pool, for the Phase 1.5 arpeggiator.
+  - A build lands in one `APPLY_BANK_BUILDS`, which lays out the pads, remaps programmed steps, remembers per-sound FX, and garbage-collects old notes.
+- **Step remapping**:
+  - `remap: 'index'` keeps each step on the same pad, so it plays the same degree in the new key or sound.
+  - `remap: 'pitch'` moves each step to the nearest-pitch pad and into that pad's row. It is used for layout changes, and for key changes between scales with different note counts.
+  - Only generated samples are remapped, so a recording on a Drums pad is never rewritten.
+- **UI**:
+  - Bank tabs in the pad module header.
+  - A bank strip with the sound button, the orange mood/key chip, and the pad stepper on Drums only.
+  - `BankSoundPicker`: kits for Drums; presets plus "your recordings" for melodic banks.
+  - `KeySheet`: moods first, with an expandable "Pick the key yourself".
+  - Empty melodic banks offer three one-tap starter sounds.
+  - Pads show their label, and the home note or chord is lit orange.
+  - Settings has Pad layout (Guided / Free) and Pad labels (Name / Feel / Numeral).
+  - The sequencer is grouped into bank sections. Melodic rows are named and ordered highest first, and banks other than the active one fold down to the rows in use.
+- **Loop presets become layers**: `WRITE_BANK_PATTERN` writes one bank's rows. Tones are read relative to the key's home note, so a loop fits any mood. A bank without a suitable sound gets a default first.
+- **Persistence**: `stateFromMeta` is now the single load path for both project files and autosave. Legacy projects migrate into a Drums bank that shows the same pads.
+
+### Alternatives considered
+- **Skill levels (Beginner / Musician)** bundling layout and labels. The user rejected this: separate toggles let people mix, for example feel words on a Free grid.
+- **Steps remapped by sample id only.** This was the first cut, but it left a moved note in its old row and made the sequencer lie. Pitch remaps now move the cell to the target pad's row.
+- **`WRITE_BANK_PATTERN` keyed by pad id.** This broke when a build creates new pad slots inside the reducer, because the caller doesn't know their ids yet. It is keyed by pad index within the bank instead.
+- **Showing every row of every bank in the sequencer.** A kit plus two melodic banks is 60+ rows. Folding banks other than the active one to their used rows keeps the grid readable.
+
+### Reasoning
+- Organizing pads by musical role gives the first tap a direction ("I want a bassline").
+- Offering only the notes that fit the key means nothing sounds wrong.
+- Labeling with a feel word gives non-musicians a vocabulary. Names and numerals stay available for players.
+- Rendering whole banks offline, and applying them atomically, keeps the audio engine untouched: every pad is still just a Sample, so trim, effects, loops, bounce and sequencing all keep working unchanged.
+
+### Outcome
+- `tsc -b` is clean, and `oxlint` shows only the three pre-existing warnings.
+- `vitest`: 108/108.
+- `vite build` is clean.
+- A Playwright pass at 390×844 and 1280×800 checked the following:
+  - Piano chords build in about 1.5 s and read `C Dm Em F G Am B° C` with Home/Soft/Wistful/Lift/Tension/Sad/Edge.
+  - A held chord's pad glow reads 0.71.
+  - Pluck melody builds 14 pads.
+  - The Dark mood retunes to `Cm D° E♭ Fm Gm A♭ B♭` in about 1.7 s.
+  - The Boom Bap and Bass Pulse layers stack into Drums and Bass sections, and the 16 steps survive a Guided→Free layout change.
+  - Free chords show 24 pads with numerals.
+  - Chill (D dorian, 7ths) survives an autosave reload.
+  - The sandbox has no route to the CC0 sample hosts, so recorded packs fell back to the built-in models, as designed.
+
+### Open questions / carried forward
+- **Phase 1.5**: arpeggiator (from `noteSampleIds`), note repeat, strum.
+- **Phase 2**: the style pipeline replaces `LOOP_PRESETS`. Their leftover `rootHz`/`patch` fields go with it.
+- **Phase 3**: swing and humanize.
+- The recorded-sample fetch timeout gap noted in earlier entries is still open.

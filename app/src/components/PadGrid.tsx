@@ -1,12 +1,19 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { getDrumKitByName, isDrumInstrumentName } from '../engine/drumSynth'
+import { DRUM_KITS } from '../engine/drumSynth'
+import { soundName } from '../engine/bankBuilder'
+import { useBankBuilder } from '../hooks/useBankBuilder'
 import { usePadLooping } from '../hooks/usePadLooping'
+import { keyShortName, moodById, padLabel, pitchClass, type PadLabel } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
+import { BANK_NAMES, bankColumns, getActiveBank, visibleBankPads } from '../state/banks'
 import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useEngine } from '../state/EngineContext'
-import { drumVoiceIcon, instrumentIcon } from '../utils/instrumentIcon'
+import { drumVoiceIcon, instrumentIconForName } from '../utils/instrumentIcon'
 import type { AudioEngine } from '../engine/AudioEngine'
-import type { Instrument, Pad } from '../state/types'
+import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
+import { BankSoundPicker } from './BankSoundPicker'
+import { BankTabs } from './BankTabs'
+import { KeySheet } from './KeySheet'
 import { RecordDotIcon } from './icons'
 import { PadEffectsMenuButton } from './PadEffectsMenuButton'
 import { PadModeSwitch } from './PadModeSwitch'
@@ -14,10 +21,35 @@ import { PadPlaybackModeButton } from './PadPlaybackModeButton'
 import { Stepper } from './Stepper'
 import { StaticWaveform } from './Waveform'
 
-/** A pad's badge when it holds an instrument key: its 1-based position within that instrument, plus a glyph identifying what it actually is — a specific drum voice for a Drum Kit (kick/snare/hi-hat/... are genuinely different sounds), or the instrument's own single glyph for anything pitched (every key there is literally the same sound, just pitch-shifted). */
-interface InstrumentKeyInfo {
-  keyNumber: number
-  icon: string
+/** What a pad's face shows beyond its sample: a note/chord label for melodic pads, a drum glyph for kit pads. */
+interface PadFace {
+  label: PadLabel | null
+  icon: string | null
+  /** Plays the key's home note/chord — lit a little brighter so there's always somewhere safe to start. */
+  home: boolean
+}
+
+function padFace(state: AppState, bank: Bank, pad: Pad, index: number): PadFace {
+  if (pad.music) {
+    return {
+      label: padLabel(pad.music, state.key, state.padLabels),
+      icon: null,
+      home: pitchClass(pad.music.midis[0]!) === state.key.tonic,
+    }
+  }
+  const sound = bank.sound
+  if (sound?.type === 'kit' && pad.sampleId && bank.generatedSampleIds.includes(pad.sampleId)) {
+    const voice = DRUM_KITS.find((kit) => kit.id === sound.kitId)?.voices[index]
+    return { label: null, icon: voice ? drumVoiceIcon(voice.kind) : null, home: false }
+  }
+  return { label: null, icon: null, home: false }
+}
+
+/** One-tap starting sounds for an empty melodic bank; everything else is in the sound picker. */
+const QUICK_SOUNDS: Record<Exclude<BankKind, 'drums'>, string[]> = {
+  bass: ['Bass', 'Pluck', 'Organ'],
+  chords: ['Piano', 'Pad', 'Organ'],
+  melody: ['Pluck', 'Bell', 'Lead'],
 }
 
 interface PadGridProps {
@@ -28,57 +60,33 @@ interface PadGridProps {
 }
 
 /**
- * The pad module: a compact header (count, trigger mode, whole-grid FX,
- * sequencer-record arm), the labeled mode switch, the grid, and a footer
- * slot. Every pad is a light: it idles dim, glows with its own audio level,
- * flares on each hit (see LightShow), and breathes with the beat while
- * looping.
+ * The pad module: bank tabs (Drums · Bass · Chords · Melody) with the
+ * trigger mode, whole-bank FX and step-record arm; a bank strip naming the
+ * bank's sound and the project's mood/key; the labeled mode switch; the
+ * grid; and a footer slot. Melodic pads are labeled with what they play
+ * (name / feel / numeral — see Settings) and only offer notes and chords in
+ * the key. Every pad is a light: it idles dim, glows with its own audio
+ * level, flares on each hit (see LightShow), and breathes with the beat
+ * while looping.
  */
 export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const bank = getActiveBank(state)
+  const visiblePads = visibleBankPads(state, bank)
   const loopModeEnabled = state.transport.padLoopModeEnabled
-  const instrumentModeEnabled = state.transport.padInstrumentModeEnabled
   const mixerModeEnabled = state.transport.padMixerModeEnabled
   const playbackMode = state.transport.padPlaybackMode
   const [sequencerRecordEnabled, setSequencerRecordEnabled] = useState(false)
-
-  // Which key position (1-based, low to high) each key sample holds within its
-  // instrument, plus what to show for it, if any — built once per render
-  // rather than searching every instrument per pad. Shown whenever a pad
-  // holds one of these keys, regardless of whether instrument mode is
-  // currently on, so the grid reads as an ordered keyboard (not identical
-  // tiles) as soon as an instrument is applied.
-  const sampleKeyInfo = new Map<string, InstrumentKeyInfo>()
-  for (const instrumentId of state.instrumentOrder) {
-    const instrument = state.instruments[instrumentId] as Instrument | undefined
-    if (!instrument) continue
-    // The Drum Kit is the one bundled instrument whose keys are genuinely
-    // different sounds rather than the same one pitch-shifted — its name is
-    // stable (instruments can't be renamed), so this is a safe, permanent check.
-    const drumKit = getDrumKitByName(instrument.name)
-    const isDrumKit = isDrumInstrumentName(instrument.name)
-    instrument.keySampleIds.forEach((sampleId, i) => {
-      const icon = isDrumKit ? drumVoiceIcon(drumKit?.voices[i]?.kind ?? 'clap') : instrumentIcon(instrument)
-      sampleKeyInfo.set(sampleId, { keyNumber: i + 1, icon })
-    })
-  }
+  const [sheet, setSheet] = useState<'sound' | 'key' | null>(null)
+  const melodic = bank.kind !== 'drums'
+  const columns = bankColumns(bank)
+  const moodLabel = state.mood ? moodById(state.mood).name : 'Custom'
 
   return (
     <section className="module pad-grid" aria-label="Pads">
       <header className="module-head">
-        <h2 className="module-title">Pads</h2>
-        <Stepper
-          label="Pads"
-          value={String(state.visiblePadCount).padStart(2, '0')}
-          onDecrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount - 1 })}
-          onIncrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-          decrementDisabled={state.visiblePadCount <= MIN_PAD_COUNT}
-          incrementDisabled={state.visiblePadCount >= MAX_PAD_COUNT}
-          decrementTitle="Hide the last pad (its sound and steps are kept)"
-          incrementTitle="Add a pad"
-        />
+        <BankTabs />
         <div className="module-head-tools">
           <PadPlaybackModeButton />
           <PadEffectsMenuButton followPadId={selectedPadId} />
@@ -98,46 +106,140 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           </button>
         </div>
       </header>
-      <PadModeSwitch />
-      <div
-        className={[
-          'pad-grid-cells',
-          loopModeEnabled ? 'loop-mode' : '',
-          instrumentModeEnabled ? 'instrument-mode' : '',
-          mixerModeEnabled ? 'mixer-mode' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        // 3 across up to a 3×3; past that, 4 across (a classic 4×4 at 16).
-        style={{ '--cols': state.visiblePadCount > 9 ? 4 : 3 } as React.CSSProperties}
-      >
-        {visiblePads.map((pad, index) =>
-          mixerModeEnabled ? (
-            <MixerPadFader
-              key={pad.id}
-              pad={pad}
-              index={index}
-              engine={engine}
-              instrumentKeyInfo={pad.sampleId ? sampleKeyInfo.get(pad.sampleId) : undefined}
-            />
-          ) : (
-            <PadButton
-              key={pad.id}
-              pad={pad}
-              index={index}
-              engine={engine}
-              selected={pad.id === selectedPadId}
-              loopModeEnabled={loopModeEnabled}
-              playbackMode={playbackMode}
-              sequencerRecordEnabled={sequencerRecordEnabled}
-              instrumentKeyInfo={pad.sampleId ? sampleKeyInfo.get(pad.sampleId) : undefined}
-              onSelect={onSelectPad}
-            />
-          ),
+      <div className="bank-strip">
+        <button type="button" className="bank-sound" onClick={() => setSheet('sound')} title="Change this bank’s sound">
+          <span className="bank-sound-icon" aria-hidden="true">{bankSoundIcon(bank.sound)}</span>
+          <span className="bank-sound-name">
+            {bank.sound ? soundName(bank.sound, state.samples) : melodic ? 'Pick a sound' : 'Your sounds'}
+          </span>
+        </button>
+        <button type="button" className="bank-key" onClick={() => setSheet('key')} title="Change the mood and key">
+          <span className="bank-key-mood">{moodLabel}</span>
+          <span className="bank-key-name readout">{keyShortName(state.key)}</span>
+        </button>
+        {!melodic && (
+          <Stepper
+            label="Pads"
+            value={String(bank.visibleCount).padStart(2, '0')}
+            onDecrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount - 1 })}
+            onIncrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount + 1 })}
+            decrementDisabled={bank.visibleCount <= MIN_PAD_COUNT}
+            incrementDisabled={bank.visibleCount >= MAX_PAD_COUNT}
+            decrementTitle="Hide the last pad (its sound and steps are kept)"
+            incrementTitle="Add a pad"
+          />
         )}
       </div>
+      <PadModeSwitch />
+      {melodic && visiblePads.length === 0 ? (
+        <EmptyBank bank={bank} kind={bank.kind as Exclude<BankKind, 'drums'>} onMore={() => setSheet('sound')} />
+      ) : (
+        <div
+          className={[
+            'pad-grid-cells',
+            loopModeEnabled ? 'loop-mode' : '',
+            mixerModeEnabled ? 'mixer-mode' : '',
+            columns > 4 ? 'dense' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={{ '--cols': columns } as React.CSSProperties}
+        >
+          {visiblePads.map((pad, index) => {
+            const face = padFace(state, bank, pad, index)
+            return mixerModeEnabled ? (
+              <MixerPadFader key={pad.id} pad={pad} index={index} engine={engine} face={face} />
+            ) : (
+              <PadButton
+                key={pad.id}
+                pad={pad}
+                index={index}
+                engine={engine}
+                selected={pad.id === selectedPadId}
+                loopModeEnabled={loopModeEnabled}
+                playbackMode={playbackMode}
+                sequencerRecordEnabled={sequencerRecordEnabled}
+                face={face}
+                onSelect={onSelectPad}
+              />
+            )
+          })}
+        </div>
+      )}
       {footer}
+      {sheet === 'sound' && <BankSoundPicker bank={bank} onClose={() => setSheet(null)} />}
+      {sheet === 'key' && <KeySheet onClose={() => setSheet(null)} />}
     </section>
+  )
+}
+
+function bankSoundIcon(sound: BankSound | null): string {
+  if (!sound) return '＋'
+  if (sound.type === 'recording') return '🎤'
+  if (sound.type === 'kit') return instrumentIconForName(DRUM_KITS.find((kit) => kit.id === sound.kitId)?.name ?? '')
+  return instrumentIconForName(sound.name)
+}
+
+interface EmptyBankProps {
+  bank: Bank
+  kind: Exclude<BankKind, 'drums'>
+  onMore: () => void
+}
+
+/** An empty melodic bank is one tap from playable: pick a starting sound and it's laid out in the key. */
+function EmptyBank({ bank, kind, onMore }: EmptyBankProps) {
+  const { busy, error, setBankSound } = useBankBuilder()
+  return (
+    <div className="bank-empty">
+      <p className="bank-empty-text">
+        Give <strong>{BANK_NAMES[kind]}</strong> a sound — its pads will only play {kind === 'chords' ? 'chords' : 'notes'} that fit
+        the mood.
+      </p>
+      <div className="bank-empty-choices">
+        {QUICK_SOUNDS[kind].map((name) => (
+          <button
+            key={name}
+            type="button"
+            className="choice"
+            disabled={busy !== null}
+            onClick={() => void setBankSound(bank, { type: 'preset', name }, name)}
+          >
+            <span className="choice-icon" aria-hidden="true">{instrumentIconForName(name)}</span>
+            <span className="choice-name">{busy === name ? 'Building…' : name}</span>
+          </button>
+        ))}
+        <button type="button" className="choice" disabled={busy !== null} onClick={onMore}>
+          <span className="choice-icon" aria-hidden="true">⋯</span>
+          <span className="choice-name">More</span>
+        </button>
+      </div>
+      {error && <p className="sheet-error" role="alert">{error}</p>}
+    </div>
+  )
+}
+
+/** The pad's face text: a melodic pad's label, or a drum/sample pad's number, glyph and name. */
+function PadFaceContent({ pad, index, face, sampleLabel }: { pad: Pad; index: number; face: PadFace; sampleLabel: string | undefined }) {
+  if (face.label) {
+    return (
+      <span className="pad-label" aria-hidden="true">
+        <span className="pad-primary">{face.label.primary}</span>
+        {face.label.secondary && <span className="pad-secondary">{face.label.secondary}</span>}
+      </span>
+    )
+  }
+  return (
+    <>
+      <span className="pad-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+      {face.icon && (
+        <span className="pad-key" aria-hidden="true">
+          <span className="pad-key-icon">{face.icon}</span>
+        </span>
+      )}
+      <span className="pad-name" aria-hidden="true">
+        {pad.muted ? 'Muted' : sampleLabel ?? '+'}
+      </span>
+    </>
   )
 }
 
@@ -150,14 +252,13 @@ interface PadButtonProps {
   playbackMode: 'gate' | 'oneshot'
   /** When armed, pad hits add their sound to the current sequencer step during playback. */
   sequencerRecordEnabled: boolean
-  /** Set when this pad's sample is an instrument key — shown as a small badge (see InstrumentKeyInfo). */
-  instrumentKeyInfo: InstrumentKeyInfo | undefined
+  face: PadFace
   onSelect: (padId: string) => void
 }
 
 /**
  * A pad is one undivided tap target. Its behavior depends on the global loop
- * mode toggle (see LoopModeSwitch): off (the default) — pressing plays the
+ * mode (see PadModeSwitch): off (the default) — pressing plays the
  * sample and releasing stops it immediately, a gate every time regardless of
  * how long the press was held — hold to let it ring out, release early to
  * cut it short. On — pressing toggles this pad's loop instead, and gating
@@ -174,7 +275,7 @@ function PadButton({
   loopModeEnabled,
   playbackMode,
   sequencerRecordEnabled,
-  instrumentKeyInfo,
+  face,
   onSelect,
 }: PadButtonProps) {
   const { state, dispatch } = useAppState()
@@ -282,12 +383,14 @@ function PadButton({
         selected ? 'selected' : '',
         looping ? 'looping' : '',
         pad.muted ? 'muted' : '',
+        face.label ? 'labeled' : '',
+        face.home ? 'home' : '',
       ]
         .filter(Boolean)
         .join(' ')}
       data-pad-id={pad.id}
       data-glow-pad={pad.id}
-      aria-label={`Pad ${index + 1}${sample ? `: ${sample.label}` : ', empty'}${pad.muted ? ', muted' : ''}${looping ? ', looping' : ''}`}
+      aria-label={`Pad ${index + 1}${face.label ? `: ${face.label.name}` : sample ? `: ${sample.label}` : ', empty'}${pad.muted ? ', muted' : ''}${looping ? ', looping' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
@@ -298,21 +401,12 @@ function PadButton({
       <span className="pad-glow" aria-hidden="true" />
       <span className="pad-flash" aria-hidden="true" />
       <span className="pad-bloom" aria-hidden="true" />
-      {sample && sample.peaks.length > 0 && (
+      {!face.label && sample && sample.peaks.length > 0 && (
         <span className="pad-wave" aria-hidden="true">
           <StaticWaveform peaks={sample.peaks} />
         </span>
       )}
-      <span className="pad-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-      {instrumentKeyInfo && (
-        <span className="pad-key" aria-hidden="true">
-          <span className="pad-key-icon">{instrumentKeyInfo.icon}</span>
-          {instrumentKeyInfo.keyNumber}
-        </span>
-      )}
-      <span className="pad-name" aria-hidden="true">
-        {pad.muted ? 'Muted' : sample ? sample.label : '+'}
-      </span>
+      <PadFaceContent pad={pad} index={index} face={face} sampleLabel={sample?.label} />
     </button>
   )
 }
@@ -321,7 +415,7 @@ interface MixerPadFaderProps {
   pad: Pad
   index: number
   engine: AudioEngine
-  instrumentKeyInfo: InstrumentKeyInfo | undefined
+  face: PadFace
 }
 
 /**
@@ -332,7 +426,7 @@ interface MixerPadFaderProps {
  * looping pad's actual gain too, the same "dial changes are audible
  * immediately" behavior every other pad dial already has.
  */
-function MixerPadFader({ pad, index, engine, instrumentKeyInfo }: MixerPadFaderProps) {
+function MixerPadFader({ pad, index, engine, face }: MixerPadFaderProps) {
   const { dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
   const draggingRef = useRef(false)
@@ -377,11 +471,10 @@ function MixerPadFader({ pad, index, engine, instrumentKeyInfo }: MixerPadFaderP
     >
       <span className="pad-glow" aria-hidden="true" />
       <span className="mixer-fader-fill" style={{ height: `${pad.mixLevel}%` }} aria-hidden="true" />
-      <span className="pad-num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-      {instrumentKeyInfo && (
+      <span className="pad-num" aria-hidden="true">{face.label?.primary ?? String(index + 1).padStart(2, '0')}</span>
+      {face.icon && (
         <span className="pad-key" aria-hidden="true">
-          <span className="pad-key-icon">{instrumentKeyInfo.icon}</span>
-          {instrumentKeyInfo.keyNumber}
+          <span className="pad-key-icon">{face.icon}</span>
         </span>
       )}
       <span className="mixer-fader-level readout" aria-hidden="true">{pad.mixLevel}</span>

@@ -3,6 +3,7 @@ import { AudioEngine } from '../engine/AudioEngine'
 import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
+import { playablePads } from '../state/banks'
 
 /**
  * Owns the single AudioEngine + Scheduler pair for the app's lifetime and keeps
@@ -37,7 +38,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         if (!current.transport.isPlaying || !engine.isSequencerPlaybackEnabled()) return
         const pattern = current.patterns.find((p) => p.id === current.activePatternId)
         if (pattern) {
-          const visiblePads = current.pads.slice(0, current.visiblePadCount)
+          const visiblePads = playablePads(current)
           for (const pad of visiblePads) {
             if (pad.muted) continue
             // A programmed cell owns its source reference. The pad may have

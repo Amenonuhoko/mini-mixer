@@ -7,6 +7,8 @@ import {
   PAD_COLOR_PALETTE,
   STEP_COUNT,
 } from './constants'
+import { DEFAULT_KEY, DEFAULT_PAD_LABELS } from '../music/theory'
+import { BANK_KINDS, createBank } from './banks'
 import type { AppState, EffectSetting, Pad, Pattern } from './types'
 
 export function createId(prefix: string): string {
@@ -34,6 +36,7 @@ export function createPad(index: number): Pad {
     effects: createNeutralEffects(),
     effectsBypassed: false,
     mixLevel: DEFAULT_MIX_LEVEL,
+    music: null,
   }
 }
 
@@ -56,17 +59,29 @@ export function createDefaultPattern(padIds: string[]): Pattern {
   }
 }
 
+/**
+ * A fresh project: a Drums bank of empty pads ready for recordings or a kit,
+ * and empty Bass/Chords/Melody banks waiting for a sound, in the Bright mood's
+ * key. `padCount` sizes the Drums bank.
+ */
 export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppState {
   const pads = Array.from({ length: padCount }, (_, index) => createPad(index))
   const pattern = createDefaultPattern(pads.map((pad) => pad.id))
+  const banks = BANK_KINDS.map((kind) =>
+    createBank(createId('bank'), kind, kind === 'drums' ? pads.map((pad) => pad.id) : []),
+  )
 
   return {
     samples: {},
     sampleOrder: [],
-    instruments: {},
-    instrumentOrder: [],
     pads,
-    visiblePadCount: padCount,
+    banks,
+    activeBankId: banks[0]!.id,
+    key: DEFAULT_KEY,
+    mood: 'bright',
+    padLayout: 'guided',
+    padLabels: DEFAULT_PAD_LABELS,
+    fxBySound: {},
     patterns: [pattern],
     activePatternId: pattern.id,
     transport: {
@@ -78,12 +93,8 @@ export function createInitialState(padCount: number = DEFAULT_PAD_COUNT): AppSta
       padPlaybackMode: 'gate',
       masterVolume: 100,
       padLoopModeEnabled: false,
-      padInstrumentModeEnabled: false,
       padMixerModeEnabled: false,
       playthroughRecordingEnabled: false,
-      autoInstrumentId: null,
-      autoInstrumentPadSnapshot: null,
-      currentInstrumentId: null,
     },
   }
 }

@@ -1,20 +1,16 @@
-import { INSTRUMENT_KEY_COUNT } from '../state/constants'
-import { buildDrumKitKeys, DRUM_KIT_VOICES, type DrumVoice } from './drumSynth'
-import { buildInstrumentKeysFromPreset, type SynthPatch } from './synth'
+import { tonicMidi } from '../music/theory'
+import type { Bank, BankKind, Pad } from '../state/types'
+import { DRUM_KIT_VOICES, DRUM_KITS, type DrumVoice } from './drumSynth'
+import type { SynthPatch } from './synth'
 
 /**
  * A bundled library of short, one-bar (16-step) phrases offered from the
- * Sequencer's loop-preset menu (see components/LoopPresetMenuButton.tsx) as
- * a shortcut to programming a pattern by hand: picking one builds whatever
- * instrument it needs (the default Acoustic Drums kit, or a pitched preset
- * for a Bass/Melody phrase) and writes its exact steps onto the grid. Each
- * preset is entirely synthesized (no audio assets, no network dependency —
- * deliberately uses `voice: 'pluck'` for its Bass/Melody patches rather than
- * `'bass'`/`'guitar'`, which would otherwise try a recorded-sample fetch
- * before falling back) and can involve several hits/voices in one phrase —
- * unlike an Instrument's keys (one sound, pitch-shifted) or a single drum
- * voice (one hit, repeated), a "loop" here is a small self-contained musical
- * idea, the way a loop in a sample-library browser would be.
+ * Sequencer's loop menu (see components/LoopPresetMenuButton.tsx) as a
+ * starting layer: each writes one bank's rows (Drums, Bass or Melody) and
+ * plays through that bank's own sound. Drum hits name a kit voice; tone
+ * hits are semitones above the key's home note, so a phrase follows the
+ * project key. (`rootHz`/`patch` are the phrases' original synth settings,
+ * kept for the style pipeline that will replace this list.)
  */
 export type LoopCategory = 'Drums' | 'Bass' | 'Melody'
 
@@ -289,33 +285,51 @@ export const LOOP_PRESETS: LoopPreset[] = [
   },
 ]
 
+/** The bank a preset writes into. */
+export function loopPresetBankKind(preset: LoopPreset): BankKind {
+  return preset.category === 'Drums' ? 'drums' : preset.category === 'Bass' ? 'bass' : 'melody'
+}
+
 /**
- * Which pad (0-based, matching the order APPLY_INSTRUMENT_TO_PADS/
- * APPLY_LOOP_PRESET lay an instrument's keys across) a given hit ends up on
- * once its preset's instrument is built. A drum hit lands on whichever pad
- * holds that exact voice — found by identity in DRUM_KIT_VOICES, the same
- * array buildDrumKitKeys renders 1:1 and in order, so its index there is
- * also its key/pad index. A tone hit lands on the pad holding that many
- * semitones above the root, since buildInstrumentKeysFromPreset's key `i` is
- * always the root shifted up `i` semitones — so the semitone count *is* the
- * pad index, with no separate lookup needed.
+ * Where each of a preset's hits lands in a bank that already has its sound.
+ * A drum hit goes to the pad playing that exact kit voice, else the first
+ * pad playing the same kind of drum (so a preset still works on another
+ * kit). A tone hit is read as semitones above the key's home note in the
+ * bank's register and goes to the pad with the nearest pitch — so the same
+ * phrase follows the project's key and, in a guided layout, snaps into it.
  */
-export function padIndexForHit(hit: DrumHit | ToneHit): number {
-  return hit.kind === 'drum' ? DRUM_KIT_VOICES.indexOf(hit.voice) : hit.semitones
-}
+export function loopPresetStepsByPadIndex(
+  preset: LoopPreset,
+  bank: Pick<Bank, 'kind' | 'sound'>,
+  pads: Array<Pick<Pad, 'music'>>,
+  keyTonic: number,
+): Record<number, number[]> {
+  const sound = bank.sound
+  const kit = sound?.type === 'kit' ? DRUM_KITS.find((item) => item.id === sound.kitId) : undefined
+  const voices = kit?.voices ?? DRUM_KIT_VOICES
+  const home = tonicMidi(bank.kind, keyTonic)
+  const steps: Record<number, number[]> = {}
 
-/** Builds the instrument keys a preset's own hits need — the default Acoustic Drums kit for a Drums-category preset, or its own pitched patch spread across the keyboard otherwise. Same builders InstrumentModeButton's quick presets use. */
-export async function buildLoopPresetInstrumentKeys(preset: LoopPreset): Promise<AudioBuffer[]> {
-  if (preset.category === 'Drums') return buildDrumKitKeys()
-  return buildInstrumentKeysFromPreset({
-    name: preset.name,
-    rootHz: preset.rootHz ?? MELODY_ROOT_HZ,
-    patch: preset.patch ?? PLUCK_PATCH,
-  })
-}
-
-/** Labels to pair with buildLoopPresetInstrumentKeys's buffers, in the same order. */
-export function loopPresetKeyLabels(preset: LoopPreset): string[] {
-  if (preset.category === 'Drums') return DRUM_KIT_VOICES.map((voice) => voice.name)
-  return Array.from({ length: INSTRUMENT_KEY_COUNT }, (_, i) => `${preset.name} ${i + 1}`)
+  for (const { stepIndex, hit } of preset.steps) {
+    let index = -1
+    if (hit.kind === 'drum') {
+      index = voices.findIndex((voice) => voice.name === hit.voice.name)
+      if (index < 0) index = voices.findIndex((voice) => voice.kind === hit.voice.kind)
+    } else {
+      const target = home + hit.semitones
+      let best = Infinity
+      pads.forEach((pad, i) => {
+        const pitch = pad.music?.midis[0]
+        if (pitch === undefined) return
+        const distance = Math.abs(pitch - target)
+        if (distance < best) {
+          best = distance
+          index = i
+        }
+      })
+    }
+    if (index < 0 || index >= pads.length) continue
+    ;(steps[index] ??= []).push(stepIndex)
+  }
+  return steps
 }

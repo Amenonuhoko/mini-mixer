@@ -1,3 +1,7 @@
+import type { BankKind, MoodId, MusicalKey, PadLabelSettings, PadLayout, PadMusic } from '../music/theory'
+
+export type { BankKind, MoodId, MusicalKey, PadLabelSettings, PadLayout, PadMusic }
+
 export type EffectId = 'pitch' | 'speed' | 'filter' | 'volume' | 'pan' | 'grit' | 'echo' | 'reverb'
 
 export interface EffectSetting {
@@ -10,9 +14,8 @@ export interface EffectSetting {
  * What produced a sample — drives the Library's at-a-glance "type" badge.
  * Deliberately derived from how the sample was made, not from analyzing its
  * audio content (unreliable for a lightweight app): 'recording' is a plain
- * mic take, 'note' is one key of a built Instrument, 'sequence' is a bounced
- * multi-hit performance (either the Instrument Mode hit-capture or a full
- * loops-and-gates playthrough).
+ * mic take, 'note' is a note/chord a bank generated from its sound (hidden
+ * from the Library), 'sequence' is a bounced sequence or a live playthrough.
  */
 export type SampleKind = 'recording' | 'note' | 'sequence'
 
@@ -27,6 +30,8 @@ export interface SequenceTrace {
    * falls back to a visual-only marker instead (see LOAD_SEQUENCE_TRACE).
    */
   rows: Array<Array<string | null>>
+  /** Which pad each row belonged to, when known — lets a load land rows back on the same pads across banks. Older traces omit it and load by row position. */
+  padIds?: string[]
 }
 
 export interface Sample {
@@ -80,30 +85,65 @@ export interface Pad {
    * rather than by opening the pad editor.
    */
   mixLevel: number
+  /**
+   * What a melodic bank's pad plays — a note or a chord, as MIDI numbers —
+   * so it can be labeled (name / numeral / feel) and so a key change knows
+   * what it was. Null for drum and hand-assigned pads.
+   */
+  music: PadMusic | null
 }
 
-export interface Instrument {
+/**
+ * What a bank's pads are generated from. A drum kit is a fixed set of voices;
+ * a preset or a recording is pitched across the bank's notes/chords in the
+ * project key. A bank with no sound yet (or a drum bank of hand-assigned
+ * recordings) has sound: null.
+ */
+export type BankSound =
+  | { type: 'preset'; name: string }
+  | { type: 'kit'; kitId: string }
+  | { type: 'recording'; sampleId: string }
+
+/**
+ * One layer of the beat — Drums, Bass, Chords or Melody — shown as a tab above
+ * the pad grid. Pads themselves still live in AppState.pads (keyed by id, so
+ * sequencer rows never care which bank they're in); a bank owns an ordered
+ * list of pad ids and how many of them are showing.
+ */
+export interface Bank {
   id: string
-  name: string
-  source: 'preset' | 'recording'
-  /**
-   * References into AppState.samples. For a pitched preset/recording instrument,
-   * ordered low to high pitch (semitone 0 first). A drum kit is the exception —
-   * its 16 keys are 16 distinct voices, not one sound pitch-shifted, so there's
-   * no pitch to order by; it's ordered by how often each voice gets reached for
-   * instead (see engine/drumSynth.ts's DRUM_KIT_VOICES).
-   */
-  keySampleIds: string[]
-  /**
-   * The whole-grid Filter/Grit/Echo/Reverb "character" combo last dialed in
-   * or picked while this instrument was the one laid across the pads (see
-   * PadEffectsMenuButton) — null until customized at least once. Re-applying
-   * this instrument later (APPLY_INSTRUMENT_TO_PADS/APPLY_LOOP_PRESET) always
-   * writes these four dials onto its pads: this preset if set, neutral (0)
-   * otherwise, so one instrument's dialed-in character never leaks onto a
-   * different instrument's pads just because they happened to share a pad.
-   */
-  effectsPreset?: { filter: number; grit: number; echo: number; reverb: number } | null
+  kind: BankKind
+  /** Every pad slot this bank has ever had, in grid order. */
+  padIds: string[]
+  /** How many of padIds are shown/triggerable. Shrinking is display-only, same as the old global pad count. */
+  visibleCount: number
+  sound: BankSound | null
+  /** Grid columns for this bank's layout (a scale's notes per octave, 4 for a drum kit, …). */
+  columns: number
+  /** Samples this bank generated for its current sound, so replacing the sound can clean them up. */
+  generatedSampleIds: string[]
+  /** MIDI note → sample id for every single note the bank's pads use, chord notes included — the arpeggiator's raw material. */
+  noteSampleIds: Record<string, string>
+}
+
+/** The Filter/Grit/Echo/Reverb "character" combo, remembered per sound (see AppState.fxBySound). */
+export interface CharacterPreset {
+  filter: number
+  grit: number
+  echo: number
+  reverb: number
+}
+
+/** Everything needed to (re)lay a bank's pads — produced asynchronously by engine/bankBuilder, applied atomically by the reducer. */
+export interface BankBuild {
+  bankId: string
+  sound: BankSound | null
+  columns: number
+  /** One entry per pad, in grid order. */
+  pads: Array<{ sampleId: string | null; music: PadMusic | null }>
+  /** Every new sample this build created (pad sounds and single-note pool). */
+  samples: Sample[]
+  noteSampleIds: Record<string, string>
 }
 
 export interface Pattern {
@@ -123,13 +163,6 @@ export type LoopMode = 'once' | 'continuous'
 /** Normal pad presses either stop on release (gate) or play the whole file (one-shot). */
 export type PadPlaybackMode = 'gate' | 'oneshot'
 
-/** The fields temporary Instrument Mode replaces on a pad, retained so cleanup can restore the user's layout. */
-export interface InstrumentPadSnapshot {
-  sampleId: string | null
-  trimStart: number
-  trimEnd: number
-}
-
 export interface Transport {
   bpm: number
   isPlaying: boolean
@@ -148,17 +181,7 @@ export interface Transport {
    */
   padLoopModeEnabled: boolean
   /**
-   * The pad grid's instrument selection, mutually exclusive with
-   * padLoopModeEnabled (turning one on turns the other off — see reducer.ts).
-   * Mixer Mode may temporarily overlay it and restores this selection on exit. While on, pads keep
-   * playing normally (one-shot/gate, same as the default mode) but show which
-   * instrument key they hold, and holding the record FAB captures the series of
-   * pad presses as a performance instead of recording from the microphone.
-   */
-  padInstrumentModeEnabled: boolean
-  /**
-   * A temporary overlay for changing levels (see reducer.ts). It is exclusive
-   * with Loop Mode but preserves an active instrument selection. While on,
+   * A temporary overlay for changing levels, exclusive with Loop Mode. While on,
    * pads stop being tap targets entirely and become
    * vertical fader sliders instead — dragging up/down on a pad sets its
    * mixLevel live. Nothing plays from a tap/drag in this mode; it's a mixing
@@ -170,36 +193,10 @@ export interface Transport {
    * FAB captures a live "playthrough" of whatever's actually audible (every
    * looping pad plus every manual tap/gate) instead of recording from the
    * microphone — see AudioEngine.startPlaythroughRecording. Deliberately not
-   * mutually exclusive with loop/instrument mode: recording a playthrough of
-   * loops you've already started, or of an instrument you're playing live, is
-   * the whole point.
+   * mutually exclusive with the pad modes: recording a playthrough of loops
+   * you've already started is the whole point.
    */
   playthroughRecordingEnabled: boolean
-  /**
-   * The id of an instrument InstrumentModeButton's quick-build picker created
-   * on the spot (as opposed to one deliberately built via the Library page),
-   * or null if none/not applicable. Lives here (in-memory app state, not
-   * component-local) specifically so it survives navigating away from the
-   * Pads page and back — the button component unmounts on every page switch,
-   * which would otherwise lose track of which instrument to clean up. Replacing
-   * it removes the superseded quick instrument. Mixer Mode keeps it selected
-   * underneath the faders. Deliberately
-   * transient, like isPlaying/currentStep: reset to null on every project
-   * load rather than persisted, since once a project has been explicitly
-   * saved, whatever instruments it contains are project data, not something
-   * still owed a silent auto-delete.
-   */
-  autoInstrumentId: string | null
-  /** Pre-instrument assignments for a quick Instrument Mode preset; transient and never persisted. */
-  autoInstrumentPadSnapshot: Record<string, InstrumentPadSnapshot> | null
-  /**
-   * Which instrument's keys currently occupy the pads, if any — set whenever
-   * APPLY_INSTRUMENT_TO_PADS/APPLY_LOOP_PRESET lays one across the grid,
-   * cleared if that instrument is removed. Lets the whole-grid effects menu
-   * know which Instrument.effectsPreset to read from and write back to.
-   * Transient bookkeeping like autoInstrumentId, not persisted.
-   */
-  currentInstrumentId: string | null
 }
 
 export interface AppState {
@@ -207,18 +204,26 @@ export interface AppState {
   samples: Record<string, Sample>
   /** Display/edit order for the library — samples themselves stay keyed by id in `samples`. */
   sampleOrder: string[]
-  /** Named groups of samples pitch-spread across a keyboard — see Instrument. */
-  instruments: Record<string, Instrument>
-  /** Display order for the library's instrument list, same idea as sampleOrder. */
-  instrumentOrder: string[]
-  /** Every pad slot that has ever existed. Shrinking the visible count never removes entries here. */
+  /** Every pad slot of every bank. Which bank a pad belongs to, and whether it's showing, lives on Bank. */
   pads: Pad[]
+  /** Drums · Bass · Chords · Melody — always all four, in that order. */
+  banks: Bank[]
+  /** Which bank the pad grid is showing. */
+  activeBankId: string
+  /** The project's key — every melodic bank's pads are laid out in it. */
+  key: MusicalKey
+  /** The mood that picked the key, or null once the key was set by hand. */
+  mood: MoodId | null
+  /** Guided (only notes/chords in the key) or Free (chromatic) melodic pads. */
+  padLayout: PadLayout
+  /** Which label parts pads show — name, feel word, numeral. */
+  padLabels: PadLabelSettings
   /**
-   * How many pads (from the front of `pads`) are currently shown/triggerable.
-   * Shrinking this is display-only — pads beyond it, and their data, are retained
-   * and reappear if the count is grown back.
+   * The whole-bank Filter/Grit/Echo/Reverb combo last used with each sound
+   * (keyed by soundKey()), so switching a bank away from a sound and back
+   * brings its character back with it.
    */
-  visiblePadCount: number
+  fxBySound: Record<string, CharacterPreset>
   patterns: Pattern[]
   activePatternId: string
   transport: Transport

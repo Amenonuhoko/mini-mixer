@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import { clearAutosave } from '../state/autosave'
 import { deserializeProject, isSerializedProject, serializeProject } from '../engine/projectFile'
 import type { SerializedProject } from '../engine/projectFile'
+import { useBankBuilder } from '../hooks/useBankBuilder'
+import type { PadLabelSettings, PadLayout } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -17,7 +19,23 @@ function downloadJson(filename: string, data: unknown): void {
   URL.revokeObjectURL(url)
 }
 
-/** Rarely-touched project controls — save/load a project file and Clear All. The one place those live (pad count lives on the pad module itself). */
+const LAYOUTS: Array<{ id: PadLayout; label: string; hint: string }> = [
+  { id: 'guided', label: 'Guided', hint: 'Only notes and chords in the key' },
+  { id: 'free', label: 'Free', hint: 'Every note, every chord' },
+]
+
+const LABEL_PARTS: Array<{ id: keyof PadLabelSettings; label: string; example: string }> = [
+  { id: 'name', label: 'Name', example: 'Am' },
+  { id: 'feel', label: 'Feel', example: 'Sad' },
+  { id: 'numeral', label: 'Numeral', example: 'vi' },
+]
+
+/**
+ * How melodic pads are laid out and labeled — two independent toggles, so
+ * anyone can pick what reads best to them (a beginner might want feel
+ * words on a guided grid; a player might want names on a free one) — plus
+ * the rarely-touched project controls: save/load a project file and Clear All.
+ */
 export function SettingsPanel() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
@@ -28,6 +46,7 @@ export function SettingsPanel() {
   } | null>(null)
   const [loadStatus, setLoadStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { busy: layoutBusy, setPadLayout } = useBankBuilder()
 
   const handleClearAll = () => {
     engine.stopAllSounds()
@@ -73,8 +92,57 @@ export function SettingsPanel() {
     }
   }
 
+  const toggleLabelPart = (part: keyof PadLabelSettings) =>
+    dispatch({ type: 'SET_PAD_LABELS', labels: { ...state.padLabels, [part]: !state.padLabels[part] } })
+
   return (
     <div className="settings">
+      <div className="settings-row">
+        <div className="settings-row-text">
+          <span className="label">Pad layout</span>
+          <span className="settings-hint">
+            {layoutBusy ? 'Relaying pads…' : LAYOUTS.find((layout) => layout.id === state.padLayout)!.hint}
+          </span>
+        </div>
+        <div className="segmented" role="radiogroup" aria-label="Pad layout">
+          {LAYOUTS.map((layout) => (
+            <button
+              key={layout.id}
+              type="button"
+              role="radio"
+              aria-checked={state.padLayout === layout.id}
+              className={state.padLayout === layout.id ? 'segment on' : 'segment'}
+              disabled={layoutBusy !== null}
+              onClick={() => state.padLayout !== layout.id && void setPadLayout(layout.id)}
+              title={layout.hint}
+            >
+              {layout.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-row">
+        <div className="settings-row-text">
+          <span className="label">Pad labels</span>
+          <span className="settings-hint">What melodic pads show — mix and match.</span>
+        </div>
+        <div className="chip-row" role="group" aria-label="Pad labels">
+          {LABEL_PARTS.map((part) => (
+            <button
+              key={part.id}
+              type="button"
+              className={state.padLabels[part.id] ? 'chip-btn on' : 'chip-btn'}
+              aria-pressed={state.padLabels[part.id]}
+              onClick={() => toggleLabelPart(part.id)}
+              title={`e.g. “${part.example}”`}
+            >
+              {part.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="settings-row">
         <div className="settings-row-text">
           <span className="label">Project file</span>

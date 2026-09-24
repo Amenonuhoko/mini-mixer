@@ -8,6 +8,7 @@ import type { SampleKind, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PauseIcon, PlayIcon, PlusIcon, TrashIcon } from './icons'
 import { StaticWaveform } from './Waveform'
+import { getSamplerBank, visibleBankPads } from '../state/banks'
 
 export interface PendingRecording {
   label: string
@@ -56,7 +57,8 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
   const [assignedPadId, setAssignedPadId] = useState<string | null>(null)
   const [label, setLabel] = useState(recording.label)
   const [previewPlaying, setPreviewPlaying] = useState(recording.kind !== 'sequence')
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const samplerBank = getSamplerBank(state)
+  const visiblePads = visibleBankPads(state, samplerBank)
 
   useEffect(() => {
     if (!previewPlaying) return
@@ -148,7 +150,7 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
       {assignedPadId ? (
         <div className="review-done">
           <p className="review-done-text">
-            On pad <span className="readout">{String(state.pads.findIndex((pad) => pad.id === assignedPadId) + 1).padStart(2, '0')}</span>. Dial it in now?
+            On Drums pad <span className="readout">{String(samplerBank.padIds.indexOf(assignedPadId) + 1).padStart(2, '0')}</span>. Dial it in now?
           </p>
           <div className="review-actions">
             <button type="button" className="btn" onClick={onDone}>
@@ -171,7 +173,7 @@ export function RecordingReview({ recording, onDone }: RecordingReviewProps) {
             value={label}
             onChange={(event) => setLabel(event.target.value)}
           />
-          <span className="label">Put it on a pad</span>
+          <span className="label">Put it on a Drums pad</span>
           <div className="pad-picker">
             {visiblePads.map((pad, index) => {
               const occupied = pad.sampleId !== null

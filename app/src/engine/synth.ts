@@ -1,4 +1,3 @@
-import { INSTRUMENT_KEY_COUNT } from '../state/constants'
 
 export type SynthWaveform = OscillatorType
 type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar'
@@ -456,130 +455,40 @@ export async function renderPitchShiftedCopy(source: AudioBuffer, semitones: num
   return ctx.startRendering()
 }
 
-function semitoneOffsets(): number[] {
-  return Array.from({ length: INSTRUMENT_KEY_COUNT }, (_, i) => i)
-}
-
 /**
  * CC0 electric-guitar zones sourced from Karoryfer's Black And Green Guitars
  * pack (repackaged as individually trimmed WAVs by MAESTRO String Studio).
- * Three root notes cover the Mini Mixer's E3–G4 range: adjacent pads are
- * derived from the nearest recording, avoiding the artificial 'one sample
- * stretched across an entire neck' sound while keeping the first use compact.
+ * Every note is derived from the nearest recording, avoiding the artificial
+ * 'one sample stretched across an entire neck' sound.
  *
  * Source: https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples
  * License: CC0-1.0.
  */
 const CC0_ELECTRIC_GUITAR_BASE_URL =
   'https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/'
-const RECORDED_GUITAR_ZONES = [
+const RECORDED_GUITAR_ZONES: RecordedSourceZone[] = [
   { midi: 52, file: '52_v100_rr1.wav' }, // E3
   { midi: 59, file: '59_v100_rr1.wav' }, // B3
   { midi: 67, file: '67_v100_rr1.wav' }, // G4
-] as const
-const GUITAR_ROOT_MIDI = 52
-let recordedGuitarKeysPromise: Promise<AudioBuffer[]> | null = null
-
-async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Could not load recorded sample (${response.status})`)
-  const audioData = await response.arrayBuffer()
-  const decoder = new OfflineAudioContext(1, 1, 44100)
-  return normalize(await decoder.decodeAudioData(audioData))
-}
-
-function closestGuitarZone(targetMidi: number) {
-  return RECORDED_GUITAR_ZONES.reduce((closest, zone) =>
-    Math.abs(zone.midi - targetMidi) < Math.abs(closest.midi - targetMidi) ? zone : closest,
-  )
-}
-
-function buildRecordedGuitarKeys(): Promise<AudioBuffer[]> {
-  if (!recordedGuitarKeysPromise) {
-    recordedGuitarKeysPromise = (async () => {
-      // Fetch each source recording once, then derive the adjacent frets locally.
-      const sourceBuffers = await Promise.all(
-        RECORDED_GUITAR_ZONES.map(async (zone) => [
-          zone.midi,
-          await decodeRemoteAudio(`${CC0_ELECTRIC_GUITAR_BASE_URL}${zone.file}`),
-        ] as const),
-      )
-      const byMidi = new Map(sourceBuffers)
-
-      return Promise.all(
-        semitoneOffsets().map(async (semitones) => {
-          const targetMidi = GUITAR_ROOT_MIDI + semitones
-          const zone = closestGuitarZone(targetMidi)
-          const source = byMidi.get(zone.midi)
-          if (!source) throw new Error('Missing decoded guitar source zone')
-          return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
-        }),
-      )
-    })().catch((error: unknown) => {
-      // Do not cache a temporary network failure: a later picker open can retry.
-      recordedGuitarKeysPromise = null
-      throw error
-    })
-  }
-
-  return recordedGuitarKeysPromise
-}
-
+]
 
 /**
  * CC0 fingered-bass zones from Karoryfer's Growlybass pack, prepared as
- * browser-decodable WAVs by MAESTRO String Studio. C2–D#3 is covered by the
- * nearest of three notes, retaining real pluck, fret, and finger character.
+ * browser-decodable WAVs by MAESTRO String Studio, retaining real pluck,
+ * fret, and finger character.
  */
 const CC0_BASS_BASE_URL =
   'https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/'
-const RECORDED_BASS_ZONES = [
+const RECORDED_BASS_ZONES: RecordedSourceZone[] = [
   { midi: 37, file: '37_v100_rr1.wav' }, // C#2
   { midi: 45, file: '45_v100_rr1.wav' }, // A2
   { midi: 52, file: '52_v100_rr1.wav' }, // E3
-] as const
-const BASS_ROOT_MIDI = 36
-let recordedBassKeysPromise: Promise<AudioBuffer[]> | null = null
-
-function closestBassZone(targetMidi: number) {
-  return RECORDED_BASS_ZONES.reduce((closest, zone) =>
-    Math.abs(zone.midi - targetMidi) < Math.abs(closest.midi - targetMidi) ? zone : closest,
-  )
-}
-
-function buildRecordedBassKeys(): Promise<AudioBuffer[]> {
-  if (!recordedBassKeysPromise) {
-    recordedBassKeysPromise = (async () => {
-      const sourceBuffers = await Promise.all(
-        RECORDED_BASS_ZONES.map(async (zone) => [
-          zone.midi,
-          await decodeRemoteAudio(`${CC0_BASS_BASE_URL}${zone.file}`),
-        ] as const),
-      )
-      const byMidi = new Map(sourceBuffers)
-
-      return Promise.all(
-        semitoneOffsets().map(async (semitones) => {
-          const targetMidi = BASS_ROOT_MIDI + semitones
-          const zone = closestBassZone(targetMidi)
-          const source = byMidi.get(zone.midi)
-          if (!source) throw new Error('Missing decoded bass source zone')
-          return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
-        }),
-      )
-    })().catch((error: unknown) => {
-      recordedBassKeysPromise = null
-      throw error
-    })
-  }
-
-  return recordedBassKeysPromise
-}
+]
 
 /**
  * Real CC0 multisample sources: Weresax provides the alto recordings; the
- * remaining packs are VSCO-derived wind zones. Only the nearest zones needed
- * for the 32 pads are fetched, cached, and locally pitch-rendered.
+ * remaining packs are VSCO-derived wind zones. Only the zones nearest the
+ * requested notes are fetched, cached, and locally pitch-rendered.
  */
 type RecordedSourceZone = { midi: number; file: string }
 type StaticWindPack = { baseUrl: string; zones: readonly RecordedSourceZone[] }
@@ -598,7 +507,6 @@ const CC0_WIND_PACKS: Record<RecordedWindPack, WindPackDefinition> = {
   flute: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-flute-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-flute-samples/resolve/main/manifest.json' },
   clarinet: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-clarinet-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-clarinet-samples/resolve/main/manifest.json' },
 }
-const recordedWindKeysPromises = new Map<string, Promise<AudioBuffer[]>>()
 
 function isStaticWindPack(pack: WindPackDefinition): pack is StaticWindPack { return 'zones' in pack }
 function parseWindZones(value: unknown): RecordedSourceZone[] {
@@ -611,55 +519,113 @@ function parseWindZones(value: unknown): RecordedSourceZone[] {
   if (zones.length === 0) throw new Error('Wind sample manifest contains no playable zones')
   return zones
 }
-async function loadWindZones(pack: WindPackDefinition): Promise<RecordedSourceZone[]> {
-  if (isStaticWindPack(pack)) return [...pack.zones]
-  const response = await fetch(pack.manifestUrl)
-  if (!response.ok) throw new Error(`Could not load wind sample manifest (${response.status})`)
-  return parseWindZones(await response.json())
-}
-function nearestWindZone(targetMidi: number, zones: readonly RecordedSourceZone[]): RecordedSourceZone {
-  return zones.reduce((best, zone) => Math.abs(zone.midi - targetMidi) < Math.abs(best.midi - targetMidi) ? zone : best)
-}
 function windFileUrl(baseUrl: string, file: string): string {
   return /^https?:\/\//.test(file) ? file : `${baseUrl}${file.replace(/^\.\//, '')}`
 }
-function frequencyToMidi(frequencyHz: number): number { return Math.round(69 + 12 * Math.log2(frequencyHz / 440)) }
-function buildRecordedWindKeys(packId: RecordedWindPack, rootMidi: number): Promise<AudioBuffer[]> {
-  const cacheKey = `${packId}:${rootMidi}`
-  const cached = recordedWindKeysPromises.get(cacheKey)
-  if (cached) return cached
-  const task = (async () => {
-    const pack = CC0_WIND_PACKS[packId]
-    const zones = await loadWindZones(pack)
-    const selected = new Map<number, RecordedSourceZone>()
-    for (const offset of semitoneOffsets()) { const zone = nearestWindZone(rootMidi + offset, zones); selected.set(zone.midi, zone) }
-    const decoded = await Promise.all([...selected.values()].map(async (zone) => [zone.midi, await decodeRemoteAudio(windFileUrl(pack.baseUrl, zone.file))] as const))
-    const buffers = new Map(decoded)
-    return Promise.all(semitoneOffsets().map(async (offset) => {
-      const targetMidi = rootMidi + offset
-      const zone = nearestWindZone(targetMidi, zones)
-      const source = buffers.get(zone.midi)
-      if (!source) throw new Error('Missing decoded wind source zone')
-      return normalize(await renderPitchShiftedCopy(source, targetMidi - zone.midi))
-    }))
-  })().catch((error: unknown) => { recordedWindKeysPromises.delete(cacheKey); throw error })
-  recordedWindKeysPromises.set(cacheKey, task)
+
+async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Could not load recorded sample (${response.status})`)
+  const audioData = await response.arrayBuffer()
+  const decoder = new OfflineAudioContext(1, 1, 44100)
+  return normalize(await decoder.decodeAudioData(audioData))
+}
+
+/** Fetch-once caches; a failure is dropped from the cache so a later build can retry. */
+const zoneBufferCache = new Map<string, Promise<AudioBuffer>>()
+const zoneListCache = new Map<string, Promise<RecordedSourceZone[]>>()
+
+function cached<T>(cache: Map<string, Promise<T>>, key: string, load: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key)
+  if (hit) return hit
+  const task = load().catch((error: unknown) => {
+    cache.delete(key)
+    throw error
+  })
+  cache.set(key, task)
   return task
 }
 
-export async function buildInstrumentKeysFromPreset(preset: InstrumentPreset): Promise<AudioBuffer[]> {
-  try {
-    if (preset.recordedWindPack) return await buildRecordedWindKeys(preset.recordedWindPack, frequencyToMidi(preset.rootHz))
-    if (preset.patch.voice === 'guitar') return await buildRecordedGuitarKeys()
-    if (preset.patch.voice === 'bass') return await buildRecordedBassKeys()
-  } catch (error) {
-    // A picker must never be unusable because a third-party host is offline.
-    console.warn(`Recorded ${preset.name} samples unavailable; using the built-in model.`, error)
-  }
-
-  return Promise.all(semitoneOffsets().map((semitones) => renderSynthNote(preset.rootHz * Math.pow(2, semitones / 12), preset.patch)))
+interface RecordedSource {
+  zones: readonly RecordedSourceZone[]
+  url: (file: string) => string
 }
 
-export async function buildInstrumentKeysFromRecording(rootBuffer: AudioBuffer): Promise<AudioBuffer[]> {
-  return Promise.all(semitoneOffsets().map((semitones) => renderPitchShiftedCopy(rootBuffer, semitones)))
+async function recordedSourceFor(preset: InstrumentPreset): Promise<RecordedSource | null> {
+  if (preset.recordedWindPack) {
+    const pack = CC0_WIND_PACKS[preset.recordedWindPack]
+    const zones = isStaticWindPack(pack)
+      ? pack.zones
+      : await cached(zoneListCache, pack.manifestUrl, async () => {
+          const response = await fetch(pack.manifestUrl)
+          if (!response.ok) throw new Error(`Could not load wind sample manifest (${response.status})`)
+          return parseWindZones(await response.json())
+        })
+    return { zones, url: (file) => windFileUrl(pack.baseUrl, file) }
+  }
+  if (preset.patch.voice === 'guitar') return { zones: RECORDED_GUITAR_ZONES, url: (file) => CC0_ELECTRIC_GUITAR_BASE_URL + file }
+  if (preset.patch.voice === 'bass') return { zones: RECORDED_BASS_ZONES, url: (file) => CC0_BASS_BASE_URL + file }
+  return null
+}
+
+function nearestZone(targetMidi: number, zones: readonly RecordedSourceZone[]): RecordedSourceZone {
+  return zones.reduce((best, zone) => (Math.abs(zone.midi - targetMidi) < Math.abs(best.midi - targetMidi) ? zone : best))
+}
+
+function midiToFrequency(midi: number): number {
+  return 440 * Math.pow(2, (midi - 69) / 12)
+}
+
+/**
+ * Renders one buffer per requested MIDI note in a preset's voice. Presets with
+ * real recordings pitch the nearest recorded zone; everything else (and any
+ * recording whose host is offline — a sound must never be unusable because a
+ * third-party host is down) uses the built-in model.
+ */
+export async function renderPresetNotes(preset: InstrumentPreset, midis: number[]): Promise<Map<number, AudioBuffer>> {
+  const unique = [...new Set(midis)]
+  try {
+    const recorded = await recordedSourceFor(preset)
+    if (recorded) {
+      return new Map(
+        await Promise.all(
+          unique.map(async (midi) => {
+            const zone = nearestZone(midi, recorded.zones)
+            const url = recorded.url(zone.file)
+            const source = await cached(zoneBufferCache, url, () => decodeRemoteAudio(url))
+            return [midi, normalize(await renderPitchShiftedCopy(source, midi - zone.midi))] as const
+          }),
+        ),
+      )
+    }
+  } catch (error) {
+    console.warn(`Recorded ${preset.name} samples unavailable; using the built-in model.`, error)
+  }
+  return new Map(
+    await Promise.all(unique.map(async (midi) => [midi, await renderSynthNote(midiToFrequency(midi), preset.patch)] as const)),
+  )
+}
+
+/** Renders one buffer per requested MIDI note from a user recording, treating the recording as middle C. */
+export async function renderRecordingNotes(root: AudioBuffer, midis: number[], rootMidi = 60): Promise<Map<number, AudioBuffer>> {
+  const unique = [...new Set(midis)]
+  return new Map(await Promise.all(unique.map(async (midi) => [midi, await renderPitchShiftedCopy(root, midi - rootMidi)] as const)))
+}
+
+/** Sums buffers (a chord's notes) into one mono buffer as long as the longest, then levels it like any other key. */
+export function mixBuffers(buffers: AudioBuffer[]): AudioBuffer {
+  const first = buffers[0]!
+  const length = Math.max(...buffers.map((buffer) => buffer.length))
+  const ctx = new OfflineAudioContext(1, 1, first.sampleRate)
+  const mixed = ctx.createBuffer(1, length, first.sampleRate)
+  const out = mixed.getChannelData(0)
+  for (const buffer of buffers) {
+    const channels = Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c))
+    for (let i = 0; i < buffer.length; i++) {
+      let sum = 0
+      for (const channel of channels) sum += channel[i] ?? 0
+      out[i] = (out[i] ?? 0) + sum / channels.length
+    }
+  }
+  return normalize(mixed)
 }

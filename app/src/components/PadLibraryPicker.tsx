@@ -15,9 +15,8 @@ interface PadLibraryPickerProps {
  * on the Pads page — the reverse direction of the Library page's own
  * "Assign…" action, which starts from a sample and asks which pad. Lets you
  * swap a pad's sound without leaving the pad grid. This is the same user-facing
- * sample collection as Library itself, so generated Instrument Mode key files
- * are deliberately excluded; individual instrument keys stay internal to the
- * temporary instrument performance rather than becoming assignable Library items.
+ * sample collection as Library itself, so the notes/chords banks render for
+ * their sounds are deliberately excluded — they belong to their bank.
  */
 export function PadLibraryPicker({ padId, onClose }: PadLibraryPickerProps) {
   const { state, dispatch } = useAppState()

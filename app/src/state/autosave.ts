@@ -1,11 +1,9 @@
 import type { AudioEngine } from '../engine/AudioEngine'
 import {
   buildSample,
-  buildTransport,
   encodeWav,
   extractProjectMeta,
-  normalizePads,
-  normalizePatterns,
+  stateFromMeta,
   type ProjectMeta,
 } from '../engine/projectFile'
 import type { AppState, Sample, SampleKind, SequenceTrace } from './types'
@@ -96,19 +94,7 @@ export async function loadAutosave(engine: AudioEngine): Promise<AppState | null
     // Autosave records written before the kind field existed default to 'recording'.
     samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), ...(s.sequenceTrace ? { sequenceTrace: s.sequenceTrace } : {}) }
   }
-  return {
-    samples,
-    sampleOrder: record.sampleOrder,
-    // An autosave written before instruments existed won't have these — default
-    // them in rather than requiring a migration for old browser-stored records.
-    instruments: record.instruments ?? {},
-    instrumentOrder: record.instrumentOrder ?? [],
-    pads: normalizePads(record.pads),
-    visiblePadCount: record.visiblePadCount,
-    patterns: normalizePatterns(record.patterns, normalizePads(record.pads)),
-    activePatternId: record.activePatternId,
-    transport: buildTransport(record.transport),
-  }
+  return stateFromMeta(record, samples)
 }
 
 export async function clearAutosave(): Promise<void> {

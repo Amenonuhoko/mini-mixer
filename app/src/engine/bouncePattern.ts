@@ -13,6 +13,7 @@ import {
   mixLevelToGain,
 } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
+import { playablePads } from '../state/banks'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
   return effects.find((effect) => effect.id === id)?.value ?? 0
@@ -41,7 +42,7 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
   if (!pattern) throw new Error('renderPatternToBuffer: pattern not found')
 
   const secondsPerStep = 60 / state.transport.bpm / 4
-  const pads = state.pads.slice(0, state.visiblePadCount)
+  const pads = playablePads(state)
 
   const hits: ScheduledHit[] = []
   for (const pad of pads) {

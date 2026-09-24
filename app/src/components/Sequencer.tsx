@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
+import { padLabel } from '../music/theory'
+import { BANK_NAMES, playablePads, visibleBankPads } from '../state/banks'
 import { MAX_PAD_COUNT, MIN_PAD_COUNT, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { computePeaks } from '../utils/waveform'
 import type { AudioEngine } from '../engine/AudioEngine'
-import type { Pad, Sample, SequenceTrace, Transport } from '../state/types'
+import type { Bank, Pad, Sample, SequenceTrace, Transport } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CloseIcon, EyeIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon } from './icons'
 import { LoopPresetMenuButton } from './LoopPresetMenuButton'
@@ -28,8 +30,11 @@ function chunk<T>(items: T[], size: number): T[][] {
  * The step sequencer module: a compact header (pattern, step count, loop
  * presets), one toolbar (entry behavior on the left, pattern actions on the
  * right), and the grid, read as a continuous timeline — beat groups set
- * apart, the playhead column lit. Each row is one pad; its number chip glows
- * with that pad's live level and opens the library picker to swap its sound.
+ * apart, the playhead column lit. Rows are grouped by bank: Drums shows
+ * every pad (its number chip opens the library picker to swap the sound);
+ * a melodic bank lists its notes/chords highest first, labeled by name.
+ * Each bank folds down to just the rows in use unless it's the bank being
+ * played on the Pads page or was opened by hand. Every row chip glows with that pad's live level.
  * "Save" renders the pattern exactly as programmed (mute/trim/effects/mix
  * respected) down to one sample via engine/bouncePattern.ts, completing the
  * pad -> beat -> sequence -> pad loop.
@@ -42,7 +47,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const pattern = state.patterns.find((p) => p.id === state.activePatternId)
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const visiblePads = playablePads(state)
+  const [expandedOverride, setExpandedOverride] = useState<Record<string, boolean>>({})
   const [swappingPadId, setSwappingPadId] = useState<string | null>(null)
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -66,6 +72,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
       const peaks = computePeaks(buffer, WAVEFORM_BUCKETS)
       const sequenceTrace: SequenceTrace = {
         stepCount: pattern.stepCount,
+        padIds: visiblePads.map((pad) => pad.id),
         rows: visiblePads.map((pad) =>
           Array.from({ length: pattern.stepCount }, (_, stepIndex) => pattern.steps[pad.id]?.[stepIndex] ?? null),
         ),
@@ -213,45 +220,75 @@ export function Sequencer({ onBounced }: SequencerProps) {
               </div>
             ))}
           </div>
-          {visiblePads.map((pad, padIndex) => (
-            <SequencerRow
-              key={pad.id}
-              pad={pad}
-              padIndex={padIndex}
-              patternId={pattern.id}
-              steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
-              traceSteps={pattern.traceSteps?.[pad.id] ?? []}
-              sampleLabels={sampleLabels}
-              transport={state.transport}
-              engine={engine}
-              sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
-              gateMode={sequencerGateMode}
-              previewOnClick={previewOnClick}
-              onToggleStep={(stepIndex) =>
-                dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
-              }
-              onFillStep={(stepIndex) => {
-                if (!pad.sampleId) return
-                dispatch({ type: 'SET_STEP_SAMPLE', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
-              }}
-              onSwapSound={() => setSwappingPadId(pad.id)}
-              onRemove={() => setRemovingPadId(pad.id)}
-              removeDisabled={state.pads.length <= MIN_PAD_COUNT}
-            />
-          ))}
-          {state.visiblePadCount < MAX_PAD_COUNT && (
-            <div className="sequencer-add-row-slot">
-              <div className="sequencer-row-fixed" />
-              <button
-                type="button"
-                className="sequencer-add-row"
-                onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: state.visiblePadCount + 1 })}
-              >
-                <PlusIcon size={14} />
-                Add row
-              </button>
-            </div>
-          )}
+          {state.banks.map((bank) => {
+            const bankPads = visibleBankPads(state, bank)
+            if (bankPads.length === 0) return null
+            const melodic = bank.kind !== 'drums'
+            const used = (pad: Pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null)
+            const expanded = expandedOverride[bank.id] ?? bank.id === state.activeBankId
+            const ordered = melodic
+              ? [...bankPads].sort((a, b) => (b.music?.midis[0] ?? 0) - (a.music?.midis[0] ?? 0))
+              : bankPads
+            const rows = expanded ? ordered : ordered.filter(used)
+            return (
+              <div className={`sequencer-bank bank-${bank.kind}`} key={bank.id}>
+                <div className="sequencer-bank-head">
+                  <span className="sequencer-bank-name">{BANK_NAMES[bank.kind]}</span>
+                  <button
+                    type="button"
+                    className="sequencer-bank-toggle"
+                    onClick={() => setExpandedOverride((current) => ({ ...current, [bank.id]: !expanded }))}
+                    aria-expanded={expanded}
+                  >
+                    {expanded ? 'Used rows only' : `Show all ${bankPads.length}`}
+                  </button>
+                </div>
+                {rows.map((pad) => {
+                  const padIndex = bankPads.indexOf(pad)
+                  return (
+                <SequencerRow
+                  key={pad.id}
+                  pad={pad}
+                  padIndex={padIndex}
+                  bank={bank}
+                  patternId={pattern.id}
+                  steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
+                  traceSteps={pattern.traceSteps?.[pad.id] ?? []}
+                  sampleLabels={sampleLabels}
+                  transport={state.transport}
+                  engine={engine}
+                  sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
+                  gateMode={sequencerGateMode}
+                  previewOnClick={previewOnClick}
+                  onToggleStep={(stepIndex) =>
+                    dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
+                  }
+                  onFillStep={(stepIndex) => {
+                    if (!pad.sampleId) return
+                    dispatch({ type: 'SET_STEP_SAMPLE', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
+                  }}
+                  onSwapSound={() => setSwappingPadId(pad.id)}
+                  onRemove={() => setRemovingPadId(pad.id)}
+                  removeDisabled={bank.padIds.length <= MIN_PAD_COUNT}
+                />
+                  )
+                })}
+                {!melodic && expanded && bank.visibleCount < MAX_PAD_COUNT && (
+                  <div className="sequencer-add-row-slot">
+                    <div className="sequencer-row-fixed" />
+                    <button
+                      type="button"
+                      className="sequencer-add-row"
+                      onClick={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount + 1, bankId: bank.id })}
+                    >
+                      <PlusIcon size={14} />
+                      Add row
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -286,6 +323,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
 interface SequencerRowProps {
   pad: Pad
   padIndex: number
+  bank: Bank
   patternId: string
   steps: Array<string | null>
   traceSteps: Array<string | null>
@@ -305,6 +343,7 @@ interface SequencerRowProps {
 function SequencerRow({
   pad,
   padIndex,
+  bank,
   steps,
   traceSteps,
   sampleLabels,
@@ -319,7 +358,10 @@ function SequencerRow({
   onRemove,
   removeDisabled,
 }: SequencerRowProps) {
+  const { state } = useAppState()
   const looping = usePadLooping(engine, pad.id)
+  const label = pad.music ? padLabel(pad.music, state.key, state.padLabels) : null
+  const rowName = label ? `${BANK_NAMES[bank.kind]} ${label.name}` : `Pad ${padIndex + 1}`
   const gateSources = useRef(new Map<number, AudioBufferSourceNode>())
   const rowRef = useRef<HTMLDivElement>(null)
   // A drag across several cells ("slide an instrument across multiple
@@ -392,25 +434,29 @@ function SequencerRow({
   return (
     <div className={looping ? 'sequencer-row row-looping' : 'sequencer-row'} ref={rowRef}>
       <div className="sequencer-row-fixed">
+        {label ? (
+          <span className="sequencer-row-remove" aria-hidden="true" />
+        ) : (
+          <button
+            type="button"
+            className="sequencer-row-remove"
+            onClick={onRemove}
+            disabled={removeDisabled}
+            aria-label={`Remove pad ${padIndex + 1} from the sequencer`}
+            title={removeDisabled ? 'At least one pad must remain' : 'Remove this row'}
+          >
+            <CloseIcon size={12} />
+          </button>
+        )}
         <button
           type="button"
-          className="sequencer-row-remove"
-          onClick={onRemove}
-          disabled={removeDisabled}
-          aria-label={`Remove pad ${padIndex + 1} from the sequencer`}
-          title={removeDisabled ? 'At least one pad must remain' : 'Remove this row'}
-        >
-          <CloseIcon size={12} />
-        </button>
-        <button
-          type="button"
-          className="sequencer-row-label"
+          className={label ? 'sequencer-row-label named' : 'sequencer-row-label'}
           data-glow-pad={pad.id}
-          onClick={onSwapSound}
-          aria-label={`Pad ${padIndex + 1}${sample ? `: ${sample.label}` : ', empty'} — swap sound`}
-          title={sample ? `${sample.label} — tap to swap` : 'Empty — tap to load a sound'}
+          onClick={label ? () => sample && !pad.muted && engine.triggerPad(pad, sample.buffer) : onSwapSound}
+          aria-label={label ? `${rowName} — play` : `Pad ${padIndex + 1}${sample ? `: ${sample.label}` : ', empty'} — swap sound`}
+          title={label ? `${label.name} — tap to hear it` : sample ? `${sample.label} — tap to swap` : 'Empty — tap to load a sound'}
         >
-          <span className="readout">{String(padIndex + 1).padStart(2, '0')}</span>
+          <span className="readout">{label ? label.name : String(padIndex + 1).padStart(2, '0')}</span>
           {looping && <span className="row-loop-badge" aria-hidden="true" />}
         </button>
       </div>
@@ -450,7 +496,7 @@ function SequencerRow({
                   endPaint()
                 }}
                 onClick={(event) => fillAndAudition(event, on, stepIndex)}
-                aria-label={sampleLabel ? `step ${stepIndex + 1} for pad ${padIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for pad ${padIndex + 1}: ${traceLabel}` : `step ${stepIndex + 1} for pad ${padIndex + 1}`}
+                aria-label={sampleLabel ? `step ${stepIndex + 1} for ${rowName}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for ${rowName}: ${traceLabel}` : `step ${stepIndex + 1} for ${rowName}`}
                 title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace: ${traceLabel}` : `Step ${stepIndex + 1}`}
               />
             )

@@ -1,9 +1,17 @@
 import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { computePeaks } from '../utils/waveform'
+import { BANK_KINDS, createBank } from '../state/banks'
+import { createId } from '../state/defaults'
+import { DEFAULT_KEY, DEFAULT_PAD_LABELS } from '../music/theory'
 import type {
   AppState,
-  Instrument,
+  Bank,
+  CharacterPreset,
   LoopMode,
+  MoodId,
+  MusicalKey,
+  PadLabelSettings,
+  PadLayout,
   PadPlaybackMode,
   Pad,
   Pattern,
@@ -98,13 +106,22 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * The non-audio parts of a project — shared between the downloadable-file
  * format and the IndexedDB autosave record, which differ only in how they
  * carry the actual audio bytes (base64-in-JSON vs a raw ArrayBuffer).
+ *
+ * Bank/key fields are optional because projects saved before pad banks carry
+ * a flat pad list plus `visiblePadCount` instead — see stateFromMeta.
  */
 export interface ProjectMeta {
   sampleOrder: string[]
-  instruments: Record<string, Instrument>
-  instrumentOrder: string[]
   pads: Pad[]
-  visiblePadCount: number
+  banks?: Bank[]
+  activeBankId?: string
+  key?: MusicalKey
+  mood?: MoodId | null
+  padLayout?: PadLayout
+  padLabels?: PadLabelSettings
+  fxBySound?: Record<string, CharacterPreset>
+  /** Legacy (pre-bank) projects only: how many of `pads` were showing. */
+  visiblePadCount?: number
   patterns: Pattern[]
   activePatternId: string
   transport: {
@@ -116,7 +133,6 @@ export interface ProjectMeta {
     /** Optional for backwards-compatible import of projects saved before this control. */
     padPlaybackMode?: PadPlaybackMode
     padLoopModeEnabled: boolean
-    padInstrumentModeEnabled: boolean
     padMixerModeEnabled: boolean
     playthroughRecordingEnabled: boolean
   }
@@ -125,10 +141,14 @@ export interface ProjectMeta {
 export function extractProjectMeta(state: AppState): ProjectMeta {
   return {
     sampleOrder: state.sampleOrder,
-    instruments: state.instruments,
-    instrumentOrder: state.instrumentOrder,
     pads: state.pads,
-    visiblePadCount: state.visiblePadCount,
+    banks: state.banks,
+    activeBankId: state.activeBankId,
+    key: state.key,
+    mood: state.mood,
+    padLayout: state.padLayout,
+    padLabels: state.padLabels,
+    fxBySound: state.fxBySound,
     patterns: state.patterns,
     activePatternId: state.activePatternId,
     transport: {
@@ -138,7 +158,6 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
       masterVolume: state.transport.masterVolume,
       padPlaybackMode: state.transport.padPlaybackMode,
       padLoopModeEnabled: state.transport.padLoopModeEnabled,
-      padInstrumentModeEnabled: state.transport.padInstrumentModeEnabled,
       padMixerModeEnabled: state.transport.padMixerModeEnabled,
       playthroughRecordingEnabled: state.transport.playthroughRecordingEnabled,
     },
@@ -146,13 +165,41 @@ export function extractProjectMeta(state: AppState): ProjectMeta {
 }
 
 /**
- * Older saved projects/autosave records predate `Pad.mixLevel` — their pad
- * objects come back from JSON with that field simply missing, which (unlike
- * a missing boolean, which reads as falsy anyway) would leave arithmetic on
- * it producing NaN. Shared between both load paths so they can't drift.
+ * Older saved projects/autosave records predate `Pad.mixLevel` and `Pad.music`
+ * — their pad objects come back from JSON with those fields simply missing,
+ * which would leave arithmetic on mixLevel producing NaN. Shared between both
+ * load paths so they can't drift.
  */
 export function normalizePads(pads: Pad[]): Pad[] {
-  return pads.map((pad) => ({ ...pad, mixLevel: pad.mixLevel ?? DEFAULT_MIX_LEVEL }))
+  return pads.map((pad) => ({ ...pad, mixLevel: pad.mixLevel ?? DEFAULT_MIX_LEVEL, music: pad.music ?? null }))
+}
+
+/**
+ * Projects saved before pad banks had one flat pad grid. It becomes the Drums
+ * bank (which doubles as the sampler, so recordings stay where they were) with
+ * the same number of pads showing, alongside fresh empty melodic banks.
+ */
+export function normalizeBanks(meta: Pick<ProjectMeta, 'banks' | 'pads' | 'visiblePadCount'>): Bank[] {
+  const padIds = new Set(meta.pads.map((pad) => pad.id))
+  const saved = meta.banks
+  if (saved && BANK_KINDS.every((kind) => saved.some((bank) => bank.kind === kind))) {
+    return BANK_KINDS.map((kind) => {
+      const bank = saved.find((candidate) => candidate.kind === kind)!
+      const bankPadIds = bank.padIds.filter((id) => padIds.has(id))
+      return {
+        ...createBank(bank.id, kind, bankPadIds),
+        ...bank,
+        padIds: bankPadIds,
+        visibleCount: Math.min(bank.visibleCount, bankPadIds.length),
+      }
+    })
+  }
+  const legacyIds = meta.pads.map((pad) => pad.id)
+  return BANK_KINDS.map((kind) => {
+    if (kind !== 'drums') return createBank(createId('bank'), kind)
+    const bank = createBank(createId('bank'), kind, legacyIds)
+    return { ...bank, visibleCount: Math.min(meta.visiblePadCount ?? legacyIds.length, legacyIds.length) }
+  })
 }
 
 /**
@@ -187,27 +234,45 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
   })
 }
 
-/**
- * isPlaying/currentStep/autoInstrumentId/autoInstrumentPadSnapshot/currentInstrumentId
- * are transient session state, not project data — always reset. autoInstrumentId
- * in particular: once a project has been explicitly saved, any instrument it
- * contains is project data now, not something still owed InstrumentModeButton's
- * silent auto-delete-on-off (see Transport.autoInstrumentId).
- */
+/** isPlaying/currentStep are transient session state, not project data — always reset. */
 export function buildTransport(meta: ProjectMeta['transport']): Transport {
   return {
-    ...meta,
+    bpm: meta.bpm,
+    loopMode: meta.loopMode,
+    metronomeEnabled: meta.metronomeEnabled,
+    padLoopModeEnabled: meta.padLoopModeEnabled ?? false,
     // Older saved projects/autosave records predate these — default them in.
     masterVolume: meta.masterVolume ?? 100,
     padPlaybackMode: meta.padPlaybackMode ?? 'gate',
-    padInstrumentModeEnabled: meta.padInstrumentModeEnabled ?? false,
     padMixerModeEnabled: meta.padMixerModeEnabled ?? false,
     playthroughRecordingEnabled: meta.playthroughRecordingEnabled ?? false,
     isPlaying: false,
     currentStep: 0,
-    autoInstrumentId: null,
-    autoInstrumentPadSnapshot: null,
-    currentInstrumentId: null,
+  }
+}
+
+/**
+ * Rebuilds full app state from saved meta plus already-decoded samples — the
+ * one place both load paths (project file, autosave) fill in defaults for
+ * fields older saves lack, so they can't drift.
+ */
+export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>): AppState {
+  const pads = normalizePads(meta.pads)
+  const banks = normalizeBanks(meta)
+  return {
+    samples,
+    sampleOrder: meta.sampleOrder,
+    pads,
+    banks,
+    activeBankId: banks.some((bank) => bank.id === meta.activeBankId) ? meta.activeBankId! : banks[0]!.id,
+    key: meta.key ?? DEFAULT_KEY,
+    mood: meta.mood === undefined ? (meta.key ? null : 'bright') : meta.mood,
+    padLayout: meta.padLayout ?? 'guided',
+    padLabels: meta.padLabels ?? DEFAULT_PAD_LABELS,
+    fxBySound: meta.fxBySound ?? {},
+    patterns: normalizePatterns(meta.patterns, pads),
+    activePatternId: meta.activePatternId,
+    transport: buildTransport(meta.transport),
   }
 }
 
@@ -265,7 +330,6 @@ export function isSerializedProject(value: unknown): value is SerializedProject 
     Array.isArray(v.pads) &&
     Array.isArray(v.patterns) &&
     typeof v.activePatternId === 'string' &&
-    typeof v.visiblePadCount === 'number' &&
     typeof v.transport === 'object' &&
     v.transport !== null
   )
@@ -281,17 +345,5 @@ export async function deserializeProject(
     // Older saved files predate the kind field — default to 'recording'.
     samples[s.id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind ?? 'recording'), ...(s.sequenceTrace ? { sequenceTrace: s.sequenceTrace } : {}) }
   }
-  return {
-    samples,
-    sampleOrder: project.sampleOrder,
-    // Older saved projects/files predate instruments — default them in rather
-    // than requiring every saved project to have carried the field.
-    instruments: project.instruments ?? {},
-    instrumentOrder: project.instrumentOrder ?? [],
-    pads: normalizePads(project.pads),
-    visiblePadCount: project.visiblePadCount,
-    patterns: normalizePatterns(project.patterns, normalizePads(project.pads)),
-    activePatternId: project.activePatternId,
-    transport: buildTransport(project.transport),
-  }
+  return stateFromMeta(project, samples)
 }

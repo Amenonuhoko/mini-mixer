@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { BPM_MAX, BPM_MIN, EFFECT_MAX, EFFECT_MIN, MIN_TRIM_GAP } from './constants'
 import { createInitialState } from './defaults'
 import { reducer } from './reducer'
-import type { Instrument, Sample } from './types'
+import { getBank, visibleBankPads } from './banks'
+import type { AppState, BankBuild, BankKind, PadMusic, Sample } from './types'
 
 function makeSample(id: string): Sample {
   return {
@@ -15,8 +16,21 @@ function makeSample(id: string): Sample {
   }
 }
 
-function makeInstrument(id: string, keySampleIds: string[]): Instrument {
-  return { id, name: id, source: 'preset', keySampleIds }
+function makeNote(id: string): Sample {
+  return { ...makeSample(id), kind: 'note' }
+}
+
+/** A fake build: one generated note sample per midi, named `${prefix}_${midi}`. */
+function makeBuild(state: AppState, kind: BankKind, prefix: string, midis: number[], soundName = 'Piano'): BankBuild {
+  const samples = midis.map((midi) => makeNote(`${prefix}_${midi}`))
+  return {
+    bankId: getBank(state, kind).id,
+    sound: { type: 'preset', name: soundName },
+    columns: 4,
+    pads: midis.map((midi, i) => ({ sampleId: samples[i]!.id, music: { kind: 'note', midis: [midi] } satisfies PadMusic })),
+    samples,
+    noteSampleIds: Object.fromEntries(midis.map((midi, i) => [String(midi), samples[i]!.id])),
+  }
 }
 
 describe('reducer', () => {
@@ -82,7 +96,7 @@ describe('reducer', () => {
 
     const next = reducer(state, { type: 'ADD_SAMPLE_TO_NEW_PAD', sample })
 
-    expect(next.visiblePadCount).toBe(2)
+    expect(getBank(next, 'drums').visibleCount).toBe(2)
     expect(next.pads[1]!.sampleId).toBe(sample.id)
     expect(next.samples[sample.id]).toBe(sample)
     expect(next.patterns[0]!.steps[next.pads[1]!.id]).toHaveLength(16)
@@ -288,49 +302,16 @@ describe('reducer', () => {
     expect(muted.pads[0]!.muted).toBe(true)
   })
 
-  it('enabling instrument mode turns off loop mode, and vice versa', () => {
+  it('Loop Mode and Mixer Mode are mutually exclusive', () => {
     const state = createInitialState(1)
-    expect(state.transport.padLoopModeEnabled).toBe(false)
-    expect(state.transport.padInstrumentModeEnabled).toBe(false)
-
     const loopOn = reducer(state, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
-    expect(loopOn.transport.padLoopModeEnabled).toBe(true)
-
-    const instrumentOn = reducer(loopOn, {
-      type: 'SET_PAD_INSTRUMENT_MODE_ENABLED',
-      enabled: true,
-    })
-    expect(instrumentOn.transport.padInstrumentModeEnabled).toBe(true)
-    expect(instrumentOn.transport.padLoopModeEnabled).toBe(false)
-
-    const backToLoop = reducer(instrumentOn, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
-    expect(backToLoop.transport.padLoopModeEnabled).toBe(true)
-    expect(backToLoop.transport.padInstrumentModeEnabled).toBe(false)
-  })
-
-  it('Mixer Mode temporarily overlays an active instrument and restores it on exit', () => {
-    const state = createInitialState(1)
-    const key = makeSample('instrument_key')
-    const instrument = makeInstrument('instrument', [key.id])
-
-    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples: [key] })
-    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
-    next = reducer(next, { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED', enabled: true })
-    const padSampleId = next.pads[0]!.sampleId
-
-    const mixerOn = reducer(next, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
+    const mixerOn = reducer(loopOn, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
     expect(mixerOn.transport.padMixerModeEnabled).toBe(true)
-    expect(mixerOn.transport.padInstrumentModeEnabled).toBe(true)
-    expect(mixerOn.pads[0]!.sampleId).toBe(padSampleId)
+    expect(mixerOn.transport.padLoopModeEnabled).toBe(false)
 
-    const mixerOff = reducer(mixerOn, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: false })
-    expect(mixerOff.transport.padMixerModeEnabled).toBe(false)
-    expect(mixerOff.transport.padInstrumentModeEnabled).toBe(true)
-    expect(mixerOff.pads[0]!.sampleId).toBe(padSampleId)
-
-    const loopOn = reducer(mixerOn, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
-    expect(loopOn.transport.padLoopModeEnabled).toBe(true)
-    expect(loopOn.transport.padMixerModeEnabled).toBe(false)
+    const backToLoop = reducer(mixerOn, { type: 'SET_PAD_LOOP_MODE_ENABLED', enabled: true })
+    expect(backToLoop.transport.padLoopModeEnabled).toBe(true)
+    expect(backToLoop.transport.padMixerModeEnabled).toBe(false)
   })
 
   it('sets a pad mix level, clamped to 0-100', () => {
@@ -348,7 +329,7 @@ describe('reducer', () => {
     expect(tooLow.pads[0]!.mixLevel).toBe(0)
   })
 
-  it('toggles playthrough recording independently of loop/instrument mode', () => {
+  it('toggles playthrough recording independently of loop mode', () => {
     const state = createInitialState(1)
     expect(state.transport.playthroughRecordingEnabled).toBe(false)
 
@@ -436,203 +417,136 @@ describe('reducer', () => {
     expect(reset.pads[1]!.effects.find((e) => e.id === 'filter')!.value).toBe(50)
   })
 
-  it('adding an instrument registers its key samples in the library and the instrument itself', () => {
-    const state = createInitialState(2)
-    const keySamples = [makeSample('key_0'), makeSample('key_1')]
-    const instrument = makeInstrument(
-      'inst_1',
-      keySamples.map((s) => s.id),
-    )
-
-    const next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
-
-    expect(next.instruments[instrument.id]).toBe(instrument)
-    expect(next.instrumentOrder).toEqual([instrument.id])
-    expect(next.samples['key_0']).toBe(keySamples[0])
-    expect(next.samples['key_1']).toBe(keySamples[1])
-    expect(next.sampleOrder).toEqual(['key_0', 'key_1'])
+  it('a fresh project has all four banks, Drums active and holding the pads, in the Bright mood', () => {
+    const state = createInitialState(3)
+    expect(state.banks.map((bank) => bank.kind)).toEqual(['drums', 'bass', 'chords', 'melody'])
+    expect(state.activeBankId).toBe(getBank(state, 'drums').id)
+    expect(getBank(state, 'drums').padIds).toEqual(state.pads.map((pad) => pad.id))
+    expect(getBank(state, 'chords').padIds).toEqual([])
+    expect(state.mood).toBe('bright')
   })
 
-  it('applying an instrument lays its keys across the visible pads in order, resetting trim', () => {
+  it('switches the active bank, ignoring unknown ids', () => {
+    const state = createInitialState(1)
+    const bass = getBank(state, 'bass')
+    expect(reducer(state, { type: 'SET_ACTIVE_BANK', bankId: bass.id }).activeBankId).toBe(bass.id)
+    expect(reducer(state, { type: 'SET_ACTIVE_BANK', bankId: 'nope' })).toBe(state)
+  })
+
+  it('building a sound into an empty bank creates its pads, samples and empty pattern rows', () => {
     const state = createInitialState(2)
-    const keySamples = [makeSample('key_0'), makeSample('key_1'), makeSample('key_2')]
-    const instrument = makeInstrument(
-      'inst_1',
-      keySamples.map((s) => s.id),
-    )
-    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
-    next = reducer(next, {
-      type: 'SET_PAD_TRIM',
-      padId: next.pads[0]!.id,
-      trimStart: 0.3,
-      trimEnd: 0.7,
+    const next = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'bass', 'c', [36, 38, 40])], remap: 'index' })
+
+    const bass = getBank(next, 'bass')
+    expect(bass.visibleCount).toBe(3)
+    expect(bass.sound).toEqual({ type: 'preset', name: 'Piano' })
+    const pads = visibleBankPads(next, bass)
+    expect(pads.map((pad) => pad.sampleId)).toEqual(['c_36', 'c_38', 'c_40'])
+    expect(pads[1]!.music).toEqual({ kind: 'note', midis: [38] })
+    expect(next.samples.c_38).toBeDefined()
+    expect(next.patterns[0]!.steps[pads[0]!.id]).toHaveLength(16)
+    // Drums untouched.
+    expect(visibleBankPads(next, getBank(next, 'drums'))).toHaveLength(2)
+  })
+
+  it('a key change keeps programmed steps on the same pads and cleans up the old key’s sounds', () => {
+    let state = createInitialState(1)
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'melody', 'c', [60, 62, 64])], remap: 'index' })
+    const melodyPads = visibleBankPads(state, getBank(state, 'melody'))
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: state.activePatternId, padId: melodyPads[1]!.id, stepIndex: 0, sampleId: 'c_62' })
+    expect(state.patterns[0]!.steps[melodyPads[1]!.id]![0]).toBe('c_62')
+
+    const dMinor = { tonic: 2, scale: 'minor' as const, chordColor: 'triad' as const }
+    const next = reducer(state, {
+      type: 'APPLY_BANK_BUILDS',
+      builds: [makeBuild(state, 'melody', 'd', [62, 64, 65])],
+      remap: 'index',
+      key: dMinor,
+      mood: null,
     })
 
-    const applied = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
-
-    expect(applied.pads[0]!.sampleId).toBe('key_0')
-    expect(applied.pads[1]!.sampleId).toBe('key_1')
-    expect(applied.pads[2]!.sampleId).toBe('key_2')
-    expect(applied.pads[0]!.trimStart).toBe(0)
-    expect(applied.pads[0]!.trimEnd).toBe(1)
-    // The grid follows the instrument's own key count, growing past the
-    // pad count active before it was applied rather than clamping to it.
-    expect(applied.pads).toHaveLength(3)
-    expect(applied.visiblePadCount).toBe(3)
+    expect(next.key).toEqual(dMinor)
+    expect(next.mood).toBeNull()
+    expect(next.patterns[0]!.steps[melodyPads[1]!.id]![0]).toBe('d_64')
+    expect(next.samples.c_62).toBeUndefined()
+    expect(next.sampleOrder.some((id) => id.startsWith('c_'))).toBe(false)
   })
 
-  it('expands the visible pad grid to an instrument’s key count and initializes new pattern rows', () => {
-    const state = createInitialState(2)
-    const keySamples = Array.from({ length: 4 }, (_, index) => makeSample(`key_${index}`))
-    const instrument = makeInstrument('four_key_instrument', keySamples.map((sample) => sample.id))
-    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
-    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
+  it('a layout change moves each programmed note to the pad with the nearest pitch', () => {
+    let state = createInitialState(1)
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'melody', 'a', [60, 62, 64])], remap: 'index' })
+    const oldPads = visibleBankPads(state, getBank(state, 'melody'))
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: state.activePatternId, padId: oldPads[2]!.id, stepIndex: 3, sampleId: 'a_64' })
 
-    expect(next.visiblePadCount).toBe(4)
-    expect(next.pads).toHaveLength(4)
-    expect(next.pads.map((pad) => pad.sampleId)).toEqual(keySamples.map((sample) => sample.id))
-    expect(next.patterns[0]!.steps[next.pads[2]!.id]).toHaveLength(16)
-    expect(next.patterns[0]!.steps[next.pads[3]!.id]).toHaveLength(16)
-  })
-
-  it('applying a loop preset builds the instrument, resizes the grid to its key count, and writes the given steps into the pattern', () => {
-    const state = createInitialState(2)
-    const patternId = state.activePatternId
-    const keySamples = [makeSample('loop_key_0'), makeSample('loop_key_1')]
-    const instrument = makeInstrument(
-      'loop_inst',
-      keySamples.map((s) => s.id),
-    )
-
-    const applied = reducer(state, {
-      type: 'APPLY_LOOP_PRESET',
-      instrument,
-      keySamples,
-      patternId,
-      stepsByPadIndex: { 0: [0, 8] },
+    // Chromatic: 60, 61, 62, 63, 64 — E (64) now lives on the fifth pad.
+    const next = reducer(state, {
+      type: 'APPLY_BANK_BUILDS',
+      builds: [makeBuild(state, 'melody', 'b', [60, 61, 62, 63, 64])],
+      remap: 'pitch',
+      padLayout: 'free',
     })
 
-    expect(applied.instruments[instrument.id]).toBe(instrument)
-    expect(applied.pads[0]!.sampleId).toBe('loop_key_0')
-    expect(applied.pads[1]!.sampleId).toBe('loop_key_1')
-    expect(applied.visiblePadCount).toBe(2)
-    const pattern = applied.patterns.find((p) => p.id === patternId)!
-    const padId0 = applied.pads[0]!.id
-    const padId1 = applied.pads[1]!.id
-    expect(pattern.steps[padId0]![0]).toBe('loop_key_0')
-    expect(pattern.steps[padId0]![8]).toBe('loop_key_0')
-    expect(pattern.steps[padId0]!.filter((id) => id !== null)).toHaveLength(2)
-    // Pad 1 wasn't in stepsByPadIndex — its row is cleared, not left stale.
-    expect(pattern.steps[padId1]!.every((id) => id === null)).toBe(true)
+    const newPads = visibleBankPads(next, getBank(next, 'melody'))
+    expect(next.padLayout).toBe('free')
+    expect(next.patterns[0]!.steps[newPads[4]!.id]![3]).toBe('b_64')
+    expect(next.patterns[0]!.steps[oldPads[2]!.id]![3]).toBeNull()
   })
 
-  it('applying a loop preset grows the pad grid to the instrument’s full key count, even beyond what the preset’s own steps use', () => {
-    const state = createInitialState(2)
-    const keySamples = Array.from({ length: 5 }, (_, i) => makeSample(`grow_key_${i}`))
-    const instrument = makeInstrument(
-      'grow_inst',
-      keySamples.map((s) => s.id),
-    )
+  it('a smaller layout empties the slots it no longer uses', () => {
+    let state = createInitialState(1)
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'chords', 'a', [60, 62, 64, 65])], remap: 'index' })
+    const next = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'chords', 'b', [60, 62])], remap: 'index' })
+    const chords = getBank(next, 'chords')
+    expect(chords.visibleCount).toBe(2)
+    expect(next.pads.find((pad) => pad.id === chords.padIds[3])!.sampleId).toBeNull()
+    expect(next.samples.a_65).toBeUndefined()
+  })
 
-    const applied = reducer(state, {
-      type: 'APPLY_LOOP_PRESET',
-      instrument,
-      keySamples,
+  it('remembers a bank’s whole-bank character per sound and brings it back', () => {
+    let state = createInitialState(1)
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'bass', 'p', [36], 'Piano')], remap: 'index' })
+    state = reducer(state, { type: 'SET_ACTIVE_BANK', bankId: getBank(state, 'bass').id })
+    state = reducer(state, { type: 'APPLY_EFFECT_PRESET_TO_ALL_PADS', filter: 40, grit: 0, echo: 0, reverb: 20 })
+    expect(state.fxBySound['preset:Piano']).toEqual({ filter: 40, grit: 0, echo: 0, reverb: 20 })
+
+    const filterOf = (s: AppState) => visibleBankPads(s, getBank(s, 'bass'))[0]!.effects.find((e) => e.id === 'filter')!.value
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'bass', 'o', [36], 'Organ')], remap: 'index' })
+    expect(filterOf(state)).toBe(0)
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'bass', 'q', [36], 'Piano')], remap: 'index' })
+    expect(filterOf(state)).toBe(40)
+  })
+
+  it('writes a layer into one bank’s rows without touching the others', () => {
+    let state = createInitialState(1)
+    const drumPadId = state.pads[0]!.id
+    state = reducer(state, { type: 'ADD_SAMPLE', sample: makeSample('kick') })
+    state = reducer(state, { type: 'ASSIGN_SAMPLE_TO_PAD', padId: drumPadId, sampleId: 'kick' })
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: state.activePatternId, padId: drumPadId, stepIndex: 0, sampleId: 'kick' })
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'bass', 'b', [36, 38])], remap: 'index' })
+    const bassPads = visibleBankPads(state, getBank(state, 'bass'))
+
+    const next = reducer(state, {
+      type: 'WRITE_BANK_PATTERN',
+      bankId: getBank(state, 'bass').id,
       patternId: state.activePatternId,
-      stepsByPadIndex: { 3: [0] },
+      stepsByPadIndex: { 0: [0, 8], 1: [20] },
+      minStepCount: 32,
     })
 
-    expect(applied.visiblePadCount).toBe(5)
-    expect(applied.pads).toHaveLength(5)
-    expect(applied.pads[3]!.sampleId).toBe('grow_key_3')
-    expect(applied.pads[4]!.sampleId).toBe('grow_key_4')
-    const pattern = applied.patterns.find((p) => p.id === state.activePatternId)!
-    expect(pattern.steps[applied.pads[3]!.id]![0]).toBe('grow_key_3')
-    expect(pattern.steps[applied.pads[4]!.id]!.every((id) => id === null)).toBe(true)
+    const steps = next.patterns[0]!.steps
+    expect(next.patterns[0]!.stepCount).toBe(32)
+    expect(steps[drumPadId]![0]).toBe('kick')
+    expect(steps[drumPadId]).toHaveLength(32)
+    expect(steps[bassPads[0]!.id]!.flatMap((cell, i) => (cell ? [i] : []))).toEqual([0, 8])
+    expect(steps[bassPads[1]!.id]![20]).toBe('b_38')
   })
 
-  it('removing an instrument deletes its key samples too and unassigns any pad using one', () => {
-    const state = createInitialState(1)
-    const keySamples = [makeSample('key_0'), makeSample('key_1')]
-    const instrument = makeInstrument(
-      'inst_1',
-      keySamples.map((s) => s.id),
-    )
-    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
-    next = reducer(next, {
-      type: 'ASSIGN_SAMPLE_TO_PAD',
-      padId: next.pads[0]!.id,
-      sampleId: 'key_0',
-    })
-
-    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
-
-    expect(removed.instruments[instrument.id]).toBeUndefined()
-    expect(removed.instrumentOrder).toEqual([])
-    expect(removed.samples['key_0']).toBeUndefined()
-    expect(removed.samples['key_1']).toBeUndefined()
-    expect(removed.pads[0]!.sampleId).toBeNull()
-  })
-
-  it('keeps a hidden instrument key sample when a programmed step still references it', () => {
-    const state = createInitialState(1)
-    const padId = state.pads[0]!.id
-    const key = makeSample('piano_1')
-    const instrument = makeInstrument('quick_piano', [key.id])
-
-    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples: [key] })
-    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
-    next = reducer(next, {
-      type: 'TOGGLE_STEP',
-      patternId: next.activePatternId,
-      padId,
-      stepIndex: 0,
-      sampleId: key.id,
-    })
-    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
-
-    expect(removed.instruments[instrument.id]).toBeUndefined()
-    expect(removed.pads[0]!.sampleId).toBeNull()
-    expect(removed.samples[key.id]).toBe(key)
-    expect(removed.sampleOrder).toContain(key.id)
-  })
-
-  it('tracks and clears the auto-built instrument id (InstrumentModeButton’s quick-build cleanup)', () => {
-    const state = createInitialState(1)
-    expect(state.transport.autoInstrumentId).toBeNull()
-
-    const tracked = reducer(state, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: 'inst_1' })
-    expect(tracked.transport.autoInstrumentId).toBe('inst_1')
-
-    const untracked = reducer(tracked, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: null })
-    expect(untracked.transport.autoInstrumentId).toBeNull()
-  })
-
-  it('clears the tracked auto-instrument id when that exact instrument is removed', () => {
-    const state = createInitialState(1)
-    const keySamples = [makeSample('auto_key_0')]
-    const instrument = makeInstrument('auto_inst', ['auto_key_0'])
-    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument, keySamples })
-    next = reducer(next, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: instrument.id })
-    expect(next.transport.autoInstrumentId).toBe(instrument.id)
-
-    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
-    expect(removed.transport.autoInstrumentId).toBeNull()
-  })
-
-  it('leaves the tracked auto-instrument id alone when a different instrument is removed', () => {
-    const state = createInitialState(1)
-    const autoKeySamples = [makeSample('auto_key_0')]
-    const autoInstrument = makeInstrument('auto_inst', ['auto_key_0'])
-    const otherKeySamples = [makeSample('other_key_0')]
-    const otherInstrument = makeInstrument('other_inst', ['other_key_0'])
-
-    let next = reducer(state, { type: 'ADD_INSTRUMENT', instrument: autoInstrument, keySamples: autoKeySamples })
-    next = reducer(next, { type: 'ADD_INSTRUMENT', instrument: otherInstrument, keySamples: otherKeySamples })
-    next = reducer(next, { type: 'SET_AUTO_INSTRUMENT_ID', instrumentId: autoInstrument.id })
-
-    const removed = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: otherInstrument.id })
-    expect(removed.transport.autoInstrumentId).toBe(autoInstrument.id)
+  it('whole-bank effects only touch the active bank', () => {
+    let state = createInitialState(1)
+    state = reducer(state, { type: 'APPLY_BANK_BUILDS', builds: [makeBuild(state, 'bass', 'b', [36])], remap: 'index' })
+    const next = reducer(state, { type: 'SET_ALL_PADS_EFFECTS_BYPASSED', bypassed: true })
+    expect(visibleBankPads(next, getBank(next, 'drums'))[0]!.effectsBypassed).toBe(true)
+    expect(visibleBankPads(next, getBank(next, 'bass'))[0]!.effectsBypassed).toBe(false)
   })
 
   it('shrinking pad count hides pads without discarding their data', () => {
@@ -648,7 +562,7 @@ describe('reducer', () => {
     })
     next = reducer(next, { type: 'SET_VISIBLE_PAD_COUNT', count: 2 })
 
-    expect(next.visiblePadCount).toBe(2)
+    expect(getBank(next, 'drums').visibleCount).toBe(2)
     expect(next.pads).toHaveLength(4)
     expect(next.pads[3]!.sampleId).toBe(sample.id)
 
@@ -666,7 +580,7 @@ describe('reducer', () => {
     expect(next.patterns[0]!.steps[newPadId]!.every((step) => step === null)).toBe(true)
   })
 
-  it('CLEAR_ALL resets to a fresh default state at the same visible pad count', () => {
+  it('CLEAR_ALL resets to a fresh default state at the same Drums pad count', () => {
     const state = createInitialState(3)
     const sample = makeSample('temp')
     const dirtied = reducer(state, { type: 'ADD_SAMPLE', sample })
@@ -675,41 +589,9 @@ describe('reducer', () => {
 
     expect(cleared.samples).toEqual({})
     expect(cleared.sampleOrder).toEqual([])
-    expect(cleared.visiblePadCount).toBe(3)
+    expect(getBank(cleared, 'drums').visibleCount).toBe(3)
     expect(cleared.pads.every((pad) => pad.sampleId === null)).toBe(true)
   })
-  it('restores pre-instrument pad content when a temporary instrument is removed for Mixer Mode', () => {
-    const state = createInitialState(1)
-    const padId = state.pads[0]!.id
-    const original = makeSample('original')
-    const key = makeSample('quick_key')
-    const instrument = makeInstrument('quick_instrument', [key.id])
-
-    let next = reducer(state, { type: 'ADD_SAMPLE', sample: original })
-    next = reducer(next, { type: 'ASSIGN_SAMPLE_TO_PAD', padId, sampleId: original.id })
-    next = reducer(next, { type: 'SET_PAD_TRIM', padId, trimStart: 0.2, trimEnd: 0.8 })
-    const snapshot = {
-      [padId]: { sampleId: original.id, trimStart: 0.2, trimEnd: 0.8 },
-    }
-    next = reducer(next, { type: 'ADD_INSTRUMENT', instrument, keySamples: [key] })
-    next = reducer(next, { type: 'APPLY_INSTRUMENT_TO_PADS', instrumentId: instrument.id })
-    next = reducer(next, {
-      type: 'SET_AUTO_INSTRUMENT_ID',
-      instrumentId: instrument.id,
-      padSnapshot: snapshot,
-    })
-    next = reducer(next, { type: 'SET_PAD_MIXER_MODE_ENABLED', enabled: true })
-    const restored = reducer(next, { type: 'REMOVE_INSTRUMENT', instrumentId: instrument.id })
-
-    expect(restored.transport.padMixerModeEnabled).toBe(true)
-    expect(restored.pads[0]!.sampleId).toBe(original.id)
-    expect(restored.pads[0]!.trimStart).toBe(0.2)
-    expect(restored.pads[0]!.trimEnd).toBe(0.8)
-    expect(restored.samples[key.id]).toBeUndefined()
-    expect(restored.transport.autoInstrumentPadSnapshot).toBeNull()
-  })
-
-
   it('sets the master listening level within 0-100', () => {
     const state = createInitialState(1)
 

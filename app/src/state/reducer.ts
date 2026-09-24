@@ -12,47 +12,63 @@ import {
   MIX_LEVEL_MAX,
   MIX_LEVEL_MIN,
 } from './constants'
+import { bankOfPad, getActiveBank, getSamplerBank, soundKey } from './banks'
 import { createInitialState, createNeutralEffects, createPad } from './defaults'
 import { resolveSequenceTraceCell } from '../utils/sequenceTraceLoad'
-import type { AppState, EffectId, Instrument, InstrumentPadSnapshot, LoopMode, PadPlaybackMode, Pattern, Sample, SequenceTrace } from './types'
+import type {
+  AppState,
+  Bank,
+  BankBuild,
+  CharacterPreset,
+  EffectId,
+  LoopMode,
+  MoodId,
+  MusicalKey,
+  Pad,
+  PadLabelSettings,
+  PadLayout,
+  PadPlaybackMode,
+  Pattern,
+  Sample,
+  SequenceTrace,
+} from './types'
 
 export type Action =
   | { type: 'ADD_SAMPLE'; sample: Sample }
+  /** Adds a sample onto the next pad of the Drums (sampler) bank. */
   | { type: 'ADD_SAMPLE_TO_NEW_PAD'; sample: Sample }
   | { type: 'REMOVE_SAMPLE'; sampleId: string }
   | { type: 'RENAME_SAMPLE'; sampleId: string; label: string }
   | { type: 'MOVE_SAMPLE'; sampleId: string; direction: 'up' | 'down' }
-  | { type: 'ADD_INSTRUMENT'; instrument: Instrument; keySamples: Sample[] }
-  | { type: 'REMOVE_INSTRUMENT'; instrumentId: string }
-  | { type: 'APPLY_INSTRUMENT_TO_PADS'; instrumentId: string }
+  | { type: 'SET_ACTIVE_BANK'; bankId: string }
+  /**
+   * Lays freshly built pads onto one or more banks in one step — a sound
+   * change, a key/mood change, or a layout change. `remap` decides how
+   * already-programmed steps follow: 'index' keeps each step on the pad in
+   * the same position (same scale degree across a key change), 'pitch' moves
+   * it to the pad whose pitch is nearest (a layout change).
+   */
   | {
-      type: 'APPLY_LOOP_PRESET'
-      instrument: Instrument
-      keySamples: Sample[]
-      patternId: string
-      /** Active step indices to program, keyed by the pad index (0-based, matching instrument.keySampleIds order) the preset's build lays each hit's sound across. */
-      stepsByPadIndex: Record<number, number[]>
+      type: 'APPLY_BANK_BUILDS'
+      builds: BankBuild[]
+      remap: 'index' | 'pitch'
+      key?: MusicalKey
+      mood?: MoodId | null
+      padLayout?: PadLayout
     }
+  | { type: 'SET_PAD_LABELS'; labels: PadLabelSettings }
+  /** Replaces one bank's rows in a pattern (the other banks' rows are untouched) — how a preset adds a layer. */
+  | { type: 'WRITE_BANK_PATTERN'; bankId: string; patternId: string; stepsByPadIndex: Record<number, number[]>; minStepCount: number }
   | { type: 'ASSIGN_SAMPLE_TO_PAD'; padId: string; sampleId: string | null }
   | { type: 'SET_PAD_MUTED'; padId: string; muted: boolean }
   | { type: 'SET_PAD_EFFECTS_BYPASSED'; padId: string; bypassed: boolean }
   | { type: 'SET_PAD_EFFECT'; padId: string; effectId: EffectId; value: number }
   | { type: 'RESET_PAD_EFFECTS'; padId: string }
-  | {
-      type: 'APPLY_EFFECT_PRESET_TO_ALL_PADS'
-      filter: number
-      grit: number
-      echo: number
-      reverb: number
-    }
+  /** Whole-bank effects: these act on the active bank's showing pads. */
+  | { type: 'APPLY_EFFECT_PRESET_TO_ALL_PADS'; filter: number; grit: number; echo: number; reverb: number }
   | { type: 'SET_ALL_PADS_EFFECT'; effectId: EffectId; value: number }
   | { type: 'SET_ALL_PADS_EFFECTS_BYPASSED'; bypassed: boolean }
   | { type: 'RESET_ALL_PADS_EFFECTS' }
-  | {
-      type: 'SET_INSTRUMENT_EFFECTS_PRESET'
-      instrumentId: string
-      preset: { filter: number; grit: number; echo: number; reverb: number } | null
-    }
   | { type: 'SET_PAD_TRIM'; padId: string; trimStart: number; trimEnd: number }
   | { type: 'SET_PAD_MIX_LEVEL'; padId: string; level: number }
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
@@ -64,7 +80,8 @@ export type Action =
   | { type: 'RESTORE_PATTERN_TRACE'; patternId: string }
   | { type: 'CLEAR_PATTERN_TRACE'; patternId: string }
   | { type: 'LOAD_SEQUENCE_TRACE'; patternId: string; trace: SequenceTrace; markerSampleId: string }
-  | { type: 'SET_VISIBLE_PAD_COUNT'; count: number }
+  /** Resizes one bank's showing pads (the active bank unless bankId is given). */
+  | { type: 'SET_VISIBLE_PAD_COUNT'; count: number; bankId?: string }
   | { type: 'REMOVE_PAD'; padId: string }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
@@ -73,42 +90,33 @@ export type Action =
   | { type: 'SET_PAD_PLAYBACK_MODE'; mode: PadPlaybackMode }
   | { type: 'SET_MASTER_VOLUME'; level: number }
   | { type: 'SET_PAD_LOOP_MODE_ENABLED'; enabled: boolean }
-  | { type: 'SET_PAD_INSTRUMENT_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PAD_MIXER_MODE_ENABLED'; enabled: boolean }
   | { type: 'SET_PLAYTHROUGH_RECORDING_ENABLED'; enabled: boolean }
-  | { type: 'SET_AUTO_INSTRUMENT_ID'; instrumentId: string | null; padSnapshot?: Record<string, InstrumentPadSnapshot> | null }
   | { type: 'SET_CURRENT_STEP'; stepIndex: number }
   | { type: 'CLEAR_ALL' }
   | { type: 'LOAD_PROJECT'; state: AppState }
+
+const CHARACTER_IDS = ['filter', 'grit', 'echo', 'reverb'] as const
+const NEUTRAL_CHARACTER: CharacterPreset = { filter: 0, grit: 0, echo: 0, reverb: 0 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function updatePad(
-  state: AppState,
-  padId: string,
-  update: (pad: AppState['pads'][number]) => AppState['pads'][number],
-): AppState {
+function updatePad(state: AppState, padId: string, update: (pad: Pad) => Pad): AppState {
   return {
     ...state,
     pads: state.pads.map((pad) => (pad.id === padId ? update(pad) : pad)),
   }
 }
 
-/**
- * Lays an instrument's saved character preset (see Instrument.effectsPreset)
- * across one of its pads, or resets those same four dials to neutral if it
- * never had one — applying an instrument always fully decides its pads'
- * Filter/Grit/Echo/Reverb, so a previous instrument's dialed-in character
- * can never leak onto a different instrument sharing the same pad slot.
- * Pitch/Speed/Volume/Pan are left untouched, same scope APPLY_EFFECT_PRESET_TO_ALL_PADS uses.
- */
-function withCharacterEffects(
-  pad: AppState['pads'][number],
-  preset: { filter: number; grit: number; echo: number; reverb: number } | null | undefined,
-): AppState['pads'][number] {
-  const values = preset ?? { filter: 0, grit: 0, echo: 0, reverb: 0 }
+function updateBank(state: AppState, bankId: string, update: (bank: Bank) => Bank): AppState {
+  return { ...state, banks: state.banks.map((bank) => (bank.id === bankId ? update(bank) : bank)) }
+}
+
+/** Sets a pad's Filter/Grit/Echo/Reverb to a remembered combo (neutral if none), leaving Pitch/Speed/Volume/Pan alone. */
+function withCharacterEffects(pad: Pad, preset: CharacterPreset | undefined): Pad {
+  const values = preset ?? NEUTRAL_CHARACTER
   return {
     ...pad,
     effects: pad.effects.map((effect) =>
@@ -120,41 +128,56 @@ function withCharacterEffects(
 }
 
 /**
- * Keeps whichever instrument currently occupies the pads (Transport.
- * currentInstrumentId) in sync with the whole-grid Filter/Grit/Echo/Reverb
- * state as it changes, so switching away and back to that instrument later
- * recalls this same combo (see Instrument.effectsPreset). A no-op unless an
- * instrument is actually applied right now — manually dialing effects with
- * no instrument selected has nothing to remember them for.
+ * Remembers the active bank's current whole-bank Filter/Grit/Echo/Reverb
+ * under its sound (AppState.fxBySound), so switching the bank to another
+ * sound and back later recalls it. A no-op for a bank without a sound.
  */
-function syncCurrentInstrumentEffectsPreset(
-  state: AppState,
-  preset: { filter: number; grit: number; echo: number; reverb: number } | null,
-): AppState['instruments'] {
-  const instrumentId = state.transport.currentInstrumentId
-  const instrument = instrumentId ? state.instruments[instrumentId] : undefined
-  if (!instrumentId || !instrument) return state.instruments
-  return { ...state.instruments, [instrumentId]: { ...instrument, effectsPreset: preset } }
+function rememberBankCharacter(state: AppState, bank: Bank, preset: CharacterPreset | null): AppState['fxBySound'] {
+  const key = soundKey(bank.sound)
+  if (!key) return state.fxBySound
+  if (!preset) {
+    const { [key]: _forgotten, ...rest } = state.fxBySound
+    return rest
+  }
+  return { ...state.fxBySound, [key]: preset }
 }
 
-function updatePattern(
-  state: AppState,
-  patternId: string,
-  update: (pattern: Pattern) => Pattern,
-): AppState {
+/** Applies `update` to the active bank's showing pads only. */
+function updateActiveBankPads(state: AppState, update: (pad: Pad) => Pad): { pads: Pad[]; bank: Bank } {
+  const bank = getActiveBank(state)
+  const showing = new Set(bank.padIds.slice(0, bank.visibleCount))
+  return { bank, pads: state.pads.map((pad) => (showing.has(pad.id) ? update(pad) : pad)) }
+}
+
+function updatePattern(state: AppState, patternId: string, update: (pattern: Pattern) => Pattern): AppState {
   return {
     ...state,
-    patterns: state.patterns.map((pattern) =>
-      pattern.id === patternId ? update(pattern) : pattern,
-    ),
+    patterns: state.patterns.map((pattern) => (pattern.id === patternId ? update(pattern) : pattern)),
   }
 }
 
-/** Removes hidden generated keys once no instrument, pad, or sequencer cell needs them. */
+/** Adds an empty row for each new pad to every pattern. */
+function withEmptyRows(patterns: Pattern[], padIds: string[]): Pattern[] {
+  if (padIds.length === 0) return patterns
+  return patterns.map((pattern) => ({
+    ...pattern,
+    steps: {
+      ...pattern.steps,
+      ...Object.fromEntries(padIds.map((id) => [id, new Array<string | null>(pattern.stepCount).fill(null)])),
+    },
+  }))
+}
+
+/**
+ * Removes hidden generated samples (kind 'note') once nothing needs them —
+ * no pad plays them, no bank keeps them as its current sound, and no
+ * programmed sequencer cell still references them.
+ */
 function removeUnusedNoteSamples(state: AppState): AppState {
   const inUse = new Set<string>()
-  for (const instrument of Object.values(state.instruments)) {
-    for (const sampleId of instrument.keySampleIds) inUse.add(sampleId)
+  for (const bank of state.banks) {
+    for (const sampleId of bank.generatedSampleIds) inUse.add(sampleId)
+    for (const sampleId of Object.values(bank.noteSampleIds)) inUse.add(sampleId)
   }
   for (const pad of state.pads) {
     if (pad.sampleId) inUse.add(pad.sampleId)
@@ -182,6 +205,119 @@ function removeUnusedNoteSamples(state: AppState): AppState {
   }
 }
 
+function remapPatternSteps(pattern: Pattern, sampleMap: Map<string, string>, rowMoves: Map<string, string>): Pattern {
+  const steps: Record<string, Array<string | null>> = Object.fromEntries(
+    Object.entries(pattern.steps).map(([padId, row]) => [
+      padId,
+      row.map((sampleId) => (sampleId ? sampleMap.get(sampleId) ?? sampleId : null)),
+    ]),
+  )
+  const sources = new Map([...rowMoves.keys()].map((from) => [from, steps[from]]))
+  for (const from of rowMoves.keys()) {
+    if (steps[from]) steps[from] = new Array<string | null>(pattern.stepCount).fill(null)
+  }
+  for (const [from, to] of rowMoves) {
+    const source = sources.get(from)
+    if (!source) continue
+    const target = steps[to] ?? new Array<string | null>(pattern.stepCount).fill(null)
+    steps[to] = target.map((cell, i) => cell ?? source[i] ?? null)
+  }
+  return { ...pattern, steps }
+}
+
+/**
+ * Lays one build onto its bank: grows the bank's pad slots if needed, puts
+ * each pad's new sound/music in place, and works out how existing steps
+ * should follow (see APPLY_BANK_BUILDS' `remap`). Returns the updated state
+ * plus the old→new sample mapping for the caller to apply to patterns.
+ */
+function applyBankBuild(
+  state: AppState,
+  build: BankBuild,
+  remap: 'index' | 'pitch',
+): { state: AppState; sampleMap: Map<string, string>; rowMoves: Map<string, string> } {
+  const bank = state.banks.find((item) => item.id === build.bankId)
+  const sampleMap = new Map<string, string>()
+  const rowMoves = new Map<string, string>()
+  if (!bank) return { state, sampleMap, rowMoves }
+
+  const needed = Math.min(MAX_PAD_COUNT, build.pads.length)
+  const newPads = Array.from({ length: Math.max(0, needed - bank.padIds.length) }, (_, i) =>
+    createPad(bank.padIds.length + i),
+  )
+  const padIds = [...bank.padIds, ...newPads.map((pad) => pad.id)]
+  const newPadIds = new Set(newPads.map((pad) => pad.id))
+  const soundChanged = soundKey(bank.sound) !== soundKey(build.sound)
+  const character = state.fxBySound[soundKey(build.sound) ?? ''] ?? undefined
+
+  const padsById = new Map([...state.pads, ...newPads].map((pad) => [pad.id, pad]))
+  const oldGenerated = new Set(bank.generatedSampleIds)
+
+  // Old generated sounds → their new equivalents, so programmed steps follow.
+  const oldShowing = bank.padIds.slice(0, bank.visibleCount).map((id) => padsById.get(id)).filter((pad): pad is Pad => !!pad)
+  if (remap === 'index') {
+    oldShowing.forEach((pad, index) => {
+      const next = build.pads[index]?.sampleId
+      if (pad.sampleId && next && oldGenerated.has(pad.sampleId) && pad.sampleId !== next) sampleMap.set(pad.sampleId, next)
+    })
+  } else {
+    for (const pad of oldShowing) {
+      if (!pad.sampleId || !pad.music || !oldGenerated.has(pad.sampleId)) continue
+      const pitch = pad.music.midis[0]!
+      let best: { sampleId: string; padId: string; distance: number } | null = null
+      for (let index = 0; index < needed; index++) {
+        const candidate = build.pads[index]!
+        if (!candidate.sampleId || !candidate.music) continue
+        const distance = Math.abs(candidate.music.midis[0]! - pitch)
+        if (!best || distance < best.distance) best = { sampleId: candidate.sampleId, padId: padIds[index]!, distance }
+      }
+      if (!best) continue
+      const { sampleId, padId } = best
+      if (sampleId !== pad.sampleId) sampleMap.set(pad.sampleId, sampleId)
+      if (padId !== pad.id) rowMoves.set(pad.id, padId)
+    }
+  }
+
+  const updatedPads = new Map<string, Pad>()
+  padIds.slice(0, needed).forEach((padId, index) => {
+    const pad = padsById.get(padId)!
+    const target = build.pads[index]!
+    const laid: Pad = { ...pad, sampleId: target.sampleId, music: target.music, trimStart: 0, trimEnd: 1 }
+    updatedPads.set(padId, soundChanged || newPadIds.has(padId) ? withCharacterEffects(laid, character) : laid)
+  })
+  // Slots the new layout doesn't use drop the old generated sound rather than hide it.
+  for (const padId of padIds.slice(needed)) {
+    const pad = padsById.get(padId)!
+    if (pad.sampleId && oldGenerated.has(pad.sampleId)) updatedPads.set(padId, { ...pad, sampleId: null, music: null })
+  }
+
+  const addedSamples = build.samples.filter((sample) => !state.samples[sample.id])
+  return {
+    sampleMap,
+    rowMoves,
+    state: {
+      ...state,
+      samples: { ...state.samples, ...Object.fromEntries(build.samples.map((sample) => [sample.id, sample])) },
+      sampleOrder: [...state.sampleOrder, ...addedSamples.map((sample) => sample.id)],
+      pads: [...state.pads.map((pad) => updatedPads.get(pad.id) ?? pad), ...newPads.map((pad) => updatedPads.get(pad.id) ?? pad)],
+      banks: state.banks.map((item) =>
+        item.id === bank.id
+          ? {
+              ...item,
+              padIds,
+              visibleCount: needed,
+              sound: build.sound,
+              columns: build.columns,
+              generatedSampleIds: build.samples.map((sample) => sample.id),
+              noteSampleIds: build.noteSampleIds,
+            }
+          : item,
+      ),
+      patterns: withEmptyRows(state.patterns, newPads.map((pad) => pad.id)),
+    },
+  }
+}
+
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'ADD_SAMPLE':
@@ -192,32 +328,24 @@ export function reducer(state: AppState, action: Action): AppState {
       }
 
     case 'ADD_SAMPLE_TO_NEW_PAD': {
-      if (state.visiblePadCount >= MAX_PAD_COUNT) return state
-      const targetIndex = state.visiblePadCount
-      const existingPad = state.pads[targetIndex]
-      const newPad = existingPad ?? createPad(targetIndex)
-      const pads = existingPad
-        ? state.pads.map((pad, index) =>
-            index === targetIndex ? { ...pad, sampleId: action.sample.id, trimStart: 0, trimEnd: 1 } : pad,
-          )
-        : [...state.pads, { ...newPad, sampleId: action.sample.id }]
-      const patterns =
-        existingPad
-          ? state.patterns
-          : state.patterns.map((pattern) => ({
-              ...pattern,
-              steps: {
-                ...pattern.steps,
-                [newPad.id]: new Array<string | null>(pattern.stepCount).fill(null),
-              },
-            }))
+      const bank = getSamplerBank(state)
+      if (bank.visibleCount >= MAX_PAD_COUNT) return state
+      const existingId = bank.padIds[bank.visibleCount]
+      const newPad = existingId ? null : createPad(bank.padIds.length)
+      const targetId = existingId ?? newPad!.id
+      const assign = (pad: Pad): Pad =>
+        pad.id === targetId ? { ...pad, sampleId: action.sample.id, trimStart: 0, trimEnd: 1, music: null } : pad
       return {
         ...state,
         samples: { ...state.samples, [action.sample.id]: action.sample },
         sampleOrder: [...state.sampleOrder, action.sample.id],
-        pads,
-        visiblePadCount: targetIndex + 1,
-        patterns,
+        pads: newPad ? [...state.pads, assign(newPad)] : state.pads.map(assign),
+        banks: state.banks.map((item) =>
+          item.id === bank.id
+            ? { ...item, padIds: newPad ? [...item.padIds, newPad.id] : item.padIds, visibleCount: item.visibleCount + 1 }
+            : item,
+        ),
+        patterns: withEmptyRows(state.patterns, newPad ? [newPad.id] : []),
       }
     }
 
@@ -227,9 +355,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         samples: remainingSamples,
         sampleOrder: state.sampleOrder.filter((id) => id !== action.sampleId),
-        pads: state.pads.map((pad) =>
-          pad.sampleId === action.sampleId ? { ...pad, sampleId: null } : pad,
-        ),
+        pads: state.pads.map((pad) => (pad.sampleId === action.sampleId ? { ...pad, sampleId: null } : pad)),
       }
     }
 
@@ -254,293 +380,121 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, sampleOrder }
     }
 
-    case 'ADD_INSTRUMENT': {
-      const keySamplesById = Object.fromEntries(action.keySamples.map((s) => [s.id, s]))
-      return {
+    case 'SET_ACTIVE_BANK':
+      return state.banks.some((bank) => bank.id === action.bankId) ? { ...state, activeBankId: action.bankId } : state
+
+    case 'APPLY_BANK_BUILDS': {
+      let next: AppState = {
         ...state,
-        samples: { ...state.samples, ...keySamplesById },
-        sampleOrder: [...state.sampleOrder, ...action.keySamples.map((s) => s.id)],
-        instruments: { ...state.instruments, [action.instrument.id]: action.instrument },
-        instrumentOrder: [...state.instrumentOrder, action.instrument.id],
+        key: action.key ?? state.key,
+        mood: action.mood !== undefined ? action.mood : state.mood,
+        padLayout: action.padLayout ?? state.padLayout,
       }
+      const sampleMap = new Map<string, string>()
+      const rowMoves = new Map<string, string>()
+      for (const build of action.builds) {
+        const applied = applyBankBuild(next, build, action.remap)
+        next = applied.state
+        for (const [from, to] of applied.sampleMap) sampleMap.set(from, to)
+        for (const [from, to] of applied.rowMoves) rowMoves.set(from, to)
+      }
+      if (sampleMap.size > 0 || rowMoves.size > 0) {
+        // Steps store the exact sample they play, so programmed notes follow
+        // their pads to the new key/sound/layout by swapping sample ids — and,
+        // when a note lands on a different pad, by moving to that pad's row.
+        next = { ...next, patterns: next.patterns.map((pattern) => remapPatternSteps(pattern, sampleMap, rowMoves)) }
+      }
+      return removeUnusedNoteSamples(next)
     }
 
-    case 'REMOVE_INSTRUMENT': {
-      const instrument = state.instruments[action.instrumentId]
-      if (!instrument) return state
-      const keyIds = new Set(instrument.keySampleIds)
-      // A sequencer cell is a historical reference. Keep an otherwise-transient
-      // key sample available (but still hidden from the Library) while a pattern
-      // needs it, even after its quick instrument layout has been dismissed.
-      const referencedKeyIds = new Set(
-        instrument.keySampleIds.filter((sampleId) =>
-          state.patterns.some((pattern) =>
-            Object.values(pattern.steps).some((steps) => steps.includes(sampleId)),
-          ),
-        ),
-      )
-      const removableKeyIds = new Set(
-        instrument.keySampleIds.filter((sampleId) => !referencedKeyIds.has(sampleId)),
-      )
-      const remainingSamples = { ...state.samples }
-      for (const id of removableKeyIds) delete remainingSamples[id]
-      const { [action.instrumentId]: _removed, ...remainingInstruments } = state.instruments
-      return {
-        ...state,
-        samples: remainingSamples,
-        sampleOrder: state.sampleOrder.filter((id) => !removableKeyIds.has(id)),
-        instruments: remainingInstruments,
-        instrumentOrder: state.instrumentOrder.filter((id) => id !== action.instrumentId),
-        pads: state.pads.map((pad) => {
-          const snapshot =
-            state.transport.autoInstrumentId === action.instrumentId
-              ? state.transport.autoInstrumentPadSnapshot?.[pad.id]
-              : undefined
-          // A temporary instrument is an overlay on the user's layout, so
-          // restore the original sound/trim before deleting generated keys.
-          if (snapshot) return { ...pad, ...snapshot }
-          return pad.sampleId && keyIds.has(pad.sampleId) ? { ...pad, sampleId: null } : pad
-        }),
-        transport: {
-          ...state.transport,
-          ...(state.transport.autoInstrumentId === action.instrumentId
-            ? { autoInstrumentId: null, autoInstrumentPadSnapshot: null }
-            : null),
-          ...(state.transport.currentInstrumentId === action.instrumentId
-            ? { currentInstrumentId: null }
-            : null),
-        },
-      }
-    }
+    case 'SET_PAD_LABELS':
+      return { ...state, padLabels: action.labels }
 
-    case 'APPLY_INSTRUMENT_TO_PADS': {
-      const instrument = state.instruments[action.instrumentId]
-      if (!instrument) return state
-      // An instrument is a keyboard layout, so the active grid follows its
-      // actual key count rather than whatever pad count happened to be active
-      // before it was selected. Existing pad slots are preserved; only missing
-      // slots are appended with normal empty-pad/default-pattern state.
-      const targetCount = instrument.keySampleIds.length
-      const newPads =
-        targetCount > state.pads.length
-          ? Array.from({ length: targetCount - state.pads.length }, (_, i) =>
-              createPad(state.pads.length + i),
-            )
-          : []
-      const pads = [...state.pads, ...newPads].map((pad, index) => {
-        if (index >= targetCount) return pad
-        const keySampleId = instrument.keySampleIds[index]
-        const withKey = keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
-        return withCharacterEffects(withKey, instrument.effectsPreset)
-      })
-      return {
-        ...state,
-        pads,
-        visiblePadCount: targetCount,
-        patterns:
-          newPads.length === 0
-            ? state.patterns
-            : state.patterns.map((pattern) => ({
-                ...pattern,
-                steps: {
-                  ...pattern.steps,
-                  ...Object.fromEntries(
-                    newPads.map((pad) => [pad.id, new Array<string | null>(pattern.stepCount).fill(null)]),
-                  ),
-                },
-              })),
-        transport: { ...state.transport, currentInstrumentId: instrument.id },
-      }
-    }
-
-    case 'APPLY_LOOP_PRESET': {
-      // Same grid-follows-the-instrument resize APPLY_INSTRUMENT_TO_PADS uses
-      // above — a loop preset's build is a normal instrument, just applied
-      // together with the pattern data that plays it.
-      const instrument = action.instrument
-      const targetCount = instrument.keySampleIds.length
-      const newPads =
-        targetCount > state.pads.length
-          ? Array.from({ length: targetCount - state.pads.length }, (_, i) =>
-              createPad(state.pads.length + i),
-            )
-          : []
-      const pads = [...state.pads, ...newPads].map((pad, index) => {
-        if (index >= targetCount) return pad
-        const keySampleId = instrument.keySampleIds[index]
-        const withKey = keySampleId ? { ...pad, sampleId: keySampleId, trimStart: 0, trimEnd: 1 } : pad
-        return withCharacterEffects(withKey, instrument.effectsPreset)
-      })
-      const keySamplesById = Object.fromEntries(action.keySamples.map((s) => [s.id, s]))
-      const patterns = state.patterns.map((pattern) => {
-        if (pattern.id !== action.patternId) {
-          if (newPads.length === 0) return pattern
-          return {
-            ...pattern,
-            steps: {
-              ...pattern.steps,
-              ...Object.fromEntries(
-                newPads.map((pad) => [pad.id, new Array<string | null>(pattern.stepCount).fill(null)]),
-              ),
-            },
-          }
-        }
-        // Replaces the whole active pattern, not just the rows this preset
-        // touches — every visible pad's sound is also being replaced above,
-        // so a leftover row from whatever was there before would silently
-        // reference the wrong new sound rather than being clearly gone.
-        const stepCount = Math.max(pattern.stepCount, 16)
+    case 'WRITE_BANK_PATTERN': {
+      const bank = state.banks.find((item) => item.id === action.bankId)
+      if (!bank) return state
+      const bankPadIds = new Set(bank.padIds)
+      const sampleByPad = new Map(state.pads.map((pad) => [pad.id, pad.sampleId]))
+      return updatePattern(state, action.patternId, (pattern) => {
+        const stepCount = Math.min(MAX_STEP_COUNT, Math.max(pattern.stepCount, action.minStepCount))
+        const resize = (row: Array<string | null> | undefined) =>
+          Array.from({ length: stepCount }, (_, i) => row?.[i] ?? null)
         const steps: Record<string, Array<string | null>> = {}
-        for (let index = 0; index < targetCount; index++) {
-          const padId = pads[index]!.id
-          const keySampleId = instrument.keySampleIds[index] ?? null
-          const activeSteps = new Set(action.stepsByPadIndex[index] ?? [])
-          steps[padId] = Array.from({ length: stepCount }, (_, stepIndex) =>
-            activeSteps.has(stepIndex) ? keySampleId : null,
-          )
+        for (const [padId, row] of Object.entries(pattern.steps)) {
+          if (bankPadIds.has(padId)) continue
+          steps[padId] = resize(row)
         }
-        for (const [padId, existing] of Object.entries(pattern.steps)) {
-          if (steps[padId]) continue
-          steps[padId] = Array.from({ length: stepCount }, (_, i) => existing[i] ?? null)
+        for (const [index, padId] of bank.padIds.entries()) {
+          const active = new Set(index < bank.visibleCount ? action.stepsByPadIndex[index] ?? [] : [])
+          const sampleId = sampleByPad.get(padId) ?? null
+          steps[padId] = Array.from({ length: stepCount }, (_, i) => (active.has(i) ? sampleId : null))
         }
         return {
           ...pattern,
           stepCount,
           steps,
           traceSteps: pattern.traceSteps
-            ? Object.fromEntries(
-                Object.entries(pattern.traceSteps).map(([padId, existing]) => [
-                  padId,
-                  Array.from({ length: stepCount }, (_, i) => existing[i] ?? null),
-                ]),
-              )
+            ? Object.fromEntries(Object.entries(pattern.traceSteps).map(([padId, row]) => [padId, resize(row)]))
             : null,
         }
       })
-      return {
-        ...state,
-        samples: { ...state.samples, ...keySamplesById },
-        sampleOrder: [...state.sampleOrder, ...action.keySamples.map((s) => s.id)],
-        instruments: { ...state.instruments, [instrument.id]: instrument },
-        instrumentOrder: [...state.instrumentOrder, instrument.id],
-        pads,
-        visiblePadCount: targetCount,
-        patterns,
-        transport: { ...state.transport, currentInstrumentId: instrument.id },
-      }
     }
 
     case 'ASSIGN_SAMPLE_TO_PAD':
       // Trim resets to the full sample — a trim window meaningful on the old
-      // recording's waveform has no correct meaning on a different one.
+      // recording's waveform has no correct meaning on a different one. A
+      // hand-picked sound isn't a generated note any more, so it loses its label.
       return updatePad(state, action.padId, (pad) => ({
         ...pad,
         sampleId: action.sampleId,
         trimStart: 0,
         trimEnd: 1,
+        music: null,
       }))
 
     case 'SET_PAD_MUTED':
       return updatePad(state, action.padId, (pad) => ({ ...pad, muted: action.muted }))
 
     case 'SET_PAD_EFFECTS_BYPASSED':
-      return updatePad(state, action.padId, (pad) => ({
-        ...pad,
-        effectsBypassed: action.bypassed,
-      }))
+      return updatePad(state, action.padId, (pad) => ({ ...pad, effectsBypassed: action.bypassed }))
 
     case 'SET_PAD_EFFECT':
       return updatePad(state, action.padId, (pad) => ({
         ...pad,
         effects: pad.effects.map((effect) =>
-          effect.id === action.effectId
-            ? { ...effect, value: clamp(action.value, EFFECT_MIN, EFFECT_MAX) }
-            : effect,
+          effect.id === action.effectId ? { ...effect, value: clamp(action.value, EFFECT_MIN, EFFECT_MAX) } : effect,
         ),
       }))
 
     case 'RESET_PAD_EFFECTS':
       return updatePad(state, action.padId, (pad) => ({ ...pad, effects: createNeutralEffects() }))
 
-    case 'APPLY_EFFECT_PRESET_TO_ALL_PADS':
-      return {
-        ...state,
-        pads: state.pads.map((pad, index) => {
-          if (index >= state.visiblePadCount) return pad
-          return {
-            ...pad,
-            effects: pad.effects.map((effect) =>
-              effect.id === 'filter' ||
-              effect.id === 'grit' ||
-              effect.id === 'echo' ||
-              effect.id === 'reverb'
-                ? { ...effect, value: action[effect.id] }
-                : effect,
-            ),
-          }
-        }),
-        instruments: syncCurrentInstrumentEffectsPreset(state, {
-          filter: action.filter,
-          grit: action.grit,
-          echo: action.echo,
-          reverb: action.reverb,
-        }),
-      }
-
-    case 'SET_ALL_PADS_EFFECT': {
-      const pads = state.pads.map((pad, index) => {
-        if (index >= state.visiblePadCount) return pad
-        return {
-          ...pad,
-          effects: pad.effects.map((effect) =>
-            effect.id === action.effectId
-              ? { ...effect, value: clamp(action.value, EFFECT_MIN, EFFECT_MAX) }
-              : effect,
-          ),
-        }
-      })
-      const representative = pads.find((_, index) => index < state.visiblePadCount)
-      const currentValue = (id: EffectId) => representative?.effects.find((effect) => effect.id === id)?.value ?? 0
-      return {
-        ...state,
-        pads,
-        instruments: syncCurrentInstrumentEffectsPreset(state, {
-          filter: currentValue('filter'),
-          grit: currentValue('grit'),
-          echo: currentValue('echo'),
-          reverb: currentValue('reverb'),
-        }),
-      }
+    case 'APPLY_EFFECT_PRESET_TO_ALL_PADS': {
+      const preset: CharacterPreset = { filter: action.filter, grit: action.grit, echo: action.echo, reverb: action.reverb }
+      const { pads, bank } = updateActiveBankPads(state, (pad) => withCharacterEffects(pad, preset))
+      return { ...state, pads, fxBySound: rememberBankCharacter(state, bank, preset) }
     }
 
-    case 'SET_INSTRUMENT_EFFECTS_PRESET': {
-      const instrument = state.instruments[action.instrumentId]
-      if (!instrument) return state
-      return {
-        ...state,
-        instruments: {
-          ...state.instruments,
-          [action.instrumentId]: { ...instrument, effectsPreset: action.preset },
-        },
-      }
+    case 'SET_ALL_PADS_EFFECT': {
+      const { pads, bank } = updateActiveBankPads(state, (pad) => ({
+        ...pad,
+        effects: pad.effects.map((effect) =>
+          effect.id === action.effectId ? { ...effect, value: clamp(action.value, EFFECT_MIN, EFFECT_MAX) } : effect,
+        ),
+      }))
+      const representative = pads.find((pad) => pad.id === bank.padIds[0])
+      const valueOf = (id: EffectId) => representative?.effects.find((effect) => effect.id === id)?.value ?? 0
+      const preset = Object.fromEntries(CHARACTER_IDS.map((id) => [id, valueOf(id)])) as unknown as CharacterPreset
+      return { ...state, pads, fxBySound: rememberBankCharacter(state, bank, preset) }
     }
 
     case 'SET_ALL_PADS_EFFECTS_BYPASSED':
-      return {
-        ...state,
-        pads: state.pads.map((pad, index) =>
-          index >= state.visiblePadCount ? pad : { ...pad, effectsBypassed: action.bypassed },
-        ),
-      }
+      return { ...state, pads: updateActiveBankPads(state, (pad) => ({ ...pad, effectsBypassed: action.bypassed })).pads }
 
-    case 'RESET_ALL_PADS_EFFECTS':
-      return {
-        ...state,
-        pads: state.pads.map((pad, index) =>
-          index >= state.visiblePadCount ? pad : { ...pad, effects: createNeutralEffects() },
-        ),
-        instruments: syncCurrentInstrumentEffectsPreset(state, null),
-      }
+    case 'RESET_ALL_PADS_EFFECTS': {
+      const { pads, bank } = updateActiveBankPads(state, (pad) => ({ ...pad, effects: createNeutralEffects() }))
+      return { ...state, pads, fxBySound: rememberBankCharacter(state, bank, null) }
+    }
 
     case 'SET_PAD_TRIM': {
       // Keeps end at least MIN_TRIM_GAP after start; if that would push end past
@@ -573,12 +527,7 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_STEP_SAMPLE': {
       const pattern = state.patterns.find((item) => item.id === action.patternId)
-      if (
-        !pattern ||
-        !state.samples[action.sampleId] ||
-        action.stepIndex < 0 ||
-        action.stepIndex >= pattern.stepCount
-      ) {
+      if (!pattern || !state.samples[action.sampleId] || action.stepIndex < 0 || action.stepIndex >= pattern.stepCount) {
         return state
       }
       const existingSteps = pattern.steps[action.padId] ?? new Array<string | null>(pattern.stepCount).fill(null)
@@ -626,9 +575,7 @@ export function reducer(state: AppState, action: Action): AppState {
       // clears only their live playback layer. It is reversible via restore.
       return updatePattern(state, action.patternId, (pattern) => ({
         ...pattern,
-        traceSteps: Object.fromEntries(
-          Object.entries(pattern.steps).map(([padId, steps]) => [padId, steps.slice()]),
-        ),
+        traceSteps: Object.fromEntries(Object.entries(pattern.steps).map(([padId, steps]) => [padId, steps.slice()])),
         traceSource: 'hidden',
         steps: Object.fromEntries(
           Object.entries(pattern.steps).map(([padId, steps]) => [padId, new Array<string | null>(steps.length).fill(null)]),
@@ -645,29 +592,41 @@ export function reducer(state: AppState, action: Action): AppState {
       return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, traceSteps: null, traceSource: null }))
 
     case 'LOAD_SEQUENCE_TRACE': {
-      const targetPadCount = Math.min(MAX_PAD_COUNT, Math.max(state.visiblePadCount, action.trace.rows.length))
-      const newPads = Array.from(
-        { length: Math.max(0, targetPadCount - state.pads.length) },
-        (_, index) => createPad(state.pads.length + index),
-      )
-      const pads = [...state.pads, ...newPads]
+      // Each trace row goes back onto the pad it came from when that pad still
+      // exists (traces record pad ids); otherwise — an older trace, or a pad
+      // since removed — rows fill the Drums (sampler) bank's slots in order.
+      const drums = getSamplerBank(state)
+      const existingPadIds = new Set(state.pads.map((pad) => pad.id))
+      const newPads: Pad[] = []
+      const drumPadIds = drums.padIds.slice()
+      let drumCursor = 0
+      const rowPadIds: string[] = []
+      for (let row = 0; row < action.trace.rows.length; row++) {
+        const tracedId = action.trace.padIds?.[row]
+        if (tracedId && existingPadIds.has(tracedId)) {
+          rowPadIds.push(tracedId)
+          continue
+        }
+        if (drumCursor >= MAX_PAD_COUNT) continue
+        if (drumCursor >= drumPadIds.length) {
+          const pad = createPad(drumPadIds.length)
+          newPads.push(pad)
+          drumPadIds.push(pad.id)
+        }
+        rowPadIds.push(drumPadIds[drumCursor]!)
+        drumCursor++
+      }
+      const allPadIds = [...state.pads.map((pad) => pad.id), ...newPads.map((pad) => pad.id)]
       return {
         ...state,
-        pads,
-        visiblePadCount: targetPadCount,
+        pads: [...state.pads, ...newPads],
+        banks: state.banks.map((bank) =>
+          bank.id === drums.id
+            ? { ...bank, padIds: drumPadIds, visibleCount: Math.max(bank.visibleCount, drumCursor) }
+            : bank,
+        ),
         patterns: state.patterns.map((pattern) => {
-          if (pattern.id !== action.patternId) {
-            if (newPads.length === 0) return pattern
-            return {
-              ...pattern,
-              steps: {
-                ...pattern.steps,
-                ...Object.fromEntries(
-                  newPads.map((pad) => [pad.id, new Array<string | null>(pattern.stepCount).fill(null)]),
-                ),
-              },
-            }
-          }
+          if (pattern.id !== action.patternId) return withEmptyRows([pattern], newPads.map((pad) => pad.id))[0]!
           // A real load: every cell whose sample still exists becomes a
           // live, playable step, replacing whatever the pattern held before
           // (this is loading a saved sequence, not overlaying one). A cell
@@ -675,26 +634,20 @@ export function reducer(state: AppState, action: Action): AppState {
           // back to a visual-only ghost marker instead of silently
           // vanishing — see SequenceTrace.rows and resolveSequenceTraceCell.
           const stepCount = Math.min(MAX_STEP_COUNT, Math.max(pattern.stepCount, action.trace.stepCount))
-          const steps: Record<string, Array<string | null>> = {}
-          const traceSteps: Record<string, Array<string | null>> = {}
+          const empty = () => new Array<string | null>(stepCount).fill(null)
+          const steps: Record<string, Array<string | null>> = Object.fromEntries(allPadIds.map((id) => [id, empty()]))
+          const traceSteps: Record<string, Array<string | null>> = Object.fromEntries(allPadIds.map((id) => [id, empty()]))
           let hasMissingSample = false
-          for (const [rowIndex, pad] of pads.entries()) {
-            const stepsRow: Array<string | null> = []
-            const traceRow: Array<string | null> = []
-            for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
-              const sourceSampleId = action.trace.rows[rowIndex]?.[stepIndex] ?? null
-              const cell = resolveSequenceTraceCell(sourceSampleId, state.samples)
-              stepsRow.push(cell.sampleId)
+          rowPadIds.forEach((padId, row) => {
+            for (let stepIndex = 0; stepIndex < stepCount; stepIndex++) {
+              const cell = resolveSequenceTraceCell(action.trace.rows[row]?.[stepIndex] ?? null, state.samples)
+              steps[padId]![stepIndex] = cell.sampleId
               if (cell.missing) {
                 hasMissingSample = true
-                traceRow.push(action.markerSampleId)
-              } else {
-                traceRow.push(null)
+                traceSteps[padId]![stepIndex] = action.markerSampleId
               }
             }
-            steps[pad.id] = stepsRow
-            traceSteps[pad.id] = traceRow
-          }
+          })
           return {
             ...pattern,
             stepCount,
@@ -723,50 +676,32 @@ export function reducer(state: AppState, action: Action): AppState {
       })
 
     case 'SET_VISIBLE_PAD_COUNT': {
-      const count = Math.min(MAX_PAD_COUNT, Math.max(MIN_PAD_COUNT, action.count))
-      if (count <= state.pads.length) {
-        // Shrinking is display-only: existing pad slots and their data are retained,
-        // not truncated from `pads`. Visibility is derived at read-time from this count.
-        return { ...state, visiblePadCount: count }
+      const bank = action.bankId ? state.banks.find((item) => item.id === action.bankId) : getActiveBank(state)
+      if (!bank) return state
+      const min = bank.kind === 'drums' ? MIN_PAD_COUNT : 0
+      const count = Math.min(MAX_PAD_COUNT, Math.max(min, action.count))
+      if (count <= bank.padIds.length) {
+        // Shrinking is display-only: existing pad slots and their data are retained.
+        return updateBank(state, bank.id, (item) => ({ ...item, visibleCount: count }))
       }
-      // Growing past the number of pad slots that have ever existed creates new ones.
-      const newPads = Array.from({ length: count - state.pads.length }, (_, i) =>
-        createPad(state.pads.length + i),
-      )
-      const newPadIds = newPads.map((pad) => pad.id)
-      return {
-        ...state,
-        pads: [...state.pads, ...newPads],
-        visiblePadCount: count,
-        patterns: state.patterns.map((pattern) => ({
-          ...pattern,
-          steps: {
-            ...pattern.steps,
-            ...Object.fromEntries(
-              newPadIds.map((id) => [id, new Array<string | null>(pattern.stepCount).fill(null)]),
-            ),
-          },
-        })),
-      }
+      // Growing past the slots this bank has ever had creates new, empty ones.
+      const newPads = Array.from({ length: count - bank.padIds.length }, (_, i) => createPad(bank.padIds.length + i))
+      const next = updateBank(state, bank.id, (item) => ({
+        ...item,
+        padIds: [...item.padIds, ...newPads.map((pad) => pad.id)],
+        visibleCount: count,
+      }))
+      return { ...next, pads: [...next.pads, ...newPads], patterns: withEmptyRows(next.patterns, newPads.map((pad) => pad.id)) }
     }
 
     case 'REMOVE_PAD': {
-      // A real deletion, not a display-only shrink like SET_VISIBLE_PAD_COUNT:
-      // the pad slot itself is spliced out and every later pad shifts up to
-      // fill the gap, so a specific mid-grid row can be dropped without
-      // touching the ones around it. Each pad's own color/identity travels
-      // with its own object regardless of position — only future index-based
-      // operations (the next instrument/drum-kit application) see the new
-      // order. Steps are keyed by pad id, not array position, so no other
-      // pad's row is affected; only the removed pad's own row goes with it.
-      if (state.pads.length <= MIN_PAD_COUNT) return state
-      const index = state.pads.findIndex((pad) => pad.id === action.padId)
-      if (index < 0) return state
-      const pads = state.pads.filter((pad) => pad.id !== action.padId)
-      const visiblePadCount =
-        index < state.visiblePadCount
-          ? state.visiblePadCount - 1
-          : Math.min(state.visiblePadCount, pads.length)
+      // A real deletion, not a display-only shrink: the pad slot is spliced out
+      // of its bank and every later pad shifts up. Steps are keyed by pad id,
+      // so no other pad's row is affected; only the removed pad's row goes.
+      const bank = bankOfPad(state, action.padId)
+      if (!bank) return state
+      if (bank.kind === 'drums' && bank.padIds.length <= MIN_PAD_COUNT) return state
+      const index = bank.padIds.indexOf(action.padId)
       const patterns = state.patterns.map((pattern) => {
         const { [action.padId]: _removedSteps, ...steps } = pattern.steps
         let traceSteps = pattern.traceSteps
@@ -778,20 +713,22 @@ export function reducer(state: AppState, action: Action): AppState {
       })
       return {
         ...state,
-        pads,
-        visiblePadCount,
+        pads: state.pads.filter((pad) => pad.id !== action.padId),
+        banks: state.banks.map((item) =>
+          item.id === bank.id
+            ? {
+                ...item,
+                padIds: item.padIds.filter((id) => id !== action.padId),
+                visibleCount: index < item.visibleCount ? item.visibleCount - 1 : item.visibleCount,
+              }
+            : item,
+        ),
         patterns,
-        // The instrument-to-pad-count correspondence this tracks no longer
-        // holds exactly once a row's been hand-removed from underneath it.
-        transport: { ...state.transport, currentInstrumentId: null },
       }
     }
 
     case 'SET_BPM':
-      return {
-        ...state,
-        transport: { ...state.transport, bpm: clamp(action.bpm, BPM_MIN, BPM_MAX) },
-      }
+      return { ...state, transport: { ...state.transport, bpm: clamp(action.bpm, BPM_MIN, BPM_MAX) } }
 
     case 'SET_TRANSPORT_PLAYING':
       return { ...state, transport: { ...state.transport, isPlaying: action.isPlaying } }
@@ -806,32 +743,15 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, transport: { ...state.transport, padPlaybackMode: action.mode } }
 
     case 'SET_MASTER_VOLUME':
-      return {
-        ...state,
-        transport: { ...state.transport, masterVolume: clamp(action.level, 0, 100) },
-      }
+      return { ...state, transport: { ...state.transport, masterVolume: clamp(action.level, 0, 100) } }
 
     case 'SET_PAD_LOOP_MODE_ENABLED':
-      // Mutually exclusive with instrument mode and mixer mode — all three change
-      // what interacting with a pad means for the grid as a whole, so having more
-      // than one on at once would be ambiguous.
+      // Loop and Mix both change what touching a pad means, so only one is on at a time.
       return {
         ...state,
         transport: {
           ...state.transport,
           padLoopModeEnabled: action.enabled,
-          padInstrumentModeEnabled: action.enabled ? false : state.transport.padInstrumentModeEnabled,
-          padMixerModeEnabled: action.enabled ? false : state.transport.padMixerModeEnabled,
-        },
-      }
-
-    case 'SET_PAD_INSTRUMENT_MODE_ENABLED':
-      return {
-        ...state,
-        transport: {
-          ...state.transport,
-          padInstrumentModeEnabled: action.enabled,
-          padLoopModeEnabled: action.enabled ? false : state.transport.padLoopModeEnabled,
           padMixerModeEnabled: action.enabled ? false : state.transport.padMixerModeEnabled,
         },
       }
@@ -842,35 +762,18 @@ export function reducer(state: AppState, action: Action): AppState {
         transport: {
           ...state.transport,
           padMixerModeEnabled: action.enabled,
-          // Mixer is an overlay for changing pad levels, not a replacement for
-          // the selected instrument. Keep Instrument Mode selected underneath
-          // it so closing Mixer returns to the same playable instrument layout.
-          padInstrumentModeEnabled: state.transport.padInstrumentModeEnabled,
           padLoopModeEnabled: action.enabled ? false : state.transport.padLoopModeEnabled,
         },
       }
 
     case 'SET_PLAYTHROUGH_RECORDING_ENABLED':
-      return {
-        ...state,
-        transport: { ...state.transport, playthroughRecordingEnabled: action.enabled },
-      }
-
-    case 'SET_AUTO_INSTRUMENT_ID':
-      return {
-        ...state,
-        transport: {
-          ...state.transport,
-          autoInstrumentId: action.instrumentId,
-          autoInstrumentPadSnapshot: action.instrumentId ? (action.padSnapshot ?? null) : null,
-        },
-      }
+      return { ...state, transport: { ...state.transport, playthroughRecordingEnabled: action.enabled } }
 
     case 'SET_CURRENT_STEP':
       return { ...state, transport: { ...state.transport, currentStep: action.stepIndex } }
 
     case 'CLEAR_ALL':
-      return createInitialState(state.visiblePadCount)
+      return createInitialState(getSamplerBank(state).visibleCount)
 
     case 'LOAD_PROJECT':
       // Autosaves from before global-volume / trigger-mode controls lack these
@@ -878,7 +781,6 @@ export function reducer(state: AppState, action: Action): AppState {
       // a one-shot mode or an invalid gain.
       return {
         ...action.state,
-        visiblePadCount: Math.min(MAX_PAD_COUNT, Math.max(MIN_PAD_COUNT, action.state.visiblePadCount)),
         transport: {
           ...action.state.transport,
           masterVolume: action.state.transport.masterVolume ?? 100,

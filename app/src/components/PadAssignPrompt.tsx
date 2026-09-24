@@ -3,6 +3,7 @@ import { useAppState } from '../state/AppStateContext'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Overlay } from './Overlay'
 import { StaticWaveform } from './Waveform'
+import { getSamplerBank, visibleBankPads } from '../state/banks'
 
 interface PadAssignPromptProps {
   sampleId: string
@@ -21,7 +22,7 @@ export function PadAssignPrompt({ sampleId, sampleLabel, onDone }: PadAssignProm
   const { state, dispatch } = useAppState()
   const [confirmPadId, setConfirmPadId] = useState<string | null>(null)
   const [label, setLabel] = useState(sampleLabel)
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const visiblePads = visibleBankPads(state, getSamplerBank(state))
   const sample = state.samples[sampleId]
 
   const commitLabel = () => {

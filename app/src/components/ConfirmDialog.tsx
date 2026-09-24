@@ -13,7 +13,7 @@ interface ConfirmDialogProps {
 
 /**
  * Every "are you sure?" prompt in the app — replacing a pad/pattern, loading
- * a project, deleting a sample or instrument — shares this one component
+ * a project, deleting a sample — shares this one component
  * instead of dropping an inline `.confirm-overwrite` block into whatever
  * panel raised it. Portals straight to `document.body` with its own fixed,
  * centered backdrop, the same reasoning `<Overlay>` uses for its own portal

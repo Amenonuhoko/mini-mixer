@@ -3,9 +3,13 @@ import {
   arrayBufferToBase64,
   base64ToArrayBuffer,
   encodeWav,
+  extractProjectMeta,
   isSerializedProject,
+  stateFromMeta,
   type PcmSource,
+  type ProjectMeta,
 } from './projectFile'
+import { createInitialState, createPad } from '../state/defaults'
 
 function makeSource(samples: number[], numberOfChannels = 1, sampleRate = 44100): PcmSource {
   return {
@@ -88,5 +92,39 @@ describe('isSerializedProject', () => {
     expect(isSerializedProject({ ...valid, pads: 'not an array' })).toBe(false)
     const { transport: _transport, ...withoutTransport } = valid
     expect(isSerializedProject(withoutTransport)).toBe(false)
+  })
+})
+
+describe('stateFromMeta', () => {
+  it('round-trips banks, key and label settings', () => {
+    const state = { ...createInitialState(3), mood: null, key: { tonic: 2, scale: 'dorian' as const, chordColor: 'seventh' as const } }
+    const loaded = stateFromMeta(JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta, {})
+    expect(loaded.banks).toEqual(state.banks)
+    expect(loaded.activeBankId).toBe(state.activeBankId)
+    expect(loaded.key).toEqual(state.key)
+    expect(loaded.mood).toBeNull()
+    expect(loaded.padLabels).toEqual(state.padLabels)
+  })
+
+  it('migrates a pre-bank project into a Drums bank showing the same pads', () => {
+    const legacyPads = [createPad(0), createPad(1), createPad(2)].map(({ music: _music, ...rest }) => rest)
+    const legacy = {
+      sampleOrder: [],
+      pads: legacyPads,
+      visiblePadCount: 2,
+      instruments: {},
+      patterns: [],
+      activePatternId: 'p',
+      transport: { bpm: 90, loopMode: 'continuous', metronomeEnabled: false, padLoopModeEnabled: false, padInstrumentModeEnabled: true },
+    } as unknown as ProjectMeta
+    const loaded = stateFromMeta(legacy, {})
+
+    expect(loaded.banks.map((bank) => bank.kind)).toEqual(['drums', 'bass', 'chords', 'melody'])
+    expect(loaded.banks[0]!.padIds).toEqual(legacyPads.map((pad) => pad.id))
+    expect(loaded.banks[0]!.visibleCount).toBe(2)
+    expect(loaded.banks[1]!.padIds).toEqual([])
+    expect(loaded.pads.every((pad) => pad.music === null)).toBe(true)
+    expect(loaded.mood).toBe('bright')
+    expect('padInstrumentModeEnabled' in loaded.transport).toBe(false)
   })
 })

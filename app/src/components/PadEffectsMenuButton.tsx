@@ -15,6 +15,7 @@ import { useIsWideScreen } from '../hooks/useIsWideScreen'
 import type { EffectId } from '../state/types'
 import { EffectsSwitch } from './EffectsSwitch'
 import { CloseIcon, FxIcon } from './icons'
+import { BANK_NAMES, getActiveBank, visibleBankPads } from '../state/banks'
 
 const FLOAT_MARGIN = 8
 
@@ -108,7 +109,8 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
   const [position, setPosition] = useState<FloatingPosition | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const bank = getActiveBank(state)
+  const visiblePads = visibleBankPads(state, bank)
   const allPresets = [...EFFECT_PRESETS, ...customPresets]
   const anyBypassed = visiblePads.some((pad) => pad.effectsBypassed)
   const anyCustomized = visiblePads.some((pad) =>
@@ -177,11 +179,10 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
     }])
   }
 
-  // The first visible pad stands in for "the grid's current value" — same
-  // representative-pad approach saveCurrentPreset already uses. All visible
-  // pads always carry the same character-dial values here (every write path
-  // — presets, this live dial, an applied instrument's own remembered combo
-  // — sets them identically across the grid), so any pad would do.
+  // The bank's first showing pad stands in for "the bank's current value" —
+  // same representative-pad approach saveCurrentPreset already uses. Every
+  // write path (presets, this live dial, a sound's remembered combo) sets
+  // them identically across the bank, so any pad would do.
   const currentCharacterValue = (effectId: (typeof CHARACTER_EFFECT_IDS)[number]): number =>
     visiblePads[0]?.effects.find((effect) => effect.id === effectId)?.value ?? 0
 
@@ -223,7 +224,7 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
     >
       <div className="fx-floating-heading">
         <div className="fx-floating-heading-text">
-          <span>Pad effects</span>
+          <span>{BANK_NAMES[bank.kind]} effects</span>
           <span className="muted">{visiblePads.length} pads</span>
         </div>
         <EffectsSwitch bypassed={anyBypassed} onToggle={toggleBypassAll} />

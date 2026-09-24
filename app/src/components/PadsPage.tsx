@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
+import { padLabel } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
+import { getActiveBank, visibleBankPads } from '../state/banks'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
 import { EditIcon, FxIcon, MuteIcon, SwapIcon } from './icons'
@@ -12,8 +14,9 @@ import { PadLibraryPicker } from './PadLibraryPicker'
  * actions appear in a strip directly under the grid — inside the same module,
  * right where your hand already is — rather than in a separate panel below
  * the fold: Mute, a one-tap effects bypass (reversible; the dials are kept),
- * Edit (dials + trim), and Swap (pull another sound from the library onto
- * this pad without leaving the grid).
+ * Edit (dials + trim), and — on the Drums bank — Swap (pull another sound
+ * from the library onto this pad without leaving the grid). Melodic pads
+ * change sound as a whole bank instead (the bank strip's sound button).
  */
 export function PadsPage() {
   const { state, dispatch } = useAppState()
@@ -21,7 +24,8 @@ export function PadsPage() {
   const { goToEditPad } = useNavigation()
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
   const [pickingLibrary, setPickingLibrary] = useState(false)
-  const visiblePads = state.pads.slice(0, state.visiblePadCount)
+  const bank = getActiveBank(state)
+  const visiblePads = visibleBankPads(state, bank)
   const looping = usePadLooping(engine, selectedPadId ?? '')
 
   // Keep a pad selected at all times, falling back to the first visible pad
@@ -38,6 +42,7 @@ export function PadsPage() {
   const selectedIndex = visiblePads.findIndex((pad) => pad.id === selectedPadId)
   const selectedPad = selectedIndex >= 0 ? visiblePads[selectedIndex] : undefined
   const selectedSample = selectedPad?.sampleId ? state.samples[selectedPad.sampleId] : undefined
+  const selectedLabel = selectedPad?.music ? padLabel(selectedPad.music, state.key, state.padLabels) : null
 
   const handleToggleMute = () => {
     if (!selectedPad) return
@@ -54,8 +59,10 @@ export function PadsPage() {
   const contextStrip = selectedPad && (
     <div className="pad-context">
       <div className="pad-context-id">
-        <span className="pad-context-num readout">{String(selectedIndex + 1).padStart(2, '0')}</span>
-        <span className="pad-context-name">{selectedSample?.label ?? 'Empty pad'}</span>
+        <span className="pad-context-num readout">{selectedLabel?.name ?? String(selectedIndex + 1).padStart(2, '0')}</span>
+        <span className="pad-context-name">
+          {selectedLabel ? [selectedLabel.primary, selectedLabel.secondary].filter((part) => part && part !== selectedLabel.name).join(' · ') || selectedSample?.label : selectedSample?.label ?? 'Empty pad'}
+        </span>
         {looping && <span className="chip chip-live">Loop</span>}
       </div>
       <div className="pad-context-actions">
@@ -82,10 +89,12 @@ export function PadsPage() {
           <EditIcon size={16} />
           <span>Edit</span>
         </button>
-        <button type="button" className="action" onClick={() => setPickingLibrary(true)}>
-          <SwapIcon size={16} />
-          <span>Swap</span>
-        </button>
+        {bank.kind === 'drums' && (
+          <button type="button" className="action" onClick={() => setPickingLibrary(true)}>
+            <SwapIcon size={16} />
+            <span>Swap</span>
+          </button>
+        )}
       </div>
     </div>
   )

@@ -2709,3 +2709,305 @@ button.list-item:hover .list-wave {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Pad banks: tabs, bank strip, labeled melodic pads, empty-bank starter
+   -------------------------------------------------------------------------- */
+.bank-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bank-tabs .segment {
+  position: relative;
+  padding: 0 6px;
+  letter-spacing: 0.08em;
+}
+
+.bank-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.bank-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.bank-sound,
+.bank-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: var(--control-sm);
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: rgb(0 0 0 / 0.35);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  transition:
+    border-color var(--fast),
+    box-shadow var(--fast);
+}
+
+.bank-sound {
+  flex: 1 1 auto;
+}
+
+.bank-sound:hover,
+.bank-key:hover {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.bank-sound-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.bank-sound-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-key {
+  flex: none;
+  border-color: rgb(var(--orange-rgb) / 0.45);
+}
+
+.bank-key:hover {
+  border-color: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.bank-key-mood {
+  color: var(--orange);
+  text-shadow: var(--text-glow-orange);
+}
+
+.bank-key-name {
+  color: var(--text-dim);
+}
+
+/* Wide melodic layouts (a scale per row) get taller pads so labels fit. */
+.pad-grid-cells.dense {
+  gap: 6px;
+}
+
+.pad-grid-cells.dense .pad {
+  aspect-ratio: 3 / 4;
+}
+
+.pad-label {
+  position: absolute;
+  inset: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.pad-primary {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pad-secondary {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dense .pad-primary {
+  font-size: var(--fs-sm);
+}
+
+.dense .pad-secondary {
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+/* The key's home note/chord: always somewhere safe to start or land. */
+.pad.home {
+  border-color: rgb(var(--orange-rgb) / 0.6);
+  box-shadow: inset 0 0 14px rgb(var(--orange-rgb) / 0.12);
+}
+
+.pad.home .pad-primary {
+  color: var(--orange);
+  text-shadow: var(--text-glow-orange);
+}
+
+.bank-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4) var(--s2);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+}
+
+.bank-empty-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.bank-empty-text strong {
+  color: var(--text);
+}
+
+.bank-empty-choices {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/* Sheets: the current choice, moods, key picker, notes/errors. */
+.choice.on {
+  border-color: var(--cyan);
+  background: rgb(var(--cyan-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px var(--cyan-dim), var(--glow-cyan);
+}
+
+.mood-grid {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+}
+
+.choice.mood {
+  height: 74px;
+  gap: 2px;
+}
+
+.mood-blurb {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.mood-key {
+  font-size: var(--fs-xs);
+  color: var(--orange);
+}
+
+.key-advanced > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.key-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.key-advanced > summary::before {
+  content: '▸ ';
+}
+
+.key-advanced[open] > summary::before {
+  content: '▾ ';
+}
+
+.key-advanced h3 {
+  margin: var(--s3) 0 6px;
+}
+
+.key-notes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.key-notes .chip-btn {
+  justify-content: center;
+}
+
+.key-scales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sheet-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.sheet-error {
+  margin: 0 0 var(--s2);
+  font-size: var(--fs-sm);
+  color: var(--danger);
+}
+
+/* Sequencer bank sections. */
+.sequencer-bank + .sequencer-bank {
+  margin-top: var(--s2);
+}
+
+.sequencer-bank-head {
+  position: sticky;
+  left: calc(-1 * var(--s1));
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: max-content;
+  padding: 2px 0 4px;
+}
+
+.sequencer-bank-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.sequencer-bank:not(.bank-drums) .sequencer-bank-name {
+  color: var(--orange);
+}
+
+.sequencer-bank-toggle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.sequencer-bank-toggle:hover {
+  color: var(--text);
+}
+
+.sequencer-row-label.named .readout {
+  font-size: var(--fs-xs);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
