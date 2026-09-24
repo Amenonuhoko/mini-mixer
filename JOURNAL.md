@@ -1858,3 +1858,42 @@ Phase 1.5 of the blank-canvas plan. Once a user knows *what* to play (banks, moo
 - **Phase 2**: the style pipeline (seeded generator, starter beats, add-a-layer), replacing `LOOP_PRESETS`.
 - **Phase 3**: swing and humanize. The performer's grid snap should apply the same swing once it exists.
 - Possible later: arp gate length (notes currently ring out), and velocity.
+
+---
+
+## 2026-09-24 — Visual direction: from hard TRON neon to a relaxed TRON: Legacy look
+
+### Context
+The user found the corner brackets on the selected pad (the "target lock") out of place. They asked for a more relaxed UI direction and shared a TRON: Legacy still as the target: a dark, hazy corridor; backlit hexagon-mesh panels flanking a soft light shaft; architecture traced by thin ice-blue light lines; characters' suits outlined in the same soft light.
+
+### Decision(s)
+The change is CSS-only, made mostly through the design tokens, so every screen follows.
+- **Palette**:
+  - Electric cyan `0 229 255` becomes a pale ice `140 222 250`.
+  - Orange `255 138 31` becomes a soft amber `255 180 105`.
+  - Text and lines are lower in contrast.
+- **Glows and type**:
+  - Glows are wider and weaker (18 px at about 0.26 alpha, where before they were 10 px at 0.45), and text glows are halved.
+  - Bold weights drop from 700 to 600, and module titles are lighter and more widely spaced.
+  - Radii are larger (sm/md/lg go from 4/7/12 to 6/10/18 px).
+- **Atmosphere**:
+  - The body has a light shaft from above that falls off into haze.
+  - The LightShow background changes from a square grid to a thin **hex mesh** (inline SVG). It is masked to the sides and the middle band, like the corridor panels, and still breathes with `--beat` and `--scene`.
+- **Panels**:
+  - The corner ticks are removed.
+  - Each panel gets a light line along its edge, drawn by `.module::before` with a mask-composite border. It is brightest across the top and fades down the sides.
+  - Panel backgrounds are dark glass.
+  - The transport strip and tab bar end in light strips that fade out at both ends (`border-image`).
+- **Pads**:
+  - Pads are dark glass tiles with a thin edge light and a top highlight.
+  - **The selected pad's corner brackets are gone.** Its edge brightens and softly blooms instead; a selected home pad does the same in amber.
+  - The hit glow and hit flash are softer.
+
+### Alternatives considered
+- **Reading "corners rounding the pads" as the pads' rounded corners** and squaring them off. Rejected: the bracket marks at the corners are what clashed with a calm look. Legacy's architecture is soft-cornered, so radii grew rather than shrank.
+- **`backdrop-filter` blur on panels** for a frosted-haze effect. Rejected on performance grounds: the light field animates every frame, and blurring over it would force a re-blur each frame on phones.
+- **A dedicated display font** for the Legacy title-card look. Deferred: lighter weights and wider tracking on the existing mono labels got most of the way without another font download.
+
+### Outcome
+- Screenshots at 390×844 and 1280×800 show the calmer panels, the soft edge lights, and the selected pad without brackets.
+- `vite build` is clean; no logic changed.
