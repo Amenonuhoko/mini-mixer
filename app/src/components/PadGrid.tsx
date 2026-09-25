@@ -19,6 +19,8 @@ import { RecordDotIcon } from './icons'
 import { PadModeSwitch } from './PadModeSwitch'
 import { PadPlaybackModeButton } from './PadPlaybackModeButton'
 import { PerformPanel } from './PerformPanel'
+import { RecordButton, RecordSourceToggle } from './RecordButton'
+import type { PendingRecording } from './RecordingReview'
 import { StaticWaveform } from './Waveform'
 
 /** What a pad's face shows beyond its sample: a note/chord label for melodic pads, a drum glyph for kit pads. */
@@ -55,12 +57,15 @@ const QUICK_SOUNDS: Record<Exclude<BankKind, 'drums'>, string[]> = {
 interface PadGridProps {
   selectedPadId: string | null
   onSelectPad: (padId: string) => void
+  /** A new recording (mic or live mix) ready to review. */
+  onRecorded: (recording: PendingRecording) => void
 }
 
 /**
  * The pad module, top to bottom: bank tabs (Drums · Bass · Chords · Melody);
  * one setup row — the bank's sound (its sheet also sets how many pads the
- * bank shows) and the project's mood/key; the grid; and, pinned to the bottom of the screen while
+ * bank shows), the project's mood/key, and hold-to-record with its mic / live
+ * mix switch; the grid; and, pinned to the bottom of the screen while
  * the grid scrolls, how the pads respond — Play / Loop / Mix, then gate or
  * one-shot, Perform (repeat, arp, strum) and step record; in Mix those give
  * way to the whole bank's effects, since the pads are faders there. Mix is
@@ -71,7 +76,7 @@ interface PadGridProps {
  * dim, glows with its own audio level, flares on each hit (see LightShow),
  * and breathes with the beat while looping.
  */
-export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
+export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps) {
   const { state, dispatch } = useAppState()
   const { goToEditPad, goToBankEffects } = useNavigation()
   const engine = useEngine()
@@ -131,6 +136,10 @@ export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
           <span className="bank-key-mood">{moodLabel}</span>
           <span className="bank-key-name readout">{keyShortName(state.key)}</span>
         </button>
+        <div className="bank-record" role="group" aria-label="Record a sound">
+          <RecordButton sampleCount={Object.keys(state.samples).length} onRecorded={onRecorded} compact />
+          <RecordSourceToggle />
+        </div>
       </div>
       {melodic && visiblePads.length === 0 ? (
         <EmptyBank bank={bank} kind={bank.kind as Exclude<BankKind, 'drums'>} onMore={() => setSheet('sound')} />

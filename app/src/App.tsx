@@ -58,14 +58,14 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
       return (
         <div className="landscape-stack">
           <Sequencer onBounced={onBounced} />
-          <PadsPage />
+          <PadsPage onRecorded={onBounced} />
         </div>
       )
     }
     if (isWide) {
       return (
         <div className="wide-split">
-          <PadsPage />
+          <PadsPage onRecorded={onBounced} />
           <Sequencer onBounced={onBounced} />
         </div>
       )
@@ -74,7 +74,7 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
 
   switch (page) {
     case 'pads':
-      return <PadsPage />
+      return <PadsPage onRecorded={onBounced} />
     case 'sequencer':
       return <Sequencer onBounced={onBounced} />
     case 'song':
@@ -176,11 +176,7 @@ function Shell() {
       <div className="bottom-stack" ref={bottomRef}>
         {stylesOpen && <StyleDock />}
         <div className="bottom-row">
-          <TabBar
-            combinedView={combinedView}
-            sampleCount={Object.keys(state.samples).length}
-            onRecorded={setPendingRecording}
-          />
+          <TabBar combinedView={combinedView} />
         </div>
       </div>
       {editingPadId !== null && <PadEditOverlay onClose={goBackFromEdit} />}

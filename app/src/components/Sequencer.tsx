@@ -321,7 +321,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
         <select
           className="sequencer-pattern-select"
           value={pattern.id}
-          onChange={(event) => dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: event.target.value })}
+          onChange={(event) => {
+            // Picking a pattern by hand means "play this pattern" — leave any song or section playback.
+            if (state.transport.playMode === 'song') {
+              engine.setSequencerPlaybackEnabled(false)
+              engine.stopAllSounds()
+              dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+              dispatch({ type: 'SET_PLAY_MODE', mode: 'pattern' })
+            }
+            dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: event.target.value })
+          }}
           aria-label="Pattern in the grid"
         >
           {state.patterns.map((item) => (

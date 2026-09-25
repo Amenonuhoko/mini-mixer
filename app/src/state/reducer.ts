@@ -135,6 +135,14 @@ export type Action =
 const CHARACTER_IDS = ['filter', 'grit', 'echo', 'reverb'] as const
 const NEUTRAL_CHARACTER: CharacterPreset = { filter: 0, grit: 0, echo: 0, reverb: 0 }
 
+/** "Verse" → "Verse 2", "Verse 2" → "Verse 3" — the next number not already taken by `names`. */
+export function nextNumberedName(name: string, names: string[]): string {
+  const base = name.replace(/\s+\d+$/, '').trim() || name
+  const pattern = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+(\\d+))?$`, 'i')
+  const taken = names.map((item) => pattern.exec(item.trim())).filter((match) => match !== null).map((match) => Number(match[1] ?? 1))
+  return `${base} ${Math.max(1, ...taken) + 1}`
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -1062,11 +1070,19 @@ export function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'DUPLICATE_SONG_SECTION': {
+      // A copy is its own part: "Verse" → "Verse 2" (then 3…), with its own
+      // identical pattern of the same name, so editing one never changes the other.
       const index = state.songSections.findIndex((section) => section.id === action.sectionId)
-      if (index < 0) return state
+      const original = state.songSections[index]
+      if (!original) return state
+      const name = nextNumberedName(original.name || 'Section', state.songSections.map((section) => section.name))
+      const source = state.patterns.find((pattern) => pattern.id === original.patternId)
+      const pattern: Pattern | null = source
+        ? { ...source, id: createId('pattern'), name, steps: Object.fromEntries(Object.entries(source.steps).map(([id, row]) => [id, [...row]])) }
+        : null
       const songSections = [...state.songSections]
-      songSections.splice(index + 1, 0, { ...songSections[index]!, id: createId('section') })
-      return { ...state, songSections }
+      songSections.splice(index + 1, 0, { ...original, id: createId('section'), name, patternId: pattern?.id ?? original.patternId })
+      return { ...state, songSections, patterns: pattern ? [...state.patterns, pattern] : state.patterns }
     }
 
     case 'MOVE_SONG_SECTION': {

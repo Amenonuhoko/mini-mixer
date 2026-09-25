@@ -79,7 +79,7 @@ export function Library() {
           <span className="module-sub readout">{String(samples.length).padStart(2, '0')}</span>
         </header>
         {samples.length === 0 ? (
-          <p className="empty-state">Nothing here yet — hold Record to capture your first sound.</p>
+          <p className="empty-state">Nothing here yet — hold the mic button on the Pads page to capture your first sound.</p>
         ) : (
           <div className="library-grid">
             {samples.map((sample, index) => {

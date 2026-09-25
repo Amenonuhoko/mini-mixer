@@ -6,13 +6,15 @@ import { BeatStarter } from './BeatStarter'
 import { useIsWideScreen } from '../hooks/useIsWideScreen'
 import { useIsLandscapeLayout } from '../hooks/useIsLandscapeLayout'
 import { PadGrid } from './PadGrid'
+import type { PendingRecording } from './RecordingReview'
 
 /**
  * Home page: the pad module. Tapping a pad selects it (and plays it) — the
  * same selection the Sequencer shows. A pad's level, sound, trim and effects
- * are all in Mix (see PadGrid and PadEditOverlay).
+ * are all in Mix (see PadGrid and PadEditOverlay); recording a new sound
+ * is here too, beside the bank's sound.
  */
-export function PadsPage() {
+export function PadsPage({ onRecorded }: { onRecorded: (recording: PendingRecording) => void }) {
   const { state } = useAppState()
   const { selectedPadId, selectPad } = useNavigation()
   const isWide = useIsWideScreen()
@@ -34,7 +36,7 @@ export function PadsPage() {
   return (
     <div className="page pads-page">
       {!isWide && !isLandscape && <BeatStarter key={state.activePatternId} />}
-      <PadGrid selectedPadId={selectedPadId} onSelectPad={selectPad} />
+      <PadGrid selectedPadId={selectedPadId} onSelectPad={selectPad} onRecorded={onRecorded} />
     </div>
   )
 }

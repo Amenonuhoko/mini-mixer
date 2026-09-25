@@ -1,4 +1,3 @@
-import { VariationPanel } from './VariationPanel'
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
@@ -10,15 +9,18 @@ import { computePeaks } from '../utils/waveform'
 import { SONG_TEMPLATES } from '../engine/songTemplates'
 import { BANK_NAMES } from '../state/banks'
 import { ConfirmDialog } from './ConfirmDialog'
+import { Stepper } from './Stepper'
+import { TransitionSheet } from './TransitionSheet'
 import type { PendingRecording } from './RecordingReview'
 
 /**
  * The Song page: a small, ordered arrangement where each section points to
- * one editable pattern. Top to bottom: what Play plays (pattern or song) and
- * a whole-song preview; the sections — each with its pattern, repeats, its
- * own mix (which banks play, and how loud) and Edit, which opens its pattern
- * in the sequencer looping that section; adding sections and rendering the
- * song; and ready-made structures to start from.
+ * one editable pattern. Top to bottom: a whole-song preview and the ready-made
+ * structures; then the sections — each with its name and ↑ ↓ on top, its
+ * pattern and repeats, its own mix (which banks play, how loud, and its
+ * ending / transition into the next section), Edit this (its pattern in Seq,
+ * looping), Play from here, Duplicate (a numbered copy with its own identical
+ * pattern) and Remove; then adding sections and rendering the song.
  */
 export function SongArranger({ onBounced }: { onBounced: (recording: PendingRecording) => void }) {
   const { state, dispatch } = useAppState()
@@ -33,6 +35,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
   const [bounceError, setBounceError] = useState('')
   const [showStructures, setShowStructures] = useState(state.songSections.length <= 1)
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
+  const [transitionFromId, setTransitionFromId] = useState<string | null>(null)
   const songHasSteps = timeline.some(({ pattern }) =>
     Object.values(pattern.steps).some((row) => row.some(Boolean)),
   )
@@ -73,16 +76,6 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
     } finally {
       setExporting(false)
     }
-  }
-
-  const chooseMode = (mode: 'pattern' | 'song') => {
-    if (mode === state.transport.playMode || (mode === 'song' && totalSteps === 0)) return
-    if (state.transport.isPlaying) {
-      engine.setSequencerPlaybackEnabled(false)
-      engine.stopAllSounds()
-      dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
-    }
-    dispatch({ type: 'SET_PLAY_MODE', mode })
   }
 
   const applyTemplate = (templateId: string) => {
@@ -145,20 +138,6 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
         <span className="module-sub">
           {state.songSections.length} sections · {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, '0')}
         </span>
-        <div className="module-head-tools song-mode" role="group" aria-label="Playback scope">
-          <button type="button" className={songMode ? 'chip-btn' : 'chip-btn on'} onClick={() => chooseMode('pattern')} aria-pressed={!songMode}>
-            Pattern
-          </button>
-          <button
-            type="button"
-            className={songMode ? 'chip-btn on' : 'chip-btn'}
-            onClick={() => chooseMode('song')}
-            disabled={totalSteps === 0}
-            aria-pressed={songMode}
-          >
-            Whole song
-          </button>
-        </div>
       </header>
       <div className="song-editor">
         <p className="song-hint">1. Choose a structure. 2. Make a starting beat in any section. 3. Create related parts, then edit each section while it loops.</p>
@@ -173,16 +152,14 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           >
             ▶ Play whole song
           </button>
-          <span>Edit opens a section's pattern in Seq, looping it. ▶ From here checks a transition.</span>
+          <span>Edit this opens a section's pattern in Seq, looping it. ▶ Play from here plays on to the end — stop whenever you like.</span>
         </div>
-        <VariationPanel song />
         <ol className="song-sections">
           {state.songSections.map((section, index) => {
             const linkedPattern = state.patterns.find((pattern) => pattern.id === section.patternId)
             const programmedBanks = state.banks
               .filter((bank) => bank.padIds.some((padId) => linkedPattern?.steps[padId]?.some(Boolean)))
               .map((bank) => bank.kind)
-            const soundingBanks = programmedBanks.filter((kind) => !section.excludedBanks?.includes(kind))
             const spanIndex = timeline.findIndex((span) => span.section.id === section.id)
             const restHasSteps = timeline
               .slice(spanIndex)
@@ -192,40 +169,63 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
             const linkedCount = state.songSections.filter((item) => item.patternId === section.patternId).length
             return (
               <li key={section.id} className={playing ? 'song-section playing' : 'song-section'}>
-                <span className="song-section-number">{index + 1}</span>
-                <input
-                  className="song-section-name"
-                  aria-label={`Section ${index + 1} name`}
-                  value={section.name}
-                  onChange={(event) => dispatch({ type: 'UPDATE_SONG_SECTION', sectionId: section.id, name: event.target.value })}
-                  maxLength={40}
-                />
-                <select
-                  aria-label={`${name} pattern`}
-                  value={section.patternId}
-                  onChange={(event) => {
-                    dispatch({ type: 'UPDATE_SONG_SECTION', sectionId: section.id, patternId: event.target.value })
-                    dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: event.target.value })
-                  }}
-                >
-                  {state.patterns.map((pattern) => (
-                    <option key={pattern.id} value={pattern.id}>
-                      {pattern.name}
-                    </option>
-                  ))}
-                </select>
-                <label className="song-repeats">
-                  ×{' '}
+                <div className="song-section-top">
+                  <span className="song-section-number">{index + 1}</span>
                   <input
-                    type="number"
-                    min={1}
-                    max={32}
-                    value={section.repeats}
-                    aria-label={`${name} repeats`}
-                    onChange={(event) => dispatch({ type: 'UPDATE_SONG_SECTION', sectionId: section.id, repeats: Number(event.target.value) })}
+                    className="song-section-name"
+                    aria-label={`Section ${index + 1} name`}
+                    value={section.name}
+                    onChange={(event) => dispatch({ type: 'UPDATE_SONG_SECTION', sectionId: section.id, name: event.target.value })}
+                    maxLength={40}
                   />
-                </label>
-                {/* This section's own mix: which banks play in it, and how loud. The pattern's steps stay as they are. */}
+                  <div className="song-section-order" role="group" aria-label={`Move ${name}`}>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => dispatch({ type: 'MOVE_SONG_SECTION', sectionId: section.id, direction: -1 })}
+                      disabled={index === 0}
+                      aria-label={`Move ${name} earlier`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => dispatch({ type: 'MOVE_SONG_SECTION', sectionId: section.id, direction: 1 })}
+                      disabled={index === state.songSections.length - 1}
+                      aria-label={`Move ${name} later`}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </div>
+                <div className="song-section-setup">
+                  <select
+                    aria-label={`${name} pattern`}
+                    value={section.patternId}
+                    onChange={(event) => {
+                      dispatch({ type: 'UPDATE_SONG_SECTION', sectionId: section.id, patternId: event.target.value })
+                      dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: event.target.value })
+                    }}
+                  >
+                    {state.patterns.map((pattern) => (
+                      <option key={pattern.id} value={pattern.id}>
+                        {pattern.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Stepper
+                    label={`${name} repeats`}
+                    value={`×${section.repeats}`}
+                    onDecrement={() => dispatch({ type: 'UPDATE_SONG_SECTION', sectionId: section.id, repeats: section.repeats - 1 })}
+                    onIncrement={() => dispatch({ type: 'UPDATE_SONG_SECTION', sectionId: section.id, repeats: section.repeats + 1 })}
+                    decrementDisabled={section.repeats <= 1}
+                    incrementDisabled={section.repeats >= 32}
+                    decrementTitle={`Play ${name} one time fewer`}
+                    incrementTitle={`Play ${name} one more time`}
+                  />
+                </div>
+                {/* This section's own mix: which banks play in it, and how loud — and how it leads into the next section. */}
                 <div className="song-section-mix" role="group" aria-label={`${name} mix`}>
                   {programmedBanks.length === 0 && <span className="song-section-summary">Empty pattern — edit to add sounds</span>}
                   {programmedBanks.map((kind) => {
@@ -260,63 +260,41 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                       </div>
                     )
                   })}
+                  <button
+                    type="button"
+                    className="chip-btn song-transition"
+                    onClick={() => setTransitionFromId(section.id)}
+                    aria-label={`Ending and transition out of ${name}`}
+                  >
+                    Ending / transition →
+                  </button>
                 </div>
                 <p className="song-section-summary song-link-note">{linkedCount > 1 ? 'Shared by ' + linkedCount + ' sections — editing updates all of them.' : 'Independent pattern — edits affect only this section.'}</p>
                 <div className="song-section-actions">
-                  <button type="button" className="chip-btn" disabled={!programmedBanks.length} onClick={() => {
-                    engine.getContext(); engine.setSequencerPlaybackEnabled(false); engine.stopAllSounds()
-                    dispatch({ type: 'EDIT_SECTION_ENDING', sectionId: section.id }); goToSequencer()
-                  }} title="Separate the final repeat so a fill or pause happens only at the end">Edit ending / transition</button>
-                  {linkedCount > 1 && <button type="button" className="chip-btn" onClick={() => dispatch({ type: 'MAKE_SECTION_UNIQUE', sectionId: section.id })}>Make this section unique</button>}
                   <button
                     type="button"
                     className="chip-btn on"
                     onClick={() => editSection(section.id, section.patternId)}
                     aria-label={`Edit ${name} pattern in sequencer and loop this section`}
                   >
-                    Edit {name}
-                  </button>
-                  <button
-                    type="button"
-                    className="chip-btn"
-                    onClick={() => audition(section.id, 'section')}
-                    disabled={!soundingBanks.length}
-                    aria-label={`Hear ${name} section`}
-                  >
-                    ▶ Hear
+                    Edit this
                   </button>
                   <button
                     type="button"
                     className="chip-btn"
                     onClick={() => audition(section.id, 'rest')}
                     disabled={!restHasSteps}
-                    aria-label={`Hear song from ${name}`}
+                    aria-label={`Play song from ${name}`}
                   >
-                    ▶ From here
+                    ▶ Play from here
                   </button>
-                  <button
-                    type="button"
-                    className="chip-btn"
-                    onClick={() => dispatch({ type: 'MOVE_SONG_SECTION', sectionId: section.id, direction: -1 })}
-                    disabled={index === 0}
-                    aria-label={`Move ${name} earlier`}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="chip-btn"
-                    onClick={() => dispatch({ type: 'MOVE_SONG_SECTION', sectionId: section.id, direction: 1 })}
-                    disabled={index === state.songSections.length - 1}
-                    aria-label={`Move ${name} later`}
-                  >
-                    ↓
-                  </button>
+                  {linkedCount > 1 && <button type="button" className="chip-btn" onClick={() => dispatch({ type: 'MAKE_SECTION_UNIQUE', sectionId: section.id })}>Make this section unique</button>}
                   <button
                     type="button"
                     className="chip-btn"
                     onClick={() => dispatch({ type: 'DUPLICATE_SONG_SECTION', sectionId: section.id })}
                     aria-label={`Duplicate ${name}`}
+                    title={`Add a copy after this one, with its own identical pattern`}
                   >
                     Duplicate
                   </button>
@@ -360,6 +338,9 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           <p className="song-error" role="alert">
             {bounceError}
           </p>
+        )}
+        {transitionFromId && (
+          <TransitionSheet sectionId={transitionFromId} onClose={() => setTransitionFromId(null)} />
         )}
         {pendingTemplateId && (
           <ConfirmDialog

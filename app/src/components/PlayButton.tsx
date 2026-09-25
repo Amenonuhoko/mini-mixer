@@ -4,8 +4,8 @@ import { playScope } from '../utils/playScope'
 import { PlayIcon, StopIcon } from './icons'
 
 /**
- * Play / stop, at the left end of the bottom bar — the button pressed most,
- * so it sits under the thumb rather than in the top corner.
+ * Play / stop, raised in the middle of the bottom bar — the button pressed
+ * most, so it sits right under the thumb.
  */
 export function PlayButton() {
   const { state, dispatch } = useAppState()
@@ -28,13 +28,13 @@ export function PlayButton() {
   return (
     <button
       type="button"
-      className={isPlaying ? 'tab tab-play on' : 'tab tab-play'}
+      className={isPlaying ? 'play-btn on' : 'play-btn'}
       onClick={togglePlayback}
       aria-label={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
       title={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
     >
-      {isPlaying ? <StopIcon size={20} /> : <PlayIcon size={20} />}
-      <span className="tab-label">{isPlaying ? 'Stop' : 'Play'}</span>
+      {isPlaying ? <StopIcon size={24} /> : <PlayIcon size={24} />}
+      <span className="play-btn-caption">{isPlaying ? 'STOP' : 'PLAY'}</span>
     </button>
   )
 }
