@@ -4,7 +4,7 @@
 - [x] Guided structures, linked-pattern explanation, make unique, clear editing context.
 - [x] Variations with locked banks, Keep/Undo, related verse/chorus patterns and transitions.
 - [x] Focused tests, build and browser checks.
-- [ ] Push final checkpoint to preview.
+- [x] Push final checkpoint to preview (8812706).
 
 Reuse current instruments and sample IDs. Preserve existing preview layout and mobile audio fixes. Commit each checkpoint so work can resume safely.
 
