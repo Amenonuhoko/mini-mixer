@@ -81,3 +81,32 @@ describe('musical variations', () => {
     expect(undone.songSections).toEqual(original.songSections)
   })
 })
+
+
+it('remembers locks across navigation and audition undo', () => {
+  let state = fixture()
+  state = reducer(state, { type: 'SET_VARIATION_LOCKS', locked: ['bass', 'chords'] })
+  state = reducer(state, { type: 'PREVIEW_VARIATION', kind: 'busier', locked: ['bass', 'chords'], seed: 5 })
+  state = reducer(state, { type: 'SET_VARIATION_LOCKS', locked: ['bass'] })
+  state = reducer(state, { type: 'UNDO_VARIATION' })
+  expect(state.patterns[0]!.variationLocks).toEqual(['bass'])
+})
+
+it('creates evolving repeats and last-repeat transitions without extending the song', () => {
+  let state = fixture()
+  state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Verse', 'Chorus', 'Verse', 'Chorus'] })
+  const length = state.songSections.reduce((sum, section) => sum + state.patterns.find((p) => p.id === section.patternId)!.stepCount * section.repeats, 0)
+  const next = reducer(state, { type: 'PREVIEW_RELATED_SONG', locked: ['bass'], evolve: true, transition: 'pause', seed: 42 })
+  expect(next.songSections.filter((section) => section.name.endsWith('ending'))).toHaveLength(3)
+  expect(new Set(next.songSections.filter((section) => section.name === 'Verse').map((section) => section.patternId)).size).toBe(2)
+  expect(next.songSections.reduce((sum, section) => sum + next.patterns.find((p) => p.id === section.patternId)!.stepCount * section.repeats, 0)).toBe(length)
+  const bass = state.banks.find((bank) => bank.kind === 'bass')!
+  for (const pattern of next.patterns.slice(state.patterns.length)) for (const id of bass.padIds) expect(pattern.steps[id]).toEqual(state.patterns[0]!.steps[id])
+})
+
+it('manual new takes offer more than two outcomes without changing sample identity', () => {
+  const state = fixture(), source = state.patterns[0]!
+  const results = Array.from({ length: 8 }, (_, seed) => varyPattern(state, source, 'new-take', ['chords'], seed))
+  expect(new Set(results.map((pattern) => JSON.stringify(pattern.steps))).size).toBeGreaterThan(4)
+  for (const pattern of results) expect(count(pattern.steps)).toBe(count(source.steps))
+})

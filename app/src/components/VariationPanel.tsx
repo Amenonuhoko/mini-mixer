@@ -1,3 +1,4 @@
+import { newSeed } from '../styles/random'
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
@@ -10,21 +11,22 @@ export function VariationPanel({ song = false }: { song?: boolean }) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { hearBeat, busy } = useGroove()
-  const [locked, setLocked] = useState<BankKind[]>([])
-  const [seed, setSeed] = useState(0)
+  const [evolve, setEvolve] = useState(false)
+  const [transition, setTransition] = useState<'none' | 'fill' | 'pause' | 'bass-drop'>('none')
   const [notice, setNotice] = useState('')
   const pattern = state.patterns.find((item) => item.id === state.activePatternId)
+  const locked = pattern?.variationLocks ?? []
+  const setLocked = (items: BankKind[]) => dispatch({ type: 'SET_VARIATION_LOCKS', locked: items })
   const hasNotes = !!pattern && Object.values(pattern.steps).some((row) => row.some(Boolean))
   const change = (kind: VariationKind) => {
     if (!pattern) return
-    const nextSeed = seed + 1
+    const nextSeed = newSeed()
     const proposed = varyPattern(state, pattern, kind, locked, nextSeed)
     if (JSON.stringify(proposed.steps) === JSON.stringify(pattern.steps)) {
       setNotice('No change available with these notes and locks. For a drum fill or crash, use a kit with those sounds.')
       return
     }
     setNotice('')
-    setSeed(nextSeed)
     dispatch({ type: 'PREVIEW_VARIATION', kind, locked, seed: nextSeed })
     hearBeat()
   }
@@ -35,15 +37,21 @@ export function VariationPanel({ song = false }: { song?: boolean }) {
       {state.patterns.map((item) => <option key={item.id} value={item.id}>{item.name}{Object.values(item.steps).some((row) => row.some(Boolean)) ? '' : ' (empty)'}</option>)}
     </select></label>}
     <div className="beat-options" role="group" aria-label="Lock parts during variation">
-      {BANK_KINDS.map((kind) => <label key={kind}><input type="checkbox" checked={locked.includes(kind)} onChange={() => setLocked((items) => items.includes(kind) ? items.filter((item) => item !== kind) : [...items, kind])} />Lock {BANK_NAMES[kind]}</label>)}
+      {BANK_KINDS.map((kind) => <label key={kind}><input type="checkbox" checked={locked.includes(kind)} onChange={() => setLocked(locked.includes(kind) ? locked.filter((item) => item !== kind) : [...locked, kind])} />Lock {BANK_NAMES[kind]}</label>)}
     </div>
     {song ? <>
-      <p className="muted">Create quieter verses and breakdowns, fuller choruses and drops from this beat. Repeated section names share a pattern. Existing patterns stay saved; the arrangement will use the new versions.</p>
-      <button type="button" className="btn btn-primary" disabled={!hasNotes || !state.songSections.length || busy !== null || !!state.variationPreview} onClick={() => {
+      <div className="beat-options">
+        <label><input type="checkbox" checked={evolve} onChange={(event) => setEvolve(event.target.checked)} />Evolve repeated sections</label>
+        <label>Transitions <select value={transition} onChange={(event) => setTransition(event.target.value as typeof transition)}>
+          <option value="none">None</option><option value="fill">Drum fills</option><option value="pause">Short pauses</option><option value="bass-drop">Bass dropouts</option>
+        </select></label>
+      </div>
+      <p className="muted">Create quieter verses and breakdowns, fuller choruses and drops from this beat. Repeated names share a pattern unless Evolve is on. Transitions affect only the final repeat. Existing patterns stay saved; the arrangement will use the new versions.</p>
+      <button type="button" className="btn btn-primary" disabled={!hasNotes || !state.songSections.length || busy !== null || !!state.variationPreview || locked.length === 4} onClick={() => {
         engine.getContext()
         engine.setSequencerPlaybackEnabled(false)
         engine.stopAllSounds()
-        dispatch({ type: 'PREVIEW_RELATED_SONG', locked })
+        dispatch({ type: 'PREVIEW_RELATED_SONG', locked, evolve, seed: newSeed(), ...(transition !== 'none' ? { transition } : {}) })
         const first = state.songSections[0]
         if (first) dispatch({ type: 'AUDITION_SONG_SECTION', sectionId: first.id, scope: 'rest' })
       }}>Create related parts & hear song</button>

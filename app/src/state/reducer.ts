@@ -1,4 +1,4 @@
-import { varyPattern, sectionEnergy, type VariationKind } from '../styles/variations'
+import { varyPattern, developSection, type VariationKind } from '../styles/variations'
 import { tonicMidi } from '../music/theory'
 import {
   BPM_MIN,
@@ -40,7 +40,8 @@ import type {
 
 export type Action =
   | { type: 'PREVIEW_VARIATION'; kind: VariationKind; locked: BankKind[]; seed: number }
-  | { type: 'PREVIEW_RELATED_SONG'; locked: BankKind[] }
+  | { type: 'SET_VARIATION_LOCKS'; locked: BankKind[] }
+  | { type: 'PREVIEW_RELATED_SONG'; locked: BankKind[]; evolve?: boolean; transition?: 'fill' | 'pause' | 'bass-drop'; seed?: number }
   | { type: 'KEEP_VARIATION' }
   | { type: 'UNDO_VARIATION' }
 
@@ -371,7 +372,7 @@ function applyBankBuild(
 export function reducer(state: AppState, action: Action): AppState {
   // Audition/navigation may continue. A subsequent musical edit accepts the draft,
   // so Undo can never silently discard newer notes, sound assignments or deleted samples.
-  const auditionActions = ['PREVIEW_VARIATION', 'PREVIEW_RELATED_SONG', 'KEEP_VARIATION', 'UNDO_VARIATION', 'SET_ACTIVE_PATTERN', 'SET_ACTIVE_BANK', 'SET_PLAY_MODE', 'AUDITION_SONG_SECTION', 'SET_CURRENT_SONG_SECTION', 'SET_TRANSPORT_PLAYING', 'SET_LOOP_MODE', 'SET_METRONOME_ENABLED', 'SET_CURRENT_STEP']
+  const auditionActions = ['PREVIEW_VARIATION', 'PREVIEW_RELATED_SONG', 'SET_VARIATION_LOCKS', 'KEEP_VARIATION', 'UNDO_VARIATION', 'SET_ACTIVE_PATTERN', 'SET_ACTIVE_BANK', 'SET_PLAY_MODE', 'AUDITION_SONG_SECTION', 'SET_CURRENT_SONG_SECTION', 'SET_TRANSPORT_PLAYING', 'SET_LOOP_MODE', 'SET_METRONOME_ENABLED', 'SET_CURRENT_STEP']
   if (state.variationPreview && !auditionActions.includes(action.type)) state = { ...state, variationPreview: undefined }
 
   switch (action.type) {
@@ -978,6 +979,12 @@ export function reducer(state: AppState, action: Action): AppState {
         }),
       }
 
+    case 'SET_VARIATION_LOCKS': {
+      const patterns = state.patterns.map((pattern) => pattern.id === state.activePatternId ? { ...pattern, variationLocks: action.locked } : pattern)
+      // Locks are editing preferences, so they persist through Undo as well.
+      const before = state.variationPreview
+      return { ...state, patterns, ...(before ? { variationPreview: { ...before, patterns: before.patterns.map((pattern) => pattern.id === state.activePatternId ? { ...pattern, variationLocks: action.locked } : pattern) } } : {}) }
+    }
     case 'KEEP_VARIATION':
       return { ...state, variationPreview: undefined }
     case 'UNDO_VARIATION': {
@@ -1002,17 +1009,28 @@ export function reducer(state: AppState, action: Action): AppState {
       if (!source || !Object.values(source.steps).some((row) => row.some(Boolean))) return state
       const patterns = [...state.patterns]
       const byName = new Map<string, string>()
-      const songSections = state.songSections.map((section) => {
-        const key = section.name.toLowerCase()
+      const songSections = state.songSections.flatMap((section, index) => {
+        const key = section.name.toLowerCase() + (action.evolve ? index : '')
         let id = byName.get(key)
         if (!id) {
           id = createId('pattern')
-          const pattern = varyPattern(state, source, sectionEnergy(section.name), action.locked)
+          const pattern = developSection(state, source, section.name, action.locked, (action.seed ?? 0) + index)
           const versions = patterns.filter((item) => item.name.startsWith(section.name + ' · variation ')).length
           patterns.push({ ...pattern, id, name: section.name + ' · variation ' + (versions + 1), traceSteps: null, traceSource: null })
           byName.set(key, id)
         }
-        return { ...section, patternId: id }
+        const main = { ...section, patternId: id }
+        if (action.transition && index < state.songSections.length - 1) {
+          const pattern = patterns.find((item) => item.id === id)!
+          const ending = varyPattern(state, pattern, action.transition, action.locked, (action.seed ?? 0) + index)
+          if (JSON.stringify(ending.steps) !== JSON.stringify(pattern.steps)) {
+            const endingId = createId('pattern')
+            patterns.push({ ...ending, id: endingId, name: section.name + ' transition ' + (index + 1) })
+            const last = { ...main, id: createId('section'), name: section.name + ' ending', patternId: endingId, repeats: 1 }
+            return main.repeats > 1 ? [{ ...main, repeats: main.repeats - 1 }, last] : [last]
+          }
+        }
+        return [main]
       })
       const activePatternId = songSections[0]?.patternId ?? source.id
       return { ...state, patterns, songSections, activePatternId,

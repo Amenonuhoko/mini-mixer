@@ -147,6 +147,8 @@ export interface BankBuild {
 }
 
 export interface Pattern {
+  variationLocks?: BankKind[]
+
   /** Generator settings belonging to this pattern, restored when editing another song part. */
   groove?: Groove | null
   id: string
