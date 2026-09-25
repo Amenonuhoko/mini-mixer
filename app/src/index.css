@@ -3116,6 +3116,29 @@ button.list-item:hover .list-wave {
   margin-top: var(--s2);
 }
 
+.pattern-copy-from {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.pattern-copy-from select {
+  flex: 1 1 160px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(4 10 15 / 0.8);
+  color: var(--text);
+  font: inherit;
+}
+
+.pattern-copy-from .btn {
+  flex: 1 1 140px;
+}
+
 .pattern-menu-actions .btn {
   flex: 1 1 140px;
 }

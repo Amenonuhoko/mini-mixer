@@ -122,6 +122,8 @@ export type Action =
   | { type: 'REMOVE_PAD'; padId: string }
   /** One bank's overall volume, 0–100, on top of each pad's own level. */
   | { type: 'SET_BANK_VOLUME'; bankId: string; level: number }
+  /** Replaces a pattern's steps (and length and generator settings) with another pattern's — e.g. the Intro copied into the Verse. */
+  | { type: 'COPY_PATTERN_FROM'; patternId: string; fromId: string }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
@@ -665,6 +667,27 @@ export function reducer(state: AppState, action: Action): AppState {
           ]),
         ),
       }))
+
+    case 'COPY_PATTERN_FROM': {
+      const source = state.patterns.find((pattern) => pattern.id === action.fromId)
+      if (!source || action.fromId === action.patternId || !state.patterns.some((pattern) => pattern.id === action.patternId)) return state
+      const copied = updatePattern(state, action.patternId, (pattern) => ({
+        ...pattern,
+        stepCount: source.stepCount,
+        steps: Object.fromEntries(
+          [...new Set([...Object.keys(pattern.steps), ...Object.keys(source.steps)])].map((padId) => [
+            padId,
+            source.steps[padId] ? [...source.steps[padId]!] : new Array<string | null>(source.stepCount).fill(null),
+          ]),
+        ),
+        groove: source.groove ?? null,
+        traceSteps: null,
+        traceSource: null,
+      }))
+      // The pattern in the grid carries the live generator settings too.
+      const next = action.patternId === state.activePatternId ? { ...copied, groove: source.groove ?? null } : copied
+      return removeUnusedNoteSamples(next)
+    }
 
     case 'CLEAR_PATTERN': {
       const cleared = updatePattern(state, action.patternId, (pattern) => ({
