@@ -101,6 +101,7 @@ export type Action =
   | { type: 'UPDATE_SONG_SECTION'; sectionId: string; name?: string; patternId?: string; repeats?: number }
   | { type: 'SET_SONG_SECTION_BANK_VOLUME'; sectionId: string; bank: BankKind; level: number }
   | { type: 'SET_SONG_SECTION_BANK_INCLUDED'; sectionId: string; bank: BankKind; included: boolean }
+  | { type: 'MAKE_SECTION_UNIQUE'; sectionId: string }
   | { type: 'DUPLICATE_SONG_SECTION'; sectionId: string }
   | { type: 'MOVE_SONG_SECTION'; sectionId: string; direction: -1 | 1 }
   | { type: 'REMOVE_SONG_SECTION'; sectionId: string }
@@ -964,6 +965,17 @@ export function reducer(state: AppState, action: Action): AppState {
           return { ...section, excludedBanks: [...excluded] }
         }),
       }
+
+    case 'MAKE_SECTION_UNIQUE': {
+      const section = state.songSections.find((item) => item.id === action.sectionId)
+      const source = state.patterns.find((item) => item.id === section?.patternId)
+      if (!section || !source) return state
+      const pattern: Pattern = { ...source, id: createId('pattern'), name: section.name + ' (unique)',
+        steps: Object.fromEntries(Object.entries(source.steps).map(([id, row]) => [id, [...row]])) }
+      return { ...state, patterns: [...state.patterns, pattern],
+        songSections: state.songSections.map((item) => item.id === section.id ? { ...item, patternId: pattern.id } : item),
+        activePatternId: pattern.id, groove: pattern.groove ?? null }
+    }
 
     case 'DUPLICATE_SONG_SECTION': {
       const index = state.songSections.findIndex((section) => section.id === action.sectionId)

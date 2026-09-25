@@ -30,6 +30,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
   const [bouncing, setBouncing] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [bounceError, setBounceError] = useState('')
+  const [showStructures, setShowStructures] = useState(state.songSections.length <= 1)
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
   const songHasSteps = timeline.some(({ pattern }) =>
     Object.values(pattern.steps).some((row) => row.some(Boolean)),
@@ -90,6 +91,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
     engine.stopAllSounds()
     dispatch({ type: 'APPLY_SONG_TEMPLATE', sections: template.sections })
     setPendingTemplateId(null)
+    setShowStructures(false)
   }
 
   const audition = (sectionId: string, scope: 'section' | 'rest') => {
@@ -156,6 +158,9 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
         </div>
       </header>
       <div className="song-editor">
+        <p className="song-hint">1. Choose a structure. 2. Make a starting beat in any section. 3. Create related parts, then edit each section while it loops.</p>
+        <button type="button" className="chip-btn" aria-expanded={showStructures} onClick={() => setShowStructures(!showStructures)}>Choose song structure</button>
+        {showStructures && templates}
         <div className="song-preview-bar">
           <button
             type="button"
@@ -163,7 +168,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
             onClick={() => state.songSections[0] && audition(state.songSections[0].id, 'rest')}
             disabled={!songHasSteps}
           >
-            ▶ Hear whole song
+            ▶ Play whole song
           </button>
           <span>Edit opens a section's pattern in Seq, looping it. ▶ From here checks a transition.</span>
         </div>
@@ -180,6 +185,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
               .some((span) => Object.values(span.pattern.steps).some((row) => row.some(Boolean)))
             const playing = songMode && state.transport.isPlaying && state.transport.currentSongSectionId === section.id
             const name = section.name || `Section ${index + 1}`
+            const linkedCount = state.songSections.filter((item) => item.patternId === section.patternId).length
             return (
               <li key={section.id} className={playing ? 'song-section playing' : 'song-section'}>
                 <span className="song-section-number">{index + 1}</span>
@@ -251,14 +257,16 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                     )
                   })}
                 </div>
+                <p className="song-section-summary song-link-note">{linkedCount > 1 ? 'Shared by ' + linkedCount + ' sections — editing updates all of them.' : 'Independent pattern — edits affect only this section.'}</p>
                 <div className="song-section-actions">
+                  {linkedCount > 1 && <button type="button" className="chip-btn" onClick={() => dispatch({ type: 'MAKE_SECTION_UNIQUE', sectionId: section.id })}>Make this section unique</button>}
                   <button
                     type="button"
                     className="chip-btn on"
                     onClick={() => editSection(section.id, section.patternId)}
                     aria-label={`Edit ${name} pattern in sequencer and loop this section`}
                   >
-                    Edit {linkedPattern?.name ?? 'pattern'}
+                    Edit {name}
                   </button>
                   <button
                     type="button"
@@ -267,7 +275,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                     disabled={!soundingBanks.length}
                     aria-label={`Hear ${name} section`}
                   >
-                    ▶ Section
+                    ▶ Hear
                   </button>
                   <button
                     type="button"
@@ -302,7 +310,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                     onClick={() => dispatch({ type: 'DUPLICATE_SONG_SECTION', sectionId: section.id })}
                     aria-label={`Duplicate ${name}`}
                   >
-                    Copy
+                    Duplicate
                   </button>
                   <button
                     type="button"
@@ -345,7 +353,6 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
             {bounceError}
           </p>
         )}
-        {templates}
         {pendingTemplateId && (
           <ConfirmDialog
             message="Replace the current section order with this example? Your patterns and sounds stay saved."

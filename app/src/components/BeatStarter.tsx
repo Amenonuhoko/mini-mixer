@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { bankHasSteps, useGroove } from '../hooks/useGroove'
 import { useAppState } from '../state/AppStateContext'
+import { useNavigation } from '../state/NavigationContext'
 import { useEngine } from '../state/EngineContext'
 import { BANK_KINDS, BANK_NAMES } from '../state/banks'
 import type { BankKind } from '../state/types'
@@ -17,6 +18,7 @@ const LEVELS = [
 export function BeatStarter() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
+  const { goToSong } = useNavigation()
   const { busy, error, startBeat, hearBeat, varyBeat } = useGroove()
   const [styleId, setStyleId] = useState(state.groove?.layers.drums?.styleId ?? 'house')
   const [intensity, setIntensity] = useState(Object.values(state.groove?.layers ?? {})[0]?.intensity ?? 0.5)
@@ -46,6 +48,7 @@ export function BeatStarter() {
   }
   return (
     <section className="module beat-starter" aria-label="Make a beat">
+      {state.transport.auditionScope === 'loop' && state.transport.auditionSectionId && <div className="beat-edit-context"><strong>Editing {state.songSections.find((section) => section.id === state.transport.auditionSectionId)?.name} · section loops</strong><button type="button" className="chip-btn" onClick={goToSong}>Back to song</button></div>}
       <div className="beat-starter-heading">
         <div>
           <h2 className="module-title">Make a beat</h2>

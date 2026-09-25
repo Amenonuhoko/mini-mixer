@@ -761,3 +761,19 @@ it('keeps generator settings with the pattern when switching and copying song pa
   state = reducer(state, { type: 'ADD_PATTERN', copyFromId: first })
   expect(state.groove).toEqual(groove)
 })
+
+
+describe('independent song sections', () => {
+  it('copies the shared pattern while keeping the other sections linked', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Verse', 'Chorus', 'Verse'] })
+    const first = state.songSections[0]!
+    const original = state.patterns.find((pattern) => pattern.id === first.patternId)!
+    const next = reducer(state, { type: 'MAKE_SECTION_UNIQUE', sectionId: first.id })
+    expect(next.songSections[0]!.patternId).not.toBe(original.id)
+    expect(next.songSections[2]!.patternId).toBe(original.id)
+    const copy = next.patterns.find((pattern) => pattern.id === next.songSections[0]!.patternId)!
+    expect(copy.steps).toEqual(original.steps)
+    expect(copy.steps).not.toBe(original.steps)
+  })
+})

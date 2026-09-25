@@ -3628,3 +3628,6 @@ button.list-item:hover .list-wave {
 .style-card-layers { flex-wrap: wrap; }
 .layer-add { min-height: 32px; }
 .layer-strip-controls .chip-btn { white-space: nowrap; }
+
+.song-link-note { grid-column: 2 / -1; margin: 0; }
+.beat-edit-context { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; }
