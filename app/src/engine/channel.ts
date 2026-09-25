@@ -72,6 +72,8 @@ export function createMasterStage(ctx: BaseAudioContext): { input: GainNode; out
   limiter.release.value = 0.12
   const ceiling = ctx.createWaveShaper()
   ceiling.curve = softClipCurve()
+  // 2x is plenty for a curve this smooth (it only bends above 0.7); 4x cost
+  // the audio thread twice as much for no audible difference.
   ceiling.oversample = '2x'
   input.connect(limiter)
   limiter.connect(ceiling)
@@ -92,15 +94,25 @@ const CHANNEL_EFFECTS: EffectId[] = ['filter', 'grit', 'volume', 'echo', 'reverb
  */
 const ROOM_SECONDS = [0.6, 1.4, 3.2]
 
+/** Light rooms: the right side hears the mono room this much later, which reads as width. */
+const LIGHT_WIDTH_SECONDS = 0.013
+
 export class ReverbRooms {
   private readonly ctx: BaseAudioContext
   private readonly destination: AudioNode
+  private readonly light: boolean
   private readonly inputs: Array<GainNode | null> = ROOM_SECONDS.map(() => null)
   private readonly nodes: AudioNode[] = []
 
-  constructor(ctx: BaseAudioContext, destination: AudioNode) {
+  /**
+   * `light` (phones): each room convolves one mono channel instead of two —
+   * half the audio-thread cost of the most expensive node in the app — and
+   * gets its stereo width back from a short delay on the right side.
+   */
+  constructor(ctx: BaseAudioContext, destination: AudioNode, options: { light?: boolean } = {}) {
     this.ctx = ctx
     this.destination = destination
+    this.light = options.light ?? false
   }
 
   /** The input of room `index`, building it on first use. */
@@ -109,11 +121,28 @@ export class ReverbRooms {
     if (!input) {
       input = this.ctx.createGain()
       const convolver = this.ctx.createConvolver()
-      convolver.buffer = buildReverbImpulse(this.ctx, ROOM_SECONDS[index]!)
-      input.connect(convolver)
-      convolver.connect(this.destination)
+      if (this.light) {
+        input.channelCount = 1
+        input.channelCountMode = 'explicit'
+        convolver.channelCount = 1
+        convolver.channelCountMode = 'explicit'
+        convolver.buffer = buildReverbImpulse(this.ctx, ROOM_SECONDS[index]!, 1)
+        const right = this.ctx.createDelay(0.05)
+        right.delayTime.value = LIGHT_WIDTH_SECONDS
+        const merger = this.ctx.createChannelMerger(2)
+        input.connect(convolver)
+        convolver.connect(merger, 0, 0)
+        convolver.connect(right)
+        right.connect(merger, 0, 1)
+        merger.connect(this.destination)
+        this.nodes.push(input, convolver, right, merger)
+      } else {
+        convolver.buffer = buildReverbImpulse(this.ctx, ROOM_SECONDS[index]!)
+        input.connect(convolver)
+        convolver.connect(this.destination)
+        this.nodes.push(input, convolver)
+      }
       this.inputs[index] = input
-      this.nodes.push(input, convolver)
     }
     return input
   }
@@ -164,6 +193,8 @@ export class Channel {
   private readonly sends: Array<GainNode | null> = [null, null, null]
   private readonly applied = new Map<EffectId, number>()
   private mixLevel: number | null = null
+  /** The filter is only wired in while it does something — a neutral filter still cost the audio thread on every note. */
+  private filterWired = false
 
   constructor(ctx: BaseAudioContext, destination: AudioNode, rooms: ReverbRooms, meter?: AudioNode) {
     this.ctx = ctx
@@ -175,7 +206,7 @@ export class Channel {
     this.mix = ctx.createGain()
     this.panner = ctx.createStereoPanner()
 
-    this.input.connect(this.filter)
+    this.input.connect(this.shaper)
     this.filter.connect(this.shaper)
     this.shaper.connect(this.volume)
     this.volume.connect(this.mix)
@@ -229,8 +260,20 @@ export class Channel {
     switch (id) {
       case 'filter': {
         const params = dialToFilterParams(value)
+        if (value !== 0 && !this.filterWired) {
+          // Wire it in from a transparent start and glide to the target, so switching it on never clicks.
+          this.filter.type = params.type
+          this.filter.frequency.cancelScheduledValues(0)
+          this.filter.frequency.value = params.type === 'highpass' ? 10 : 20000
+          this.input.disconnect(this.shaper)
+          this.input.connect(this.filter)
+          this.filterWired = true
+          this.setParam(this.filter.frequency, params.frequencyHz, ramp)
+          break
+        }
         this.filter.type = params.type
         this.setParam(this.filter.frequency, params.frequencyHz, ramp)
+        // Switched off: it passes everything now; it's unwired once the pad falls silent (see compact).
         break
       }
       case 'grit': {
@@ -283,6 +326,19 @@ export class Channel {
       case 'pan':
         this.setParam(this.panner.pan, dialToPan(value), ramp)
         break
+    }
+  }
+
+  /**
+   * Called when the pad has no notes left: unwires a filter that's been
+   * switched off. Rewiring while silent can't be heard; rewiring mid-note
+   * could click, so a filter switched off mid-note stays wired until now.
+   */
+  compact(): void {
+    if (this.filterWired && this.applied.get('filter') === 0) {
+      this.input.disconnect(this.filter)
+      this.input.connect(this.shaper)
+      this.filterWired = false
     }
   }
 

@@ -1,8 +1,11 @@
 import { DEFAULT_BPM, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
+import { AUDIO_PROFILE } from './audioProfile'
+import { preferPlaybackSession } from './audioSession'
 import { Channel, createMasterStage, PARAM_RAMP_SECONDS, ReverbRooms, shapeEnvelope } from './channel'
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { Performer } from './performer'
+import { seamlessLoopBuffer } from './loopSeam'
 import { trimToPlaybackWindow } from './trim'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
@@ -22,10 +25,12 @@ function effectiveEffects(pad: Pad): EffectSetting[] {
 
 /** How long a stolen or released note takes to fade out. */
 const RELEASE_SECONDS = 0.015
+/** A loop handing over to its re-trimmed self fades out this fast, matching the new cycle's fade-in. */
+const DECLICK_HANDOVER_SECONDS = 0.004
 /** Most notes one pad may ring at once; the oldest fades out to make room. */
 const MAX_VOICES_PER_PAD = 4
-/** Most notes the whole app may ring at once. */
-const MAX_VOICES = 32
+/** Most notes the whole app may ring at once (fewer on a phone — see AudioProfile). */
+const MAX_VOICES = AUDIO_PROFILE.maxVoices
 
 /** Samples per meter read — ~5ms at 48kHz, short enough to track a drum transient frame to frame. */
 const METER_FFT_SIZE = 256
@@ -55,6 +60,11 @@ interface LiveVoice extends Voice {
   source: AudioBufferSourceNode
   loop: boolean
   readonly released: boolean
+  /** What it was started from — a loop plays a seamless copy (see loopSeam), so a trim change rebuilds from these. */
+  pad: Pad
+  original: AudioBuffer
+  /** When it starts sounding, on the audio clock. */
+  startedAt: number
   /** Fades the note out, from `at` (default: now). */
   release(fadeSeconds?: number, at?: number): void
 }
@@ -153,6 +163,8 @@ export class AudioEngine {
     const next = (this.activeInstanceCounts.get(padId) ?? 1) - 1
     if (next <= 0) {
       this.activeInstanceCounts.delete(padId)
+      // Silent now: the channel can drop any processing it no longer needs.
+      this.channels.get(padId)?.compact()
     } else {
       this.activeInstanceCounts.set(padId, next)
     }
@@ -181,14 +193,27 @@ export class AudioEngine {
 
   getContext(): AudioContext {
     if (!this.ctx) {
-      // A modest buffer helps mobile output survive render/UI bursts. Browsers may ignore the hint.
-      const touchDevice = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
-      this.ctx = new AudioContext({ latencyHint: touchDevice ? 0.04 : 'interactive' })
+      // The output buffer is sized for the device (see AudioProfile): on a
+      // phone, a bigger one is what keeps the audio thread from underrunning.
+      this.ctx = new AudioContext({ latencyHint: AUDIO_PROFILE.latencyHint })
+      preferPlaybackSession()
+      // A phone suspends (or iOS "interrupts") audio when the app is
+      // backgrounded or a call comes in; wake it when the app is back.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') this.wake()
+      })
     }
-    if (this.ctx.state === 'suspended') {
-      void this.ctx.resume()
-    }
+    this.wake()
     return this.ctx
+  }
+
+  /** Resumes a suspended or interrupted context — every note and gesture passes through here. */
+  private wake(): void {
+    const ctx = this.ctx
+    if (!ctx || ctx.state === 'running' || ctx.state === 'closed') return
+    void ctx.resume().catch(() => {
+      // Not allowed without a gesture yet — the next tap resumes it.
+    })
   }
 
   /** Lazily-created hub every playback node connects to instead of ctx.destination directly. */
@@ -396,7 +421,7 @@ export class AudioEngine {
     if (!channel) {
       const ctx = this.getContext()
       const master = this.getMasterBus()
-      this.rooms ??= new ReverbRooms(ctx, master)
+      this.rooms ??= new ReverbRooms(ctx, master, { light: AUDIO_PROFILE.lightReverb })
       channel = new Channel(ctx, master, this.rooms, this.getPadMeter(padId))
       this.channels.set(padId, channel)
     }
@@ -415,8 +440,10 @@ export class AudioEngine {
     const ctx = this.getContext()
     const channel = this.channelFor(pad.id)
     const effects = effectiveEffects(pad)
-    channel.applyEffects(effects, true)
-    channel.setMixLevel(pad.mixLevel, true)
+    // A silent pad takes its settings at once; one that's sounding glides to them so nothing clicks.
+    const sounding = this.activeInstanceCounts.has(pad.id)
+    channel.applyEffects(effects, sounding)
+    channel.setMixLevel(pad.mixLevel, sounding)
 
     // A note scheduled for a moment that has already passed plays now.
     const start = Math.max(options.time ?? ctx.currentTime, ctx.currentTime)
@@ -425,8 +452,10 @@ export class AudioEngine {
 
     this.makeRoom(pad.id, start)
 
+    const window = trimToPlaybackWindow(pad.trimStart, pad.trimEnd, buffer.duration)
     const source = ctx.createBufferSource()
-    source.buffer = buffer
+    // A loop plays one seamless cycle over and over (see loopSeam), so its seam never clicks.
+    source.buffer = loop ? seamlessLoopBuffer(ctx, buffer, window.loopStart, window.loopEnd) : buffer
     source.loop = loop
     const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
     const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (options.cents ?? 0)
@@ -438,22 +467,27 @@ export class AudioEngine {
     source.connect(env)
     env.connect(channel.input)
 
-    const window = trimToPlaybackWindow(pad.trimStart, pad.trimEnd, buffer.duration)
+    // Every one-shot fades out over its last few milliseconds — a recording that
+    // stops mid-waveform would otherwise click at its natural end, not just a trimmed one.
     shapeEnvelope(env.gain, start, level, {
       fadeIn: window.offset > 0.001 || loop,
-      end: !loop ? start + window.duration / (rate * Math.pow(2, detune / 1200)) : null,
+      end: loop ? null : start + window.duration / (rate * Math.pow(2, detune / 1200)),
     })
 
-    let released = false
+    /** When the note's fade-out begins — a later, earlier-reaching release (a Stop) still wins. */
+    let releasedAt: number | null = null
     const voice: LiveVoice = {
       padId: pad.id,
       source,
       loop,
-      get released() { return released },
+      get released() { return releasedAt !== null },
+      pad,
+      original: buffer,
+      startedAt: start,
       release: (fadeSeconds = RELEASE_SECONDS, at = ctx.currentTime) => {
-        if (released) return
-        released = true
         const from = Math.max(at, ctx.currentTime)
+        if (releasedAt !== null && from >= releasedAt) return
+        releasedAt = from
         // Glide down from whatever level the note has reached — works before, during or after its attack.
         if (typeof env.gain.cancelAndHoldAtTime === 'function') env.gain.cancelAndHoldAtTime(from)
         else {
@@ -483,9 +517,7 @@ export class AudioEngine {
     }
 
     if (loop) {
-      source.loopStart = window.loopStart
-      source.loopEnd = window.loopEnd
-      source.start(start, window.offset)
+      source.start(start)
     } else {
       source.start(start, window.offset, window.duration)
     }
@@ -591,17 +623,41 @@ export class AudioEngine {
   }
 
   /**
-   * Live-update the trim window on a pad that's currently looping — `loopStart`/
-   * `loopEnd` are plain settable properties on an already-playing source, so
-   * this takes effect on the loop's next pass with no restart.
+   * Live-update the trim window on a pad that's currently looping. A loop
+   * plays one seamless cycle of its window (see loopSeam), so the new window
+   * is a new cycle: it takes over at the current cycle's next boundary —
+   * the old one fading out as the new one fades in over a few milliseconds —
+   * so the change lands on the loop's next pass with no restart and no
+   * click. Dragging a trim handle calls this repeatedly; a takeover that
+   * hasn't started yet is simply replaced.
    */
   updateLoopingPadTrim(padId: string, trimStart: number, trimEnd: number): void {
     const loop = this.loopingVoices.get(padId)
-    const buffer = loop?.source.buffer
-    if (!loop || !buffer) return
-    const window = trimToPlaybackWindow(trimStart, trimEnd, buffer.duration)
-    loop.source.loopStart = window.loopStart
-    loop.source.loopEnd = window.loopEnd
+    const cycle = loop?.source.buffer
+    if (!loop || !cycle) return
+    const ctx = this.getContext()
+    const now = ctx.currentTime
+    let at: number
+    if (loop.startedAt > now) {
+      // A takeover still waiting for its boundary: replace it at the same moment.
+      at = loop.startedAt
+      loop.source.onended = null
+      try {
+        loop.source.stop()
+      } catch {
+        // Never started — fine.
+      }
+      this.voices = this.voices.filter((item) => item !== loop)
+      this.markEnded(padId)
+    } else {
+      const speed = loop.source.playbackRate.value * Math.pow(2, loop.source.detune.value / 1200)
+      const period = cycle.duration / speed
+      // At least a few ms ahead, so the takeover is always scheduled in the future.
+      at = loop.startedAt + Math.max(1, Math.ceil((now + 0.02 - loop.startedAt) / period)) * period
+      loop.release(DECLICK_HANDOVER_SECONDS, at)
+    }
+    const pad = { ...loop.pad, trimStart, trimEnd }
+    this.loopingVoices.set(padId, this.startVoice(pad, loop.original, { time: at, loop: true }))
   }
 
   /**
@@ -653,7 +709,8 @@ export class AudioEngine {
     const loop = this.loopingVoices.get(padId)
     if (!loop) return
     this.loopingVoices.delete(padId)
-    loop.release()
+    // Every loop of the pad — including one still handing over to a re-trimmed cycle.
+    for (const voice of this.voices) if (voice.padId === padId && voice.loop) voice.release()
     this.notify()
   }
 

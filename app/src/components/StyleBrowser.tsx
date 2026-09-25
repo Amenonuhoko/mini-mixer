@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { bankHasSteps, useGroove } from '../hooks/useGroove'
-import { useIsWideScreen } from '../hooks/useIsWideScreen'
 import { useAppState } from '../state/AppStateContext'
+import { useNavigation } from '../state/NavigationContext'
 import { BANK_KINDS, BANK_NAMES, getBank } from '../state/banks'
 import { progressionNames } from '../styles/generator'
 import { STYLES, styleById } from '../styles/library'
@@ -19,37 +18,24 @@ function previewLines(style: StyleDef): Pulse[] {
   )
 }
 
-interface StyleDockProps {
+interface StyleBrowserProps {
   onClose: () => void
   /** A whole new beat was written — the sequencer folds to it. */
   onStarted: () => void
 }
 
 /**
- * The preset library, docked where the beat is built — inline under the
- * sequencer on wide screens, a drawer above the tab bar on phones — and
- * never modal, so the beat keeps playing and stays in reach while you
- * browse. See StyleBrowser.
+ * The preset library as one drawer for the whole app: opened from the top
+ * bar on any page, it docks above the bottom bar and the page shrinks to sit
+ * above it, so the beat keeps playing and stays in reach while you browse.
+ * See StyleBrowser.
  */
-export function StyleDock(props: StyleDockProps) {
-  const isWide = useIsWideScreen()
-  useEffect(() => {
-    if (isWide) return
-    document.body.classList.add('style-drawer-open')
-    return () => document.body.classList.remove('style-drawer-open')
-  }, [isWide])
-  if (isWide) {
-    return (
-      <section className="module style-dock" aria-label="Styles">
-        <StyleBrowser {...props} />
-      </section>
-    )
-  }
-  return createPortal(
+export function StyleDock() {
+  const { setStylesOpen, markBeatStarted } = useNavigation()
+  return (
     <section className="style-drawer" aria-label="Styles">
-      <StyleBrowser {...props} />
-    </section>,
-    document.body,
+      <StyleBrowser onClose={() => setStylesOpen(false)} onStarted={markBeatStarted} />
+    </section>
   )
 }
 
@@ -63,7 +49,7 @@ export function StyleDock(props: StyleDockProps) {
  *   style's drums, bass, chords or melody into its bank — so layers mix
  *   across styles (Trap drums under a Funk bassline) — or a whole beat.
  */
-function StyleBrowser({ onClose, onStarted }: StyleDockProps) {
+function StyleBrowser({ onClose, onStarted }: StyleBrowserProps) {
   const { state } = useAppState()
   const { busy, error, startBeat, setLayerStyle, newTake, setIntensity, clearLayer, newChords } = useGroove()
   const [pendingStart, setPendingStart] = useState<StyleDef | null>(null)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DRUM_KITS } from '../engine/drumSynth'
 import { soundName } from '../engine/bankBuilder'
 import { performSummary, performVoice, Performer } from '../engine/performer'
@@ -6,9 +6,8 @@ import { useBankBuilder } from '../hooks/useBankBuilder'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { keyShortName, moodById, padLabel, pitchClass, type PadLabel } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
-import { sectionBankLevel } from '../engine/songTimeline'
+import { useNavigation } from '../state/NavigationContext'
 import { BANK_NAMES, bankColumns, getActiveBank, visibleBankPads } from '../state/banks'
-import { MAX_PAD_COUNT, MIN_PAD_COUNT } from '../state/constants'
 import { useEngine } from '../state/EngineContext'
 import { drumVoiceIcon, instrumentIconForName } from '../utils/instrumentIcon'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
@@ -16,13 +15,10 @@ import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
 import { BankSoundPicker } from './BankSoundPicker'
 import { BankTabs } from './BankTabs'
 import { KeySheet } from './KeySheet'
-import { LayerStrip } from './LayerStrip'
 import { RecordDotIcon } from './icons'
-import { PadEffectsMenuButton } from './PadEffectsMenuButton'
 import { PadModeSwitch } from './PadModeSwitch'
 import { PadPlaybackModeButton } from './PadPlaybackModeButton'
 import { PerformPanel } from './PerformPanel'
-import { Stepper } from './Stepper'
 import { StaticWaveform } from './Waveform'
 
 /** What a pad's face shows beyond its sample: a note/chord label for melodic pads, a drum glyph for kit pads. */
@@ -59,22 +55,25 @@ const QUICK_SOUNDS: Record<Exclude<BankKind, 'drums'>, string[]> = {
 interface PadGridProps {
   selectedPadId: string | null
   onSelectPad: (padId: string) => void
-  /** Rendered at the bottom of the module — the selected pad's action strip (see PadsPage). */
-  footer?: ReactNode
 }
 
 /**
- * The pad module: bank tabs (Drums · Bass · Chords · Melody) with the
- * trigger mode, whole-bank FX and step-record arm; a bank strip naming the
- * bank's sound and the project's mood/key; the labeled mode switch; the
- * grid; and a footer slot. Melodic pads are labeled with what they play
- * (name / feel / numeral — see Settings) and only offer notes and chords in
- * the key. Every pad is a light: it idles dim, glows with its own audio
- * level, flares on each hit (see LightShow), and breathes with the beat
- * while looping.
+ * The pad module, top to bottom: bank tabs (Drums · Bass · Chords · Melody);
+ * one setup row — the bank's sound (its sheet also sets how many pads the
+ * bank shows) and the project's mood/key; the grid; and, pinned to the bottom of the screen while
+ * the grid scrolls, how the pads respond — Play / Loop / Mix, then gate or
+ * one-shot, Perform (repeat, arp, strum) and step record; in Mix those give
+ * way to the whole bank's effects, since the pads are faders there. Mix is
+ * the one place for a pad's level, sound, trim and effects: drag a pad to
+ * set its level, tap it for the Mix sheet (see PadEditOverlay). Melodic pads are
+ * labeled with what they play (name / feel / numeral — see Settings) and
+ * only offer notes and chords in the key. Every pad is a light: it idles
+ * dim, glows with its own audio level, flares on each hit (see LightShow),
+ * and breathes with the beat while looping.
  */
-export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
+export function PadGrid({ selectedPadId, onSelectPad }: PadGridProps) {
   const { state, dispatch } = useAppState()
+  const { goToEditPad, goToBankEffects } = useNavigation()
   const engine = useEngine()
   const bank = getActiveBank(state)
   const visiblePads = visibleBankPads(state, bank)
@@ -84,19 +83,6 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
   const [sequencerRecordEnabled, setSequencerRecordEnabled] = useState(false)
   const [sheet, setSheet] = useState<'sound' | 'key' | null>(null)
   const [performOpen, setPerformOpen] = useState(false)
-  const [volumeChoice, setVolumeChoice] = useState<{ focusId: string | null; sectionId: string } | null>(null)
-  const focusedSectionId = state.transport.auditionScope === 'loop'
-    ? state.transport.auditionSectionId
-    : null
-  const volumeSectionId = volumeChoice?.focusId === focusedSectionId
-    ? volumeChoice?.sectionId
-    : focusedSectionId
-  const volumeSection = state.songSections.find((section) => section.id === volumeSectionId)
-    ?? state.songSections.find((section) => section.id === focusedSectionId)
-    ?? state.songSections.find((section) => section.patternId === state.activePatternId)
-    ?? state.songSections[0]
-  const sectionVolume = volumeSection ? Math.round(sectionBankLevel(volumeSection, bank.kind) * 100) : 100
-  const bankRemoved = volumeSection?.excludedBanks?.includes(bank.kind) ?? false
   const performer = engine.getPerformer()
   const performLabel = performSummary(state.perform)
 
@@ -133,33 +119,6 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
     <section className="module pad-grid" aria-label="Pads">
       <header className="module-head">
         <BankTabs />
-        <div className="module-head-tools">
-          <button
-            type="button"
-            className={['chip-btn', 'perform-toggle', performLabel ? 'on' : '', performOpen ? 'open' : ''].filter(Boolean).join(' ')}
-            onClick={() => setPerformOpen((open) => !open)}
-            aria-expanded={performOpen}
-            title="Note repeat, arpeggiator and strum"
-          >
-            {performLabel ?? 'Perform'}
-          </button>
-          <PadPlaybackModeButton />
-          <PadEffectsMenuButton followPadId={selectedPadId} />
-          <button
-            type="button"
-            className={sequencerRecordEnabled ? 'icon-btn armed' : 'icon-btn'}
-            onClick={() => setSequencerRecordEnabled((enabled) => !enabled)}
-            aria-pressed={sequencerRecordEnabled}
-            aria-label="Record pad hits into the playing sequencer"
-            title={
-              sequencerRecordEnabled
-                ? 'Step record armed — pad hits write into the playing step'
-                : 'Arm step record — play pads while the sequence runs to write them in'
-            }
-          >
-            <RecordDotIcon size={14} />
-          </button>
-        </div>
       </header>
       <div className="bank-strip">
         <button type="button" className="bank-sound" onClick={() => setSheet('sound')} title="Change this bank’s sound">
@@ -172,69 +131,7 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           <span className="bank-key-mood">{moodLabel}</span>
           <span className="bank-key-name readout">{keyShortName(state.key)}</span>
         </button>
-        {!melodic && (
-          <Stepper
-            label="Pads"
-            value={String(bank.visibleCount).padStart(2, '0')}
-            onDecrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount - 1 })}
-            onIncrement={() => dispatch({ type: 'SET_VISIBLE_PAD_COUNT', count: bank.visibleCount + 1 })}
-            decrementDisabled={bank.visibleCount <= MIN_PAD_COUNT}
-            incrementDisabled={bank.visibleCount >= MAX_PAD_COUNT}
-            decrementTitle="Hide the last pad (its sound and steps are kept)"
-            incrementTitle="Add a pad"
-          />
-        )}
       </div>
-      <LayerStrip kind={bank.kind} />
-      {volumeSection && (
-        <div className="pad-song-volume" role="group" aria-label="Song part volume">
-          <label className="pad-song-part">
-            Song part
-            <select
-              value={volumeSection.id}
-              onChange={(event) => setVolumeChoice({ focusId: focusedSectionId, sectionId: event.target.value })}
-              aria-label="Song part to mix"
-            >
-              {state.songSections.map((section, index) => (
-                <option key={section.id} value={section.id}>{index + 1}. {section.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="pad-song-level">
-            <span>{BANK_NAMES[bank.kind]} in {volumeSection.name} <strong>{bankRemoved ? 'Removed' : `${sectionVolume}%`}</strong></span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={sectionVolume}
-              disabled={bankRemoved}
-              aria-label={`${BANK_NAMES[bank.kind]} volume in ${volumeSection.name}`}
-              onChange={(event) => dispatch({
-                type: 'SET_SONG_SECTION_BANK_VOLUME',
-                sectionId: volumeSection.id,
-                bank: bank.kind,
-                level: Number(event.target.value),
-              })}
-            />
-          </label>
-          <button
-            type="button"
-            className="chip-btn"
-            onClick={() => {
-              engine.setSequencerPlaybackEnabled(false)
-              engine.stopAllSounds()
-              dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: volumeSection.patternId })
-              dispatch({ type: 'AUDITION_SONG_SECTION', sectionId: volumeSection.id, scope: 'loop' })
-            }}
-            aria-label={`Loop ${volumeSection.name} while mixing`}
-          >
-            ▶ Hear part
-          </button>
-          {bankRemoved && <span className="pad-song-volume-note">Restore {BANK_NAMES[bank.kind]} in Seq to hear it.</span>}
-        </div>
-      )}
-      {performOpen && <PerformPanel />}
-      <PadModeSwitch />
       {melodic && visiblePads.length === 0 ? (
         <EmptyBank bank={bank} kind={bank.kind as Exclude<BankKind, 'drums'>} onMore={() => setSheet('sound')} />
       ) : (
@@ -252,7 +149,7 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           {visiblePads.map((pad, index) => {
             const face = padFace(state, bank, pad, index)
             return mixerModeEnabled ? (
-              <MixerPadFader key={pad.id} pad={pad} index={index} engine={engine} face={face} />
+              <MixerPadFader key={pad.id} pad={pad} index={index} engine={engine} face={face} onOpen={() => { onSelectPad(pad.id); goToEditPad(pad.id) }} />
             ) : (
               <PadButton
                 key={pad.id}
@@ -272,7 +169,54 @@ export function PadGrid({ selectedPadId, onSelectPad, footer }: PadGridProps) {
           })}
         </div>
       )}
-      {footer}
+      {/* How the pads respond — pinned to the bottom of the screen while the grid scrolls. */}
+      <div className="pad-play-dock" data-no-page-swipe>
+        {performOpen && <PerformPanel />}
+        <div className="pad-play-row">
+          <PadModeSwitch />
+          {mixerModeEnabled ? (
+            <div className="pad-play-tools">
+              <span className="pad-mix-hint">Drag a pad for its level · tap it for sound, trim &amp; effects</span>
+              <button
+                type="button"
+                className="chip-btn"
+                onClick={() => visiblePads[0] && goToBankEffects(selectedPadId ?? visiblePads[0].id)}
+                disabled={visiblePads.length === 0}
+                title="Effects for every pad in this bank"
+              >
+                All pads FX
+              </button>
+            </div>
+          ) : (
+          <div className="pad-play-tools">
+            <PadPlaybackModeButton />
+            <button
+              type="button"
+              className={['chip-btn', 'perform-toggle', performLabel ? 'on' : '', performOpen ? 'open' : ''].filter(Boolean).join(' ')}
+              onClick={() => setPerformOpen((open) => !open)}
+              aria-expanded={performOpen}
+              title="Note repeat, arpeggiator and strum"
+            >
+              {performLabel ?? 'Perform'}
+            </button>
+            <button
+              type="button"
+              className={sequencerRecordEnabled ? 'icon-btn armed' : 'icon-btn'}
+              onClick={() => setSequencerRecordEnabled((enabled) => !enabled)}
+              aria-pressed={sequencerRecordEnabled}
+              aria-label="Record pad hits into the playing sequencer"
+              title={
+                sequencerRecordEnabled
+                  ? 'Step record armed — pad hits write into the playing step'
+                  : 'Arm step record — play pads while the sequence runs to write them in'
+              }
+            >
+              <RecordDotIcon size={14} />
+            </button>
+          </div>
+          )}
+        </div>
+      </div>
       {sheet === 'sound' && <BankSoundPicker bank={bank} onClose={() => setSheet(null)} />}
       {sheet === 'key' && <KeySheet onClose={() => setSheet(null)} />}
     </section>
@@ -551,68 +495,98 @@ interface MixerPadFaderProps {
   index: number
   engine: AudioEngine
   face: PadFace
+  /** A tap (no drag): open the Mix sheet for this pad. */
+  onOpen: () => void
 }
 
+/** A press that moves less than this is a tap, not a level drag. */
+const MIXER_TAP_SLOP_PX = 6
+
 /**
- * Mixer Mode's alternate rendering for a pad tile: a vertical fader instead
- * of a tap target — nothing plays from touching it. Dragging (or just
- * tapping a spot) sets pad.mixLevel from the vertical position within the
- * tile: top is 100 (unity), bottom is 0 (silent). Live-updates a currently-
- * looping pad's actual gain too, the same "dial changes are audible
- * immediately" behavior every other pad dial already has.
+ * A pad tile in Mix: a vertical fader — nothing plays from touching it.
+ * Dragging up or down moves pad.mixLevel from where it is (a full tile's
+ * height is the whole 0–100 range; no jump to the finger), live on a looping
+ * pad too; a tap opens the Mix sheet for the pad; the M corner mutes it.
  */
-function MixerPadFader({ pad, index, engine, face }: MixerPadFaderProps) {
+function MixerPadFader({ pad, index, engine, face, onOpen }: MixerPadFaderProps) {
   const { dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
-  const draggingRef = useRef(false)
-
-  const levelFromPointer = (event: React.PointerEvent<HTMLButtonElement>): number => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const fraction = 1 - (event.clientY - rect.top) / rect.height
-    return Math.round(Math.max(0, Math.min(1, fraction)) * 100)
-  }
+  const dragRef = useRef<{ y: number; level: number; moved: boolean } | null>(null)
 
   const applyLevel = (level: number) => {
     dispatch({ type: 'SET_PAD_MIX_LEVEL', padId: pad.id, level })
     if (looping) engine.updateLoopingPadMixLevel(pad.id, level)
   }
 
+  // Drag to move the level from where it is (no jump to the finger); a tap opens the Mix sheet.
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId)
-    draggingRef.current = true
-    applyLevel(levelFromPointer(event))
+    dragRef.current = { y: event.clientY, level: pad.mixLevel, moved: false }
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (!draggingRef.current) return
-    applyLevel(levelFromPointer(event))
+    const drag = dragRef.current
+    if (!drag) return
+    const dy = event.clientY - drag.y
+    if (!drag.moved && Math.abs(dy) < MIXER_TAP_SLOP_PX) return
+    drag.moved = true
+    const height = event.currentTarget.getBoundingClientRect().height
+    applyLevel(Math.round(Math.max(0, Math.min(100, drag.level - (dy / height) * 100))))
   }
 
-  const endDrag = () => {
-    draggingRef.current = false
+  const handlePointerUp = () => {
+    const drag = dragRef.current
+    dragRef.current = null
+    if (drag && !drag.moved) onOpen()
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const step = event.shiftKey ? 10 : 2
+    if (event.key === 'ArrowUp' || event.key === 'ArrowRight') applyLevel(Math.min(100, pad.mixLevel + step))
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') applyLevel(Math.max(0, pad.mixLevel - step))
+    else return
+    event.preventDefault()
   }
 
   return (
-    <button
-      type="button"
-      className={looping ? 'pad mixer-fader looping' : 'pad mixer-fader'}
+    <div
+      className={['pad', 'mixer-fader', looping ? 'looping' : '', pad.muted ? 'muted' : ''].filter(Boolean).join(' ')}
       data-pad-id={pad.id}
       data-glow-pad={pad.id}
-      aria-label={`Pad ${index + 1} level ${pad.mixLevel}%`}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
     >
-      <span className="pad-glow" aria-hidden="true" />
-      <span className="mixer-fader-fill" style={{ height: `${pad.mixLevel}%` }} aria-hidden="true" />
-      <span className="pad-num" aria-hidden="true">{face.label?.primary ?? String(index + 1).padStart(2, '0')}</span>
-      {face.icon && (
-        <span className="pad-key" aria-hidden="true">
-          <span className="pad-key-icon">{face.icon}</span>
-        </span>
-      )}
-      <span className="mixer-fader-level readout" aria-hidden="true">{pad.mixLevel}</span>
-    </button>
+      <button
+        type="button"
+        className="mixer-fader-surface"
+        aria-label={`Pad ${index + 1} level ${pad.mixLevel}% — drag to set, tap for sound, trim and effects`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => (dragRef.current = null)}
+        onKeyDown={handleKeyDown}
+        onClick={(event) => {
+          // Keyboard activation (no pointer) opens the sheet too.
+          if (event.detail === 0) onOpen()
+        }}
+      >
+        <span className="pad-glow" aria-hidden="true" />
+        <span className="mixer-fader-fill" style={{ height: `${pad.mixLevel}%` }} aria-hidden="true" />
+        <span className="pad-num" aria-hidden="true">{face.label?.primary ?? String(index + 1).padStart(2, '0')}</span>
+        {face.icon && (
+          <span className="pad-key" aria-hidden="true">
+            <span className="pad-key-icon">{face.icon}</span>
+          </span>
+        )}
+        <span className="mixer-fader-level readout" aria-hidden="true">{pad.muted ? 'M' : pad.mixLevel}</span>
+      </button>
+      <button
+        type="button"
+        className={pad.muted ? 'mixer-mute on' : 'mixer-mute'}
+        onClick={() => dispatch({ type: 'SET_PAD_MUTED', padId: pad.id, muted: !pad.muted })}
+        aria-pressed={pad.muted}
+        aria-label={`Mute pad ${index + 1}`}
+      >
+        M
+      </button>
+    </div>
   )
 }

@@ -229,7 +229,7 @@ button:disabled {
   position: fixed;
   z-index: 1;
   top: calc(var(--strip-h) + var(--safe-top));
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom));
+  bottom: var(--bottom-h, calc(var(--tabbar-h) + var(--safe-bottom)));
   left: 0;
   right: 0;
   max-width: 560px;
@@ -964,18 +964,68 @@ button:disabled {
   margin-top: 2px;
 }
 
+/* Tempo panel: opens from the BPM readout, on the strip's left. */
+.bpm-nudge {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bpm-readout.open .bpm-value {
+  color: var(--text);
+}
+
+.tempo-popover {
+  /* Pinned to the screen, not the control, so it always fits a phone. */
+  position: fixed;
+  top: calc(var(--strip-h) + var(--safe-top) + 6px);
+  left: 10px;
+  right: auto;
+  width: min(340px, calc(100vw - 20px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.tempo-popover-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.tempo-popover-value {
+  font-size: 1.4rem;
+  color: var(--cyan);
+  text-shadow: var(--text-glow-cyan);
+}
+
+.tempo-steps {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.tempo-steps .chip-btn,
+.tempo-presets .chip-btn {
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.tempo-presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
 /* --------------------------------------------------------------------------
    Tab bar + record
    -------------------------------------------------------------------------- */
 
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 20;
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 104px));
+  grid-template-columns: repeat(7, minmax(0, 76px));
   justify-content: center;
   align-items: center;
   height: calc(var(--tabbar-h) + var(--safe-bottom));
@@ -1097,7 +1147,7 @@ button:disabled {
   position: fixed;
   left: var(--s3);
   right: var(--s3);
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 18px);
+  bottom: calc(var(--bottom-h, calc(var(--tabbar-h) + var(--safe-bottom))) + 18px);
   z-index: 21;
   display: flex;
   align-items: center;
@@ -1344,10 +1394,53 @@ button:disabled {
   border-color: rgb(var(--orange-rgb) / 0.35);
 }
 
-/* Mixer mode: pads become faders. */
+/* Mixer mode: pads become faders — drag for level, tap for the Mix sheet, M to mute. */
 .mixer-fader {
   overflow: hidden;
   touch-action: none;
+}
+
+.mixer-fader-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  color: inherit;
+  touch-action: none;
+}
+
+.mixer-mute {
+  position: absolute;
+  z-index: 2;
+  right: 4px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 0.45);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.mixer-mute.on {
+  border-color: var(--orange);
+  color: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.mixer-fader.muted .mixer-fader-fill {
+  opacity: 0.35;
+}
+
+.mixer-fader.muted .mixer-fader-level {
+  color: var(--orange);
 }
 
 .mixer-fader-fill {
@@ -1376,46 +1469,6 @@ button:disabled {
 
 .mixer-fader .pad-num {
   color: var(--cyan);
-}
-
-/* Selected pad's action strip, directly under the grid. */
-.pad-context {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s2);
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
-.pad-context-id {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.pad-context-num {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  text-shadow: var(--text-glow-cyan);
-}
-
-.pad-context-name {
-  min-width: 0;
-  font-size: var(--fs-sm);
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pad-context-actions {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  flex: 1 1 100%;
 }
 
 .action {
@@ -1487,8 +1540,7 @@ button:disabled {
   min-width: max-content;
 }
 
-.sequencer-row,
-.sequencer-add-row-slot {
+.sequencer-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1502,7 +1554,7 @@ button:disabled {
   align-items: center;
   gap: 4px;
   flex: none;
-  width: 66px;
+  width: 126px;
   padding-right: 4px;
   background: var(--deck-solid);
   box-shadow: 6px 0 8px -6px rgb(0 0 0 / 0.9);
@@ -1512,43 +1564,108 @@ button:disabled {
   box-shadow: none;
 }
 
-.sequencer-row-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 20px;
-  height: 20px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  color: var(--text-faint);
-  transition:
-    color var(--fast),
-    border-color var(--fast);
-}
-
-.sequencer-row-remove:hover:not(:disabled) {
-  border-color: rgb(255 81 69 / 0.5);
-  color: var(--danger);
-}
-
-.sequencer-row-remove:disabled {
-  opacity: 0.25;
-}
-
 .sequencer-row-label {
   position: relative;
-  display: inline-flex;
+  display: flex;
+  flex: 1;
   align-items: center;
-  justify-content: center;
-  width: 38px;
+  gap: 4px;
+  min-width: 0;
   height: 30px;
+  padding: 0 6px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
   background: var(--void);
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  text-align: left;
   transition: border-color var(--fast);
+}
+
+.row-num {
+  flex: none;
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.row-icon {
+  flex: none;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Long names wrap onto a second line rather than cutting off — the name is what tells rows apart. */
+.row-name {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  /* The body face is narrower than mono, so whole words fit the slim column. */
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--text);
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* The selected pad — the same one the Pads page has selected. */
+.sequencer-row.selected .sequencer-row-label {
+  border-color: var(--orange);
+  box-shadow: inset 0 0 10px rgb(var(--orange-rgb) / 0.18);
+}
+
+.sequencer-row.selected .row-name {
+  color: var(--orange);
+}
+
+.sequencer-row.selected .step:not(.on):not(.trace) {
+  border-color: rgb(var(--orange-rgb) / 0.22);
+}
+
+/* Paint tool: a finger drag paints instead of scrolling. */
+.sequencer-grid.painting .step {
+  touch-action: none;
+}
+
+/* Row menu: one-tap fills with a preview of each. */
+.row-fills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.row-fill {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: left;
+  transition: border-color var(--fast);
+}
+
+.row-fill:hover:not(:disabled) {
+  border-color: var(--cyan);
+}
+
+.row-fill:disabled {
+  opacity: 0.4;
+}
+
+.row-fill-name {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.row-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
 }
 
 .sequencer-row-label:hover {
@@ -1571,7 +1688,7 @@ button:disabled {
   border-color: var(--orange);
 }
 
-.row-looping .sequencer-row-label .readout {
+.row-looping .sequencer-row-label .row-name {
   color: var(--orange);
 }
 
@@ -1648,26 +1765,6 @@ button:disabled {
   box-shadow:
     0 0 16px 2px rgb(var(--cyan-rgb) / 0.9),
     0 0 4px #fff;
-}
-
-.sequencer-add-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--control-sm);
-  padding: 0 10px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--r-md);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.sequencer-add-row:hover {
-  border-color: var(--cyan);
-  color: var(--cyan);
 }
 
 /* --------------------------------------------------------------------------
@@ -2022,20 +2119,7 @@ button.list-item:hover .list-wave {
   --drawer-h: 46vh;
 }
 
-body.style-drawer-open .app-shell {
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--drawer-h));
-}
-
-.style-dock {
-  gap: var(--s2);
-}
-
 .style-drawer {
-  position: fixed;
-  z-index: 15;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--tabbar-h) + var(--safe-bottom));
   height: var(--drawer-h);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2228,57 +2312,8 @@ body.style-drawer-open .app-shell {
   opacity: 0.4;
 }
 
-/* A bank's own preset strip (pad module and sequencer bank heads). */
-.layer-strip {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  min-width: 0;
-}
-
-.layer-strip-controls {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-}
-
 .layer-intensity {
   width: 72px;
-}
-
-.layer-strip-label {
-  flex: none;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--orange);
-}
-
-.layer-strip-styles {
-  display: flex;
-  flex: 1;
-  gap: 4px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  mask-image: linear-gradient(90deg, #000 88%, transparent);
-}
-
-.layer-strip-styles::-webkit-scrollbar {
-  display: none;
-}
-
-.layer-strip-styles .chip-btn {
-  flex: none;
-}
-
-.sequencer-bank .layer-strip {
-  position: sticky;
-  left: calc(-1 * var(--s1));
-  width: min(100%, 520px);
-  padding: 0 0 6px;
 }
 
 .sequencer-bank-style {
@@ -2304,9 +2339,7 @@ body.style-drawer-open .app-shell {
 .song-arranger { min-width: 0; }
 .song-editor { display: flex; flex-direction: column; gap: 10px; }
 .song-templates { display: flex; flex-direction: column; gap: 6px; }
-.song-templates h3, .song-editor-heading { margin: 0; color: var(--cyan); font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; }
-.song-editor-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
-.song-editor-heading span { color: var(--text-dim); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.song-templates h3 { margin: 0; color: var(--cyan); font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; }
 .song-template-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
 .song-template { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .04); color: var(--text); text-align: left; }
 .song-template:hover { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / .1); }
@@ -2317,8 +2350,7 @@ body.style-drawer-open .app-shell {
 .song-preview-bar span { color: var(--text-dim); font-size: var(--fs-xs); }
 .song-mode { display: flex; gap: 4px; }
 .song-hint { margin: 0; color: var(--text-dim); font-size: var(--fs-xs); }
-.song-pattern-tools, .song-footer { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
-.song-field { display: flex; flex-direction: column; gap: 4px; color: var(--text-dim); font-size: var(--fs-xs); }
+.song-footer { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
 .song-arranger input, .song-arranger select {
   min-height: var(--control-sm);
   min-width: 0;
@@ -2340,16 +2372,6 @@ body.style-drawer-open .app-shell {
 .song-repeats input { width: 54px; }
 .song-section-summary { width: 100%; padding-left: 26px; color: var(--text-dim); font-size: var(--fs-xs); text-transform: capitalize; }
 .song-section-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; padding-left: 26px; }
-.pad-song-volume { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .04); }
-.pad-song-part, .pad-song-level { display: flex; flex-direction: column; gap: 4px; color: var(--text-dim); font-size: var(--fs-xs); }
-.pad-song-part { flex: 0 1 125px; }
-.pad-song-level { flex: 1 1 160px; }
-.pad-song-level span { display: flex; justify-content: space-between; gap: 8px; color: var(--text); }
-.pad-song-level strong { color: var(--cyan); font-family: var(--font-mono); }
-.pad-song-part select { min-width: 0; min-height: var(--control-sm); padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / .8); color: var(--text); font: inherit; }
-.pad-song-level input[type='range'] { width: 100%; min-height: var(--control-sm); padding: 0; accent-color: var(--cyan); cursor: pointer; }
-.pad-song-level input[type='range']:disabled { opacity: .4; cursor: default; }
-.pad-song-volume-note { flex: 1 1 100%; color: var(--text-dim); font-size: var(--fs-xs); }
 .song-footer { justify-content: space-between; }
 .song-error { margin: 0; color: var(--danger); font-size: var(--fs-xs); }
 
@@ -2735,57 +2757,8 @@ body.style-drawer-open .app-shell {
 }
 
 /* --------------------------------------------------------------------------
-   Whole-grid FX panel (portaled; positioned by JS — see PadEffectsMenuButton)
+   Whole-bank effects (the Mix sheet's ALL scope — see BankEffectsPanel)
    -------------------------------------------------------------------------- */
-
-.fx-popover-anchor {
-  position: relative;
-}
-
-.fx-floating-panel {
-  position: fixed;
-  z-index: 25;
-  width: min(300px, calc(100vw - 24px));
-  max-height: min(70vh, 480px);
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-lg);
-  background: var(--deck-raised);
-  box-shadow:
-    0 14px 36px rgb(0 0 0 / 0.65),
-    0 0 20px rgb(var(--cyan-rgb) / 0.12);
-  animation: pop-in var(--med) var(--ease);
-}
-
-.fx-floating-heading {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  margin-bottom: var(--s2);
-}
-
-.fx-floating-heading-text {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.fx-floating-heading-text > span:first-child {
-  font-weight: 600;
-  color: var(--cyan);
-  text-shadow: var(--text-glow-cyan);
-}
-
-.fx-floating-heading-text .muted {
-  color: var(--text-faint);
-}
 
 .fx-quick-presets {
   display: grid;
@@ -2870,11 +2843,6 @@ body.style-drawer-open .app-shell {
     box-shadow:
       0 20px 60px rgb(0 0 0 / 0.7),
       0 0 30px rgb(var(--cyan-rgb) / 0.08);
-  }
-
-  .pad-context-actions {
-    flex: none;
-    display: flex;
   }
 }
 
@@ -2991,6 +2959,280 @@ body.style-drawer-open .app-shell {
     gap: 4px;
     padding: 0 4px;
   }
+}
+
+/* --------------------------------------------------------------------------
+   Arrangement: what you touch while playing sits at the bottom, in thumb
+   reach; status and set-and-forget controls sit at the top.
+   -------------------------------------------------------------------------- */
+
+/* Styles drawer, selected-pad bar and tab bar, stacked at the bottom. The
+   page sits right above whatever the stack currently holds (--bottom-h). */
+.bottom-stack {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.bottom-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-play {
+  color: var(--cyan);
+}
+
+.tab-play.on {
+  color: var(--orange);
+  text-shadow: var(--text-glow-orange);
+}
+
+/* The page area knows its own height, so pinned rows can let go when it's short. */
+.app-shell {
+  container-type: size;
+  container-name: page;
+}
+
+/* A short page (Styles open, a landscape phone) can't spare the room: the row scrolls with the pads. */
+@container page (max-height: 440px) {
+  .app-shell .pad-play-dock {
+    position: static;
+  }
+}
+
+@media (min-width: 381px) {
+  .transport-tools {
+    gap: 4px;
+  }
+
+  .transport-tools .icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* How the pads respond: pinned to the bottom of the page while the grid scrolls. */
+.pad-play-dock {
+  position: sticky;
+  bottom: calc(-1 * var(--s3));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: 0 calc(-1 * var(--s3)) calc(-1 * var(--s3));
+  padding: var(--s2) var(--s3);
+  background: linear-gradient(180deg, rgb(10 17 23 / 0.95), rgb(6 10 14 / 0.98));
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+
+.pad-play-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.pad-play-row .mode-switch {
+  flex: 1 1 200px;
+  width: auto;
+}
+
+.pad-play-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: 1 1 auto;
+}
+
+.pad-play-tools .perform-toggle {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.pad-grid > .module-head .bank-tabs {
+  flex: 1 1 100%;
+}
+
+.bank-strip .pad-fx-anchor,
+.bank-strip > .popover-anchor {
+  flex: none;
+}
+
+/* Seq: which pattern is in the grid, and its ⋯ menu. */
+.sequencer-pattern-select {
+  flex: 0 1 auto;
+  max-width: 150px;
+  min-height: var(--control-sm);
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(4 10 15 / 0.8);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.sequencer .module-head .module-head-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-left: auto;
+}
+
+.pattern-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.pattern-menu-actions .btn {
+  flex: 1 1 140px;
+}
+
+.sheet-section .song-pattern-name {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(4 10 15 / 0.8);
+  color: var(--text);
+  font: inherit;
+}
+
+.sequencer-bank-head .icon-btn {
+  width: var(--control-sm);
+  height: var(--control-sm);
+}
+
+/* Song: each section's own mix — which banks play, and how loud. */
+.song-section-mix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding-left: 26px;
+}
+
+.song-bank {
+  display: grid;
+  grid-template-columns: 84px 1fr 40px;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.song-bank .slider {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.song-bank-toggle {
+  justify-content: center;
+}
+
+.song-bank-level {
+  font-size: var(--fs-xs);
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.song-bank.removed .song-bank-level {
+  color: var(--text-faint);
+}
+
+.song-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding-left: 26px;
+}
+
+/* Fingers, not cursors: every control is at least 40px where you touch it. */
+@media (pointer: coarse) {
+  :root {
+    --control-sm: 36px;
+    --control: 40px;
+  }
+
+  .chip-btn,
+  .segment,
+  .stepper {
+    min-height: 40px;
+  }
+
+  .stepper-btn {
+    width: 36px;
+  }
+
+  .segmented-sm .segment {
+    height: 36px;
+  }
+
+  .sequencer-bank-toggle,
+  .sequencer-bank-style {
+    min-height: 36px;
+  }
+
+  .bpm-nudge {
+    width: 34px;
+  }
+
+  .slider {
+    height: 36px;
+  }
+}
+
+/* A landscape phone is short: whatever else sits in the bottom row shares it with the tab bar. */
+@media (min-aspect-ratio: 2/1) and (max-height: 500px) {
+  .bottom-row {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .bottom-row .tabbar {
+    flex: 0 1 auto;
+  }
+
+}
+
+/* The Mix sheet: ALL (the bank's effects) leads the pad strip; a pad opens on its level and sound. */
+.pad-switcher-swatch.all {
+  padding: 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.mix-sound-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.mix-sound-actions .btn {
+  flex: 1 1 120px;
+}
+
+.bank-fx .muted {
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.pad-mix-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
 }
 
 /* Motion is decoration here, never information — drop it for anyone who asked. */
@@ -3282,9 +3524,6 @@ body.style-drawer-open .app-shell {
   text-transform: uppercase;
   color: var(--cyan);
 }
-
-.sequencer-part-select { display: flex; align-items: center; gap: 5px; color: var(--text-dim); font-size: var(--fs-xs); }
-.sequencer-part-select select { max-width: 140px; min-height: var(--control-sm); padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / .8); color: var(--text); font: inherit; }
 .sequencer-bank-removed { margin: 4px 0 8px; color: var(--text-dim); font-size: var(--fs-xs); }
 
 .sequencer-bank:not(.bank-drums) .sequencer-bank-name {
@@ -3302,12 +3541,6 @@ body.style-drawer-open .app-shell {
 
 .sequencer-bank-toggle:hover {
   color: var(--text);
-}
-
-.sequencer-row-label.named .readout {
-  font-size: var(--fs-xs);
-  letter-spacing: 0;
-  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------------------

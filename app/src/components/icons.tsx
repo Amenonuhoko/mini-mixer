@@ -117,6 +117,15 @@ export const SeqIcon = (p: IconProps) => (
   </Svg>
 )
 
+/** Song: an arrangement read left to right — sections of different lengths. */
+export const SongIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="7" width="5" height="10" rx="1" />
+    <rect x="10" y="7" width="4" height="10" rx="1" />
+    <rect x="16" y="7" width="5" height="10" rx="1" />
+  </Svg>
+)
+
 export const LibraryIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 4v16M8 4v16" />
@@ -231,6 +240,21 @@ export const SparkIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
     <path d="M19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7z" />
+  </Svg>
+)
+
+export const BrushIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14.5 4.5l5 5L11 18l-5-5z" />
+    <path d="M6 13c-2 .5-3 2-3 4.5 0 1 .5 2.5 2.5 2.5 2.5 0 4-1 4.5-3" />
+  </Svg>
+)
+
+export const MoreIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="12" r="1" fill="currentColor" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+    <circle cx="18" cy="12" r="1" fill="currentColor" />
   </Svg>
 )
 

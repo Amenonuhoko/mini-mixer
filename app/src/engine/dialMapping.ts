@@ -168,9 +168,9 @@ export function dialToReverbParams(value: number): ReverbParams {
  * (not AudioContext specifically) so the same function works unchanged from
  * both AudioEngine's live context and bouncePattern's OfflineAudioContext.
  */
-export function buildReverbImpulse(ctx: BaseAudioContext, decaySeconds: number): AudioBuffer {
+export function buildReverbImpulse(ctx: BaseAudioContext, decaySeconds: number, channels: 1 | 2 = 2): AudioBuffer {
   const length = Math.max(1, Math.round(decaySeconds * ctx.sampleRate))
-  const impulse = ctx.createBuffer(2, length, ctx.sampleRate)
+  const impulse = ctx.createBuffer(channels, length, ctx.sampleRate)
   for (let channel = 0; channel < impulse.numberOfChannels; channel++) {
     const data = impulse.getChannelData(channel)
     for (let i = 0; i < length; i++) {
