@@ -46,7 +46,7 @@ export function PadLibraryPicker({ padId, onClose }: PadLibraryPickerProps) {
       subtitle="Pick a sound from your library."
     >
       {samples.length === 0 ? (
-        <p className="empty-state">Nothing in the library yet — hold Record to capture a sound.</p>
+        <p className="empty-state">Nothing in the library yet — hold the mic button on the Pads page to capture a sound.</p>
       ) : (
         <ul className="list">
           {samples.map((sample) => (

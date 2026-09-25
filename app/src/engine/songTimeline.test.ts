@@ -107,6 +107,28 @@ describe('song arrangement', () => {
     expect(state.songSections[1]!.repeats).toBe(32)
   })
 
+  it('duplicates a section as its own numbered part with an identical, independent pattern', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Intro', 'Verse'] })
+    const verse = state.songSections[1]!
+    const padId = state.pads[0]!.id
+    state = reducer(state, { type: 'SET_ACTIVE_PATTERN', patternId: verse.patternId })
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: verse.patternId, padId, stepIndex: 0, sampleId: 'kick' })
+    state = reducer(state, { type: 'DUPLICATE_SONG_SECTION', sectionId: verse.id })
+    const copy = state.songSections[2]!
+    expect(state.songSections.map((section) => section.name)).toEqual(['Intro', 'Verse', 'Verse 2'])
+    expect(copy.patternId).not.toBe(verse.patternId)
+    const copied = state.patterns.find((pattern) => pattern.id === copy.patternId)!
+    expect(copied.name).toBe('Verse 2')
+    expect(copied.steps[padId]![0]).toBe('kick')
+    // Independent: editing the copy leaves the original alone.
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: copy.patternId, padId, stepIndex: 4, sampleId: 'kick' })
+    expect(state.patterns.find((pattern) => pattern.id === verse.patternId)!.steps[padId]![4]).toBeNull()
+    // The next copy counts on.
+    state = reducer(state, { type: 'DUPLICATE_SONG_SECTION', sectionId: copy.id })
+    expect(state.songSections.map((section) => section.name)).toEqual(['Intro', 'Verse', 'Verse 2', 'Verse 3'])
+  })
+
   it('mixes each sound group per song section without changing its shared pattern', () => {
     let state = createInitialState()
     state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Verse', 'Chorus', 'Verse'] })

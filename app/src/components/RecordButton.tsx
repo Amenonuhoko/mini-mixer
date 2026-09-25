@@ -13,10 +13,12 @@ const WAVEFORM_BUCKETS = 80
 interface RecordButtonProps {
   sampleCount: number
   onRecorded: (recording: PendingRecording) => void
+  /** A smaller, caption-less button for a toolbar row. */
+  compact?: boolean
 }
 
 /**
- * Hold-to-record, centered in the tab bar where a thumb already rests —
+ * Hold-to-record, on the Pads page beside the bank's sound —
  * holding down is the recording gesture itself (press starts, release stops,
  * however long that is), so there's no separate start/stop state to remember.
  *
@@ -25,7 +27,7 @@ interface RecordButtonProps {
  * playing right now (every looping pad plus every manual tap/gate). Same
  * review step either way, since both end up as a plain AudioBuffer + peaks.
  */
-export function RecordButton({ sampleCount, onRecorded }: RecordButtonProps) {
+export function RecordButton({ sampleCount, onRecorded, compact = false }: RecordButtonProps) {
   const { state } = useAppState()
   const engine = useEngine()
   const getContext = useCallback(() => engine.getContext(), [engine])
@@ -88,7 +90,7 @@ export function RecordButton({ sampleCount, onRecorded }: RecordButtonProps) {
       {error && <div className="toast toast-danger">{error}</div>}
       <button
         type="button"
-        className={recording ? 'record-btn on' : 'record-btn'}
+        className={['record-btn', compact ? 'compact' : '', recording ? 'on' : ''].filter(Boolean).join(' ')}
         onPointerDown={beginHold}
         onPointerUp={endHold}
         onPointerLeave={endHold}
@@ -97,8 +99,8 @@ export function RecordButton({ sampleCount, onRecorded }: RecordButtonProps) {
         aria-label={playthroughEnabled ? 'Hold to record the live mix' : 'Hold to record from the microphone'}
         title={playthroughEnabled ? 'Hold to record the live mix' : 'Hold to record'}
       >
-        {playthroughEnabled ? <LiveIcon size={24} /> : <MicIcon size={24} />}
-        <span className="record-btn-caption">HOLD</span>
+        {playthroughEnabled ? <LiveIcon size={compact ? 18 : 24} /> : <MicIcon size={compact ? 18 : 24} />}
+        {!compact && <span className="record-btn-caption">HOLD</span>}
       </button>
     </>
   )
@@ -112,14 +114,13 @@ export function RecordSourceToggle() {
   return (
     <button
       type="button"
-      className={live ? 'tab rec-source on' : 'tab rec-source'}
+      className={live ? 'rec-source on' : 'rec-source'}
       onClick={() => dispatch({ type: 'SET_PLAYTHROUGH_RECORDING_ENABLED', enabled: !live })}
       aria-pressed={live}
       aria-label={live ? 'Record source: live mix (tap for microphone)' : 'Record source: microphone (tap for live mix)'}
       title={live ? 'Recording the live mix — tap to record the mic' : 'Recording the mic — tap to record the live mix'}
     >
-      {live ? <LiveIcon /> : <MicIcon />}
-      <span className="tab-label">{live ? 'Mix' : 'Mic'}</span>
+      <span className="rec-source-label">{live ? 'Mix' : 'Mic'}</span>
     </button>
   )
 }

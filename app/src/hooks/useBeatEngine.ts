@@ -112,6 +112,11 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     engineRef.current?.setMasterVolume(state.transport.masterVolume)
   }, [state.transport.masterVolume])
 
+  // Each bank's volume (Mix's one slider) scales its pads' levels, live.
+  useEffect(() => {
+    for (const bank of state.banks) engineRef.current?.setBankVolume(bank.padIds, bank.volume ?? 100)
+  }, [state.banks])
+
   // The lookahead clock itself runs whenever *either* the sequencer is playing or
   // the metronome is on — the metronome toggle starts/stops it independently of
   // the play/pause button, per its own explicit control, while still sharing one

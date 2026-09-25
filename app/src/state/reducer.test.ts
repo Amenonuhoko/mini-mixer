@@ -790,3 +790,40 @@ it('isolates only the final repeat for a transition without changing song durati
   expect(next.transport.auditionScope).toBe('loop')
   expect(next.transport.auditionSectionId).toBe(next.songSections.at(-1)!.id)
 })
+
+describe('bank volume', () => {
+  it('sets one bank\'s volume, clamped, leaving its pads\' own levels alone', () => {
+    let state = createInitialState()
+    const drums = getBank(state, 'drums')
+    const levels = state.pads.map((pad) => pad.mixLevel)
+    state = reducer(state, { type: 'SET_BANK_VOLUME', bankId: drums.id, level: 42.4 })
+    expect(getBank(state, 'drums').volume).toBe(42)
+    expect(getBank(state, 'bass').volume).toBeUndefined()
+    expect(state.pads.map((pad) => pad.mixLevel)).toEqual(levels)
+    state = reducer(state, { type: 'SET_BANK_VOLUME', bankId: drums.id, level: 140 })
+    expect(getBank(state, 'drums').volume).toBe(100)
+  })
+})
+
+describe('copy a pattern from another', () => {
+  it('replaces the steps and length with an independent copy, keeping the name and song links', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Intro', 'Verse'] })
+    const [intro, verse] = state.songSections
+    const padId = state.pads[0]!.id
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: intro!.patternId, padId, stepIndex: 2, sampleId: 'kick' })
+    state = reducer(state, { type: 'ADD_PATTERN_STEPS', patternId: intro!.patternId })
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: verse!.patternId, padId, stepIndex: 5, sampleId: 'kick' })
+    state = reducer(state, { type: 'COPY_PATTERN_FROM', patternId: verse!.patternId, fromId: intro!.patternId })
+    const copied = state.patterns.find((pattern) => pattern.id === verse!.patternId)!
+    const source = state.patterns.find((pattern) => pattern.id === intro!.patternId)!
+    expect(copied.name).not.toBe(source.name)
+    expect(copied.stepCount).toBe(source.stepCount)
+    expect(copied.steps[padId]).toEqual(source.steps[padId])
+    expect(copied.steps[padId]![5]).toBeNull()
+    expect(state.songSections[1]!.patternId).toBe(verse!.patternId)
+    // Independent: editing the copy leaves the source alone.
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: verse!.patternId, padId, stepIndex: 7, sampleId: 'kick' })
+    expect(state.patterns.find((pattern) => pattern.id === intro!.patternId)!.steps[padId]![7]).toBeNull()
+  })
+})

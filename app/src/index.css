@@ -1025,7 +1025,7 @@ button:disabled {
 .tabbar {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 76px));
+  grid-template-columns: repeat(5, minmax(0, 92px));
   justify-content: center;
   align-items: center;
   height: calc(var(--tabbar-h) + var(--safe-bottom));
@@ -1077,19 +1077,89 @@ button:disabled {
   box-shadow: var(--glow-cyan);
 }
 
+/* What hold-to-record captures (Pads page): the microphone, or the live mix. */
+.rec-source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 44px;
+  height: var(--control);
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
 .rec-source.on {
+  border-color: var(--orange);
   color: var(--orange);
   text-shadow: var(--text-glow-orange);
 }
 
-.rec-source.on::before {
-  background: var(--orange);
-  box-shadow: var(--glow-orange);
+.bank-record {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
 }
 
-.tab-record {
+.record-btn.compact {
+  width: var(--control);
+  height: var(--control);
+  margin-top: 0;
+  border-width: 1px;
+}
+
+/* Play / stop, raised in the middle of the tab bar. */
+.tab-center {
   display: flex;
   justify-content: center;
+}
+
+.play-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 58px;
+  height: 58px;
+  margin-top: -18px;
+  border: 2px solid var(--cyan);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #06141a, var(--void) 70%);
+  color: var(--cyan);
+  box-shadow:
+    var(--glow-cyan),
+    inset 0 0 12px rgb(var(--cyan-rgb) / 0.25);
+  transition:
+    transform var(--fast),
+    background var(--fast);
+}
+
+.play-btn:active {
+  transform: scale(0.93);
+}
+
+.play-btn-caption {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+
+.play-btn.on {
+  border-color: var(--orange);
+  background: radial-gradient(circle at 50% 35%, #1a0f06, var(--void) 70%);
+  color: var(--orange);
+  box-shadow:
+    var(--glow-orange),
+    inset 0 0 12px rgb(var(--orange-rgb) / 0.25);
 }
 
 .record-btn {
@@ -1394,68 +1464,30 @@ button:disabled {
   border-color: rgb(var(--orange-rgb) / 0.35);
 }
 
-/* Mixer mode: pads become faders — drag for level, tap for the Mix sheet, M to mute. */
-.mixer-fader {
-  overflow: hidden;
-  touch-action: none;
+/* Mix: the bank's volume and effects above the grid; each pad a tile that opens its own sheet. */
+.bank-mix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
 }
 
-.mixer-fader-surface {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  color: inherit;
-  touch-action: none;
-}
-
-.mixer-mute {
-  position: absolute;
-  z-index: 2;
-  right: 4px;
-  bottom: 4px;
-  display: inline-flex;
-  align-items: center;
+.mixer-reserved {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 72px;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: rgb(0 0 0 / 0.45);
-  font-family: var(--font-mono);
+  padding: var(--s3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
   font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--text-dim);
 }
 
-.mixer-mute.on {
-  border-color: var(--orange);
-  color: var(--orange);
-  box-shadow: var(--glow-orange);
+.mix-tile .pad-num {
+  color: var(--cyan);
 }
 
-.mixer-fader.muted .mixer-fader-fill {
-  opacity: 0.35;
-}
-
-.mixer-fader.muted .mixer-fader-level {
-  color: var(--orange);
-}
-
-.mixer-fader-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-top: 2px solid var(--cyan);
-  background: linear-gradient(to top, rgb(var(--cyan-rgb) / 0.4), rgb(var(--cyan-rgb) / 0.08));
-  box-shadow: 0 -4px 14px rgb(var(--cyan-rgb) / 0.35);
-  pointer-events: none;
-  transition: height 60ms linear;
-}
-
-.mixer-fader-level {
+.mix-tile-level {
   position: absolute;
   inset: 0;
   display: flex;
@@ -1467,8 +1499,10 @@ button:disabled {
   pointer-events: none;
 }
 
-.mixer-fader .pad-num {
-  color: var(--cyan);
+.mix-tile.muted .mix-tile-level {
+  font-size: var(--fs-sm);
+  color: var(--orange);
+  text-shadow: var(--text-glow-orange);
 }
 
 .action {
@@ -2368,8 +2402,6 @@ button.list-item:hover .list-wave {
 .song-section-number { width: 20px; color: var(--cyan); font-family: var(--font-mono); font-size: var(--fs-xs); }
 .song-section-name { flex: 1 1 100px; }
 .song-section select { flex: 1 1 110px; }
-.song-repeats { display: flex; align-items: center; gap: 3px; color: var(--text-dim); }
-.song-repeats input { width: 54px; }
 .song-section-summary { width: 100%; padding-left: 26px; color: var(--text-dim); font-size: var(--fs-xs); text-transform: capitalize; }
 .song-section-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; padding-left: 26px; }
 .song-footer { justify-content: space-between; }
@@ -2928,13 +2960,13 @@ button.list-item:hover .list-wave {
     gap: 6px;
   }
 
-  .record-btn {
+  .play-btn {
     width: 40px;
     height: 40px;
     margin-top: 0;
   }
 
-  .record-btn-caption {
+  .play-btn-caption {
     display: none;
   }
 }
@@ -2983,14 +3015,6 @@ button.list-item:hover .list-wave {
   flex-direction: column;
 }
 
-.tab-play {
-  color: var(--cyan);
-}
-
-.tab-play.on {
-  color: var(--orange);
-  text-shadow: var(--text-glow-orange);
-}
 
 /* The page area knows its own height, so pinned rows can let go when it's short. */
 .app-shell {
@@ -3092,6 +3116,29 @@ button.list-item:hover .list-wave {
   margin-top: var(--s2);
 }
 
+.pattern-copy-from {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+.pattern-copy-from select {
+  flex: 1 1 160px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(4 10 15 / 0.8);
+  color: var(--text);
+  font: inherit;
+}
+
+.pattern-copy-from .btn {
+  flex: 1 1 140px;
+}
+
 .pattern-menu-actions .btn {
   flex: 1 1 140px;
 }
@@ -3156,6 +3203,47 @@ button.list-item:hover .list-wave {
   gap: 6px;
   width: 100%;
   padding-left: 26px;
+}
+
+/* A section card: number, name and ↑ ↓ across the top; pattern and repeats under it. */
+.song-section-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.song-section-top .song-section-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.song-section-order {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.song-section-setup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding-left: 26px;
+}
+
+.song-section-setup select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.song-section-setup .stepper {
+  flex: none;
+}
+
+.song-transition {
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 /* Fingers, not cursors: every control is at least 40px where you touch it. */
@@ -3609,19 +3697,19 @@ button.list-item:hover .list-wave {
 
 /* Preset creation is a visible first step on both phone pages. */
 .beat-starter { padding: 14px; display: grid; gap: 10px; flex-shrink: 0; }
-.beat-starter-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .beat-starter p { margin: 0; font-size: 12px; line-height: 1.5; }
-.beat-starter-heading p { margin-top: 6px; }
-.beat-style-label { display: flex; align-items: center; gap: 12px; font-size: 13px; }
-.beat-style-label select { flex: 1; min-width: 0; }
 .beat-starter select { background: var(--deck-raised); color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px; }
-.beat-options, .beat-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.beat-options label, .beat-keep-sounds { display: flex; align-items: center; gap: 6px; font-size: 12px; min-height: 32px; }
-.beat-options .chip-btn, .beat-actions .btn { min-height: 40px; }
-.beat-options input, .beat-keep-sounds input { accent-color: var(--cyan); width: 16px; height: 16px; }
-.beat-actions .btn:first-child { background: var(--cyan); color: #08232a; font-weight: 700; }
-.beat-hint { color: var(--text-faint); }
-.pads-page > .beat-starter { margin-bottom: 12px; }
+/* Make a beat: parts to generate, the settings, one Generate, and the Tweak row. */
+.beat-parts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.beat-parts .chip-btn { justify-content: center; min-height: 40px; }
+.beat-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.beat-settings select:first-child { flex: 1 1 160px; min-width: 0; }
+.beat-settings .segmented { flex: 1 1 auto; }
+.beat-generate { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; background: var(--cyan); color: #08232a; font-weight: 700; }
+.beat-tweaks { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.beat-tweaks .label { flex: none; }
+.beat-options-toggle { margin-left: auto; }
+.beat-notice { color: var(--text-dim); }
 .fx-preset-description { display: block; font-size: 10px; line-height: 1.3; font-weight: normal; color: var(--text-faint); margin-top: 3px; }
 .fx-preset-button.on { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / .12); }
 .fx-floating-panel { width: min(360px, calc(100vw - 24px)); }
@@ -3632,11 +3720,11 @@ button.list-item:hover .list-wave {
 .song-link-note { grid-column: 2 / -1; margin: 0; }
 .beat-edit-context { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; }
 
-.variation-panel { margin: 10px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
-.variation-panel summary { cursor: pointer; font-weight: 700; padding: 5px 0; }
-.variation-panel select { max-width: 100%; }
-.variation-panel .beat-actions { flex-wrap: wrap; margin: 10px 0; }
 .variation-decision { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px; background: var(--deck-solid); border: 1px solid var(--cyan); border-radius: 10px; margin-bottom: 10px; flex-shrink: 0; }
 .variation-decision small { flex-basis: 100%; }
 
 .instrument-source { display: block; font-size: 10px; color: var(--text-dim); margin-top: 3px; font-weight: normal; }
+
+.song-link-note {
+  text-transform: none;
+}

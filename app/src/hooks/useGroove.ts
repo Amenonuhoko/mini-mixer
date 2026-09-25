@@ -135,13 +135,16 @@ export function useGroove() {
       const keepMood = options.keepSounds || state.mood !== null && style.moods.includes(state.mood)
       const mood = keepMood ? state.mood! : style.moods[0]!
       const key = keepMood ? state.key : moodById(mood).key
+      const kinds = options.kinds ?? BANK_KINDS
+      // Only the parts being generated get sounds built — a drums-only beat leaves the other banks alone.
       const builds = await Promise.all(
-        state.banks.filter((bank) => !options.keepSounds || !bank.sound).map((bank) => buildBank(bank, styleSound(style, bank.kind), { key, padLayout: state.padLayout, samples: state.samples })),
+        state.banks
+          .filter((bank) => kinds.includes(bank.kind) && (!options.keepSounds || !bank.sound))
+          .map((bank) => buildBank(bank, styleSound(style, bank.kind), { key, padLayout: state.padLayout, samples: state.samples })),
       )
       if (builds.length) dispatch({ type: 'APPLY_BANK_BUILDS', builds, remap: 'index', key, mood })
       dispatch({ type: 'SET_BPM', bpm: beatBpm(style, groove.seed) })
       dispatch({ type: 'START_PATTERN', patternId: pattern.id, stepCount: groove.bars * 16 })
-      const kinds = options.kinds ?? BANK_KINDS
       const layer: GrooveLayer = { styleId: style.id, take: 0, intensity: options.intensity ?? DEFAULT_INTENSITY }
       const fresh = { ...state, key, patterns: state.patterns.map((item) => (item.id === pattern.id ? { ...item, stepCount: groove.bars * 16 } : item)) }
       for (const bank of state.banks) {
@@ -172,6 +175,37 @@ export function useGroove() {
       }
       writeLayer(state, dispatch, groove, bank, layer, sound, pads)
       dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers: { ...groove.layers, [kind]: layer } } })
+    })
+
+  /**
+   * Fresh material for some parts only — each written from `style` (a new
+   * take when it's already that style) at the given busyness — leaving every
+   * other part exactly as it is. One pass and one groove update, so several
+   * parts can change at once. `newSounds` also swaps in the style's sounds
+   * for those parts; otherwise a part keeps its sound (one is built only if
+   * it has none).
+   */
+  const regenerateLayers = (kinds: BankKind[], style: StyleDef, options: { intensity: number; newSounds?: boolean }) =>
+    run(`layers:${style.id}`, async () => {
+      const groove = state.groove ?? newGroove(style)
+      const layers = { ...groove.layers }
+      for (const kind of kinds) {
+        const bank = getBank(state, kind)
+        const current = layers[kind]
+        let sound = bank.sound
+        let pads: Array<{ music: PadMusic | null }> = visibleBankPads(state, bank)
+        const missing = kind === 'drums' ? sound?.type !== 'kit' : sound === null
+        if (missing || options.newSounds) {
+          sound = styleSound(style, kind)
+          const build = await buildBank(bank, sound, { key: state.key, padLayout: state.padLayout, samples: state.samples })
+          dispatch({ type: 'APPLY_BANK_BUILDS', builds: [build], remap: 'index' })
+          pads = build.pads
+        }
+        const layer: GrooveLayer = { styleId: style.id, take: current?.styleId === style.id ? current.take + 1 : 0, intensity: options.intensity }
+        layers[kind] = layer
+        writeLayer(state, dispatch, groove, bank, layer, sound, pads)
+      }
+      dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers } })
     })
 
   /** Rewrites a layer that already exists, synchronously — cheap enough to follow a slider live. */
@@ -249,5 +283,5 @@ export function useGroove() {
     hearBeat()
   })
 
-  return { busy, error, hearBeat, varyBeat, startBeat, setLayerStyle, newTake, setIntensity, clearLayer, newChords }
+  return { busy, error, hearBeat, varyBeat, startBeat, regenerateLayers, setLayerStyle, newTake, setIntensity, clearLayer, newChords }
 }

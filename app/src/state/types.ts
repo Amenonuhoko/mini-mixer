@@ -124,6 +124,8 @@ export interface Bank {
   generatedSampleIds: string[]
   /** MIDI note → sample id for every single note the bank's pads use, chord notes included — the arpeggiator's raw material. */
   noteSampleIds: Record<string, string>
+  /** The whole bank's volume, 0–100 (missing = 100), on top of each pad's own level — Mix's one slider. */
+  volume?: number
 }
 
 /** The Filter/Grit/Echo/Reverb "character" combo, remembered per sound (see AppState.fxBySound). */

@@ -2,7 +2,7 @@ import type { AppState, EffectId, EffectSetting, Pad, Sample } from '../state/ty
 import { Channel, createMasterStage, ReverbRooms, shapeEnvelope } from './channel'
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
-import { playablePads } from '../state/banks'
+import { bankVolumeScale, playablePads } from '../state/banks'
 import { buildSongTimeline, sectionBankGain } from './songTimeline'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
@@ -49,7 +49,7 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
     throw new Error('renderPatternToBuffer: pattern has no active steps to bounce')
   }
 
-  return renderHits(hits, pattern.stepCount * secondsPerStep)
+  return renderHits(hits, pattern.stepCount * secondsPerStep, padBankScales(state))
 }
 
 /** Renders the ordered arrangement, including every section repeat, as one sample. */
@@ -81,10 +81,15 @@ export async function renderSongToBuffer(state: AppState): Promise<AudioBuffer> 
     }
   }
   if (hits.length === 0) throw new Error('Song has no active steps to render')
-  return renderHits(hits, songSeconds)
+  return renderHits(hits, songSeconds, padBankScales(state))
 }
 
-async function renderHits(hits: ScheduledHit[], sequenceSeconds: number): Promise<AudioBuffer> {
+/** Each pad's bank volume (0–1), which the bounce multiplies into the pad's own level, as live playback does. */
+function padBankScales(state: AppState): Map<string, number> {
+  return new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bankVolumeScale(bank)] as const)))
+}
+
+async function renderHits(hits: ScheduledHit[], sequenceSeconds: number, bankScales: Map<string, number>): Promise<AudioBuffer> {
 
   const sampleRate = hits[0]!.sample.buffer.sampleRate
   const windows = hits.map((hit) =>
@@ -117,7 +122,7 @@ async function renderHits(hits: ScheduledHit[], sequenceSeconds: number): Promis
     if (!channel) {
       channel = new Channel(ctx, limiter, rooms)
       channel.applyEffects(effects, false)
-      channel.setMixLevel(pad.mixLevel, false)
+      channel.setMixLevel(pad.mixLevel * (bankScales.get(pad.id) ?? 1), false)
       channels.set(pad.id, channel)
     }
 

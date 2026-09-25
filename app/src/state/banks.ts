@@ -71,3 +71,8 @@ export function soundKey(sound: BankSound | null): string | null {
       return `recording:${sound.sampleId}`
   }
 }
+
+/** A bank's volume as a 0–1 gain on its pads' levels (see Bank.volume). */
+export function bankVolumeScale(bank: Bank | undefined): number {
+  return Math.max(0, Math.min(100, bank?.volume ?? 100)) / 100
+}

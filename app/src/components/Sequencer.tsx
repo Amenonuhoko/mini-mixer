@@ -53,7 +53,8 @@ function chunk<T>(items: T[], size: number): T[][] {
 /**
  * The step sequencer module: a compact header (which pattern is in the grid,
  * its step count, and a ⋯ menu for everything else about the pattern —
- * rename, new, duplicate, save as sample, load, bar 1 → all, hide, clear),
+ * rename, new, duplicate, copy from another pattern, save as sample, load,
+ * bar 1 → all, hide, clear),
  * the ways a tap on a step behaves (hold to hear, preview, paint) plus Fill
  * row for the selected row, and
  * the grid, read as a continuous timeline — beat groups set apart, the
@@ -86,6 +87,8 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [confirmRepeat, setConfirmRepeat] = useState(false)
   const [patternMenuOpen, setPatternMenuOpen] = useState(false)
   const [fillOpen, setFillOpen] = useState(false)
+  const [copyFromId, setCopyFromId] = useState('')
+  const [confirmCopy, setConfirmCopy] = useState(false)
   const { selectedPadId, selectPad, setStylesOpen, beatStarts } = useNavigation()
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -282,6 +285,14 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const laterBarsHaveSteps = pattern
     ? Object.values(pattern.steps).some((row) => row.some((cell, i) => i >= 16 && cell !== null))
     : false
+  /** Replaces the grid's pattern with a copy of another — e.g. the Intro copied into the Verse to start it from there. */
+  const copyFrom = () => {
+    if (pattern && copyFromId) dispatch({ type: 'COPY_PATTERN_FROM', patternId: pattern.id, fromId: copyFromId })
+    setConfirmCopy(false)
+    setPatternMenuOpen(false)
+    setCopyFromId('')
+  }
+
   const repeatFirstBar = () => {
     if (pattern) dispatch({ type: 'REPEAT_FIRST_BAR', patternId: pattern.id })
     setConfirmRepeat(false)
@@ -321,7 +332,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
         <select
           className="sequencer-pattern-select"
           value={pattern.id}
-          onChange={(event) => dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: event.target.value })}
+          onChange={(event) => {
+            // Picking a pattern by hand means "play this pattern" — leave any song or section playback.
+            if (state.transport.playMode === 'song') {
+              engine.setSequencerPlaybackEnabled(false)
+              engine.stopAllSounds()
+              dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+              dispatch({ type: 'SET_PLAY_MODE', mode: 'pattern' })
+            }
+            dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: event.target.value })
+          }}
           aria-label="Pattern in the grid"
         >
           {state.patterns.map((item) => (
@@ -538,6 +558,36 @@ export function Sequencer({ onBounced }: SequencerProps) {
               </button>
             </div>
           </section>
+          {state.patterns.length > 1 && (
+            <section className="sheet-section" aria-label="Copy from another pattern">
+              <h3 className="label">Copy from another pattern</h3>
+              <div className="pattern-copy-from">
+                <select
+                  value={copyFromId}
+                  onChange={(event) => setCopyFromId(event.target.value)}
+                  aria-label="Pattern to copy from"
+                >
+                  <option value="">Choose a pattern…</option>
+                  {state.patterns
+                    .filter((item) => item.id !== pattern.id)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                        {Object.values(item.steps).some((row) => row.some(Boolean)) ? '' : ' (empty)'}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={!copyFromId}
+                  onClick={() => (patternHasSteps ? setConfirmCopy(true) : copyFrom())}
+                >
+                  Copy into {pattern.name}
+                </button>
+              </div>
+            </section>
+          )}
           <section className="sheet-section" aria-label="Steps">
             <div className="pattern-menu-actions">
               <button
@@ -603,6 +653,18 @@ export function Sequencer({ onBounced }: SequencerProps) {
             </div>
           </section>
         </Overlay>
+      )}
+      {confirmCopy && (
+        <ConfirmDialog
+          message={`Replace everything in ${pattern.name} with a copy of ${state.patterns.find((item) => item.id === copyFromId)?.name ?? 'that pattern'}?${
+            state.songSections.filter((section) => section.patternId === pattern.id).length > 1
+              ? ` Every song part using ${pattern.name} changes too.`
+              : ''
+          }`}
+          confirmLabel="Copy"
+          onConfirm={copyFrom}
+          onCancel={() => setConfirmCopy(false)}
+        />
       )}
       {confirmClear && (
         <ConfirmDialog

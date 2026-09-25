@@ -1,4 +1,4 @@
-import { VariationDecision } from './components/VariationPanel'
+import { VariationDecision } from './components/VariationDecision'
 import { useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
 import { LightShow } from './components/LightShow'
@@ -58,14 +58,14 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
       return (
         <div className="landscape-stack">
           <Sequencer onBounced={onBounced} />
-          <PadsPage />
+          <PadsPage onRecorded={onBounced} />
         </div>
       )
     }
     if (isWide) {
       return (
         <div className="wide-split">
-          <PadsPage />
+          <PadsPage onRecorded={onBounced} />
           <Sequencer onBounced={onBounced} />
         </div>
       )
@@ -74,7 +74,7 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
 
   switch (page) {
     case 'pads':
-      return <PadsPage />
+      return <PadsPage onRecorded={onBounced} />
     case 'sequencer':
       return <Sequencer onBounced={onBounced} />
     case 'song':
@@ -91,6 +91,7 @@ function Shell() {
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const shellRef = useRef<HTMLElement>(null)
   const swipeStart = useRef<{ x: number; y: number; identifier: number; startedAt: number } | null>(null)
   useAutosave(state, dispatch, engine)
 
@@ -105,6 +106,12 @@ function Shell() {
 
   // The bottom stack (Styles drawer, tab bar) changes
   // height as its parts come and go; the page and toasts sit right above it.
+  // Every page opens at its top — the page area is one shared scroll container,
+  // so without this a page would open wherever the last one was scrolled to.
+  useLayoutEffect(() => {
+    shellRef.current?.scrollTo(0, 0)
+  }, [page])
+
   useLayoutEffect(() => {
     const stack = bottomRef.current
     if (!stack) return
@@ -160,6 +167,7 @@ function Shell() {
       <LightShow />
       <TransportStrip onOpenSettings={() => setSettingsOpen(true)} />
       <main
+        ref={shellRef}
         className={[
           'app-shell',
           page === 'library' ? 'library-shell' : '',
@@ -176,11 +184,7 @@ function Shell() {
       <div className="bottom-stack" ref={bottomRef}>
         {stylesOpen && <StyleDock />}
         <div className="bottom-row">
-          <TabBar
-            combinedView={combinedView}
-            sampleCount={Object.keys(state.samples).length}
-            onRecorded={setPendingRecording}
-          />
+          <TabBar combinedView={combinedView} />
         </div>
       </div>
       {editingPadId !== null && <PadEditOverlay onClose={goBackFromEdit} />}
