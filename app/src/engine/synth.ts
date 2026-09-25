@@ -5,9 +5,6 @@ import { polishSample } from './samplePolish'
 export type SynthWaveform = OscillatorType
 type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar' | 'electricPiano' | 'mallet' | 'sub' | 'rubber' | 'bubble'
 
-/** A real sampled wind source, fetched only when its layout is selected. */
-export type RecordedWindPack = 'altoSaxophone' | 'trumpet' | 'flute' | 'clarinet'
-
 /**
  * The synth bank deliberately distinguishes an instrument's sound-producing
  * model from its general envelope. Lead and Pad stay oscillator voices; the
@@ -38,17 +35,12 @@ export interface InstrumentPreset {
   description?: string
   recordedKeys?: keyof typeof RECORDED_KEYS
   rootHz: number
-  /** A real CC0 wind pack; download errors leave the existing bank unchanged. */
-  recordedWindPack?: RecordedWindPack
   patch: SynthPatch
 }
 
 /**
- * Procedural instruments, not generic waveforms wearing instrument labels:
- * piano uses decaying partials plus a hammer transient; bass adds a short
- * pluck and filtered harmonic body; pluck/guitar use a Karplus-Strong string;
- * organ is a drawbar stack; Bell is a set of inharmonic modes. Lead and Pad
- * remain intentionally synthetic but gain detuned unison voices.
+ * Acoustic presets use multisampled recordings. Organ and Electric Piano use
+ * dedicated models; the electronic and playful voices are intentionally synths.
  */
 export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   {
@@ -120,6 +112,8 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   },
   {
     name: 'Pluck',
+    description: 'Recorded concert harp with a clear pluck and resonant wooden body.',
+    recordedKeys: 'harp',
     rootHz: 261.63,
     patch: {
       voice: 'pluck',
@@ -133,6 +127,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   },
   {
     name: 'Organ',
+    description: 'Modeled tonewheel drawbars, soft key click and gentle rotary motion.',
     rootHz: 261.63,
     patch: {
       voice: 'organ',
@@ -146,6 +141,8 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   },
   {
     name: 'Bell',
+    description: 'Recorded tubular bells with a metallic strike and ringing overtones.',
+    recordedKeys: 'bell',
     rootHz: 261.63,
     patch: {
       voice: 'bell',
@@ -172,25 +169,25 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
     },
   },
   {
-    name: 'Alto Saxophone', rootHz: 164.81, recordedWindPack: 'altoSaxophone',
+    name: 'Alto Saxophone', description: 'Recorded alto: reed bite and full breath-driven tone.', rootHz: 164.81, recordedKeys: 'sax',
     patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: 0.12, unisonDetuneCents: 5, attackSeconds: 0.045, decaySeconds: 0.22, sustainLevel: 0.72, releaseSeconds: 0.5, totalDurationSeconds: 2.8, lowpassHz: 2400, vibratoHz: 5.1, vibratoCents: 10, filterMovement: 0.08 },
   },
   {
-    name: 'Trumpet', rootHz: 261.63, recordedWindPack: 'trumpet',
+    name: 'Trumpet', description: 'Recorded open trumpet: tongued attack and bright brass body.', rootHz: 261.63, recordedKeys: 'trumpet',
     patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: 0.2, unisonDetuneCents: 4, attackSeconds: 0.03, decaySeconds: 0.16, sustainLevel: 0.64, releaseSeconds: 0.38, totalDurationSeconds: 2.4, lowpassHz: 3300, vibratoHz: 5.4, vibratoCents: 8, filterMovement: 0.1 },
   },
   {
-    name: 'Flute', rootHz: 261.63, recordedWindPack: 'flute',
+    name: 'Flute', description: 'Recorded concert flute with breath and natural vibrato.', rootHz: 261.63, recordedKeys: 'flute',
     patch: { voice: 'lead', waveform: 'sine', overtoneGain: 0.08, attackSeconds: 0.07, decaySeconds: 0.2, sustainLevel: 0.7, releaseSeconds: 0.62, totalDurationSeconds: 3, lowpassHz: 4100, vibratoHz: 5.3, vibratoCents: 7, filterMovement: 0.06 },
   },
   {
-    name: 'Clarinet', rootHz: 130.81, recordedWindPack: 'clarinet',
+    name: 'Clarinet', description: 'Recorded clarinet with woody low notes and a clear upper register.', rootHz: 130.81, recordedKeys: 'clarinet',
     patch: { voice: 'lead', waveform: 'square', overtoneGain: 0.07, attackSeconds: 0.055, decaySeconds: 0.18, sustainLevel: 0.68, releaseSeconds: 0.48, totalDurationSeconds: 2.7, lowpassHz: 2500, vibratoHz: 4.9, vibratoCents: 6, filterMovement: 0.06 },
   },
-  { name: 'Electric Piano', description: 'Soft tines with a warm bell attack', rootHz: 261.63, patch: { voice: 'electricPiano', waveform: 'sine', attackSeconds: .004, decaySeconds: .7, sustainLevel: 0, releaseSeconds: .5, totalDurationSeconds: 2.6 } },
+  { name: 'Electric Piano', description: 'Modeled tines with a rounded pickup tone, hammer attack and gentle tremolo', rootHz: 261.63, patch: { voice: 'electricPiano', waveform: 'sine', attackSeconds: .004, decaySeconds: .7, sustainLevel: 0, releaseSeconds: .5, totalDurationSeconds: 3.2 } },
   { name: 'Marimba', recordedKeys: 'marimba', description: 'Rounded wooden mallets', rootHz: 261.63, patch: { voice: 'mallet', waveform: 'sine', attackSeconds: .002, decaySeconds: .4, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.3 } },
   { name: 'Sub Bass', description: 'Deep, clean low end with a gentle harmonic', rootHz: 65.41, patch: { voice: 'sub', waveform: 'sine', attackSeconds: .008, decaySeconds: .2, sustainLevel: .7, releaseSeconds: .2, totalDurationSeconds: .95 } },
-  { name: 'Velvet Strings', description: 'Slow bowed synth ensemble', rootHz: 261.63, patch: { voice: 'pad', waveform: 'sawtooth', unisonDetuneCents: 7, attackSeconds: .22, decaySeconds: .4, sustainLevel: .55, releaseSeconds: .9, totalDurationSeconds: 3.1, lowpassHz: 2600, vibratoHz: 4.7, vibratoCents: 4 } },
+  { name: 'Velvet Strings', recordedKeys: 'strings', description: 'Recorded violin section with natural bow texture and ensemble vibrato', rootHz: 261.63, patch: { voice: 'pad', waveform: 'sawtooth', unisonDetuneCents: 7, attackSeconds: .22, decaySeconds: .4, sustainLevel: .55, releaseSeconds: .9, totalDurationSeconds: 3.1, lowpassHz: 2600, vibratoHz: 4.7, vibratoCents: 4 } },
   { name: 'Chiptune', description: 'Bright square-wave arcade notes', rootHz: 261.63, patch: { voice: 'lead', waveform: 'square', attackSeconds: .003, decaySeconds: .12, sustainLevel: .28, releaseSeconds: .12, totalDurationSeconds: .65, lowpassHz: 5200 } },
   { name: 'Rubber Duck', description: 'A springy, nasal quack with a pitched body', rootHz: 261.63, patch: { voice: 'rubber', waveform: 'sine', attackSeconds: .004, decaySeconds: .2, sustainLevel: 0, releaseSeconds: .15, totalDurationSeconds: .85 } },
   { name: 'Bubble Keys', description: 'Bouncy water-drop notes and glassy tails', rootHz: 261.63, patch: { voice: 'bubble', waveform: 'sine', attackSeconds: .003, decaySeconds: .3, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.25 } },
@@ -516,43 +513,7 @@ const RECORDED_BASS_ZONES: RecordedSourceZone[] = [
   { midi: 52, file: '52_v100_rr1.wav' }, // E3
 ]
 
-/**
- * Real CC0 multisample sources: Weresax provides the alto recordings; the
- * remaining packs are VSCO-derived wind zones. Only the zones nearest the
- * requested notes are fetched, cached, and locally pitch-rendered.
- */
 type RecordedSourceZone = { midi: number; file: string }
-type StaticWindPack = { baseUrl: string; zones: readonly RecordedSourceZone[] }
-type ManifestWindPack = { baseUrl: string; manifestUrl: string }
-type WindPackDefinition = StaticWindPack | ManifestWindPack
-
-const CC0_WIND_PACKS: Record<RecordedWindPack, WindPackDefinition> = {
-  altoSaxophone: {
-    baseUrl: 'https://raw.githubusercontent.com/sfzinstruments/karoryfer.weresax/master/Samples/alto/',
-    zones: [
-      { midi: 52, file: 'e2_f_rr1_cnd.wav' }, { midi: 60, file: 'c3_f_rr1_cnd.wav' },
-      { midi: 68, file: 'ab3_f_rr1_cnd.wav' }, { midi: 76, file: 'e4_f_rr1_cnd.wav' },
-    ],
-  },
-  trumpet: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-trumpet-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-trumpet-samples/resolve/main/manifest.json' },
-  flute: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-flute-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-flute-samples/resolve/main/manifest.json' },
-  clarinet: { baseUrl: 'https://huggingface.co/AEmotionStudio/windstudio-clarinet-samples/resolve/main/', manifestUrl: 'https://huggingface.co/AEmotionStudio/windstudio-clarinet-samples/resolve/main/manifest.json' },
-}
-
-function isStaticWindPack(pack: WindPackDefinition): pack is StaticWindPack { return 'zones' in pack }
-function parseWindZones(value: unknown): RecordedSourceZone[] {
-  if (!value || typeof value !== 'object' || !Array.isArray((value as { zones?: unknown }).zones)) throw new Error('Invalid wind sample manifest')
-  const zones = ((value as { zones: unknown[] }).zones).flatMap((zone): RecordedSourceZone[] => {
-    if (!zone || typeof zone !== 'object') return []
-    const item = zone as { file?: unknown; rootPitch?: unknown }
-    return typeof item.file === 'string' && typeof item.rootPitch === 'number' ? [{ file: item.file, midi: item.rootPitch }] : []
-  })
-  if (zones.length === 0) throw new Error('Wind sample manifest contains no playable zones')
-  return zones
-}
-function windFileUrl(baseUrl: string, file: string): string {
-  return /^https?:\/\//.test(file) ? file : `${baseUrl}${file.replace(/^\.\//, '')}`
-}
 
 async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
@@ -564,16 +525,22 @@ async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
 
 /** Fetch-once caches; a failure is dropped from the cache so a later build can retry. */
 const zoneBufferCache = new Map<string, Promise<AudioBuffer>>()
-const zoneListCache = new Map<string, Promise<RecordedSourceZone[]>>()
 
 function cached<T>(cache: Map<string, Promise<T>>, key: string, load: () => Promise<T>): Promise<T> {
   const hit = cache.get(key)
-  if (hit) return hit
-  const task = load().catch((error: unknown) => {
+  if (hit) {
     cache.delete(key)
+    cache.set(key, hit)
+    return hit
+  }
+  const task = load().catch((error: unknown) => {
+    if (cache.get(key) === task) cache.delete(key)
     throw error
   })
   cache.set(key, task)
+  // Source recordings are only a build cache. Generated pads own their buffers;
+  // browsing every instrument must not retain every source on a phone.
+  if (cache.size > 24) cache.delete(cache.keys().next().value!)
   return task
 }
 
@@ -583,22 +550,11 @@ interface RecordedSource {
 }
 
 export function usesRecordings(preset: InstrumentPreset): boolean {
-  return !!preset.recordedKeys || !!preset.recordedWindPack || preset.patch.voice === 'guitar' || preset.patch.voice === 'bass'
+  return !!preset.recordedKeys || preset.patch.voice === 'guitar' || preset.patch.voice === 'bass'
 }
 
 async function recordedSourceFor(preset: InstrumentPreset): Promise<RecordedSource | null> {
   if (preset.recordedKeys) return { zones: RECORDED_KEYS[preset.recordedKeys], url: (file) => import.meta.env.BASE_URL + 'instruments/' + file }
-  if (preset.recordedWindPack) {
-    const pack = CC0_WIND_PACKS[preset.recordedWindPack]
-    const zones = isStaticWindPack(pack)
-      ? pack.zones
-      : await cached(zoneListCache, pack.manifestUrl, async () => {
-          const response = await fetch(pack.manifestUrl, { signal: AbortSignal.timeout(15000) })
-          if (!response.ok) throw new Error(`Could not load wind sample manifest (${response.status})`)
-          return parseWindZones(await response.json())
-        })
-    return { zones, url: (file) => windFileUrl(pack.baseUrl, file) }
-  }
   if (preset.patch.voice === 'guitar') return { zones: RECORDED_GUITAR_ZONES, url: (file) => CC0_ELECTRIC_GUITAR_BASE_URL + file }
   if (preset.patch.voice === 'bass') return { zones: RECORDED_BASS_ZONES, url: (file) => CC0_BASS_BASE_URL + file }
   return null
