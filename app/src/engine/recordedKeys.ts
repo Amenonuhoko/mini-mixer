@@ -397,5 +397,65 @@ export const RECORDED_KEYS = {
       "midi": 80,
       "file": "sax-80.wav"
     }
+  ],
+  "guitar": [
+    {
+      "midi": 40,
+      "file": "guitar-40.wav"
+    },
+    {
+      "midi": 47,
+      "file": "guitar-47.wav"
+    },
+    {
+      "midi": 55,
+      "file": "guitar-55.wav"
+    },
+    {
+      "midi": 60,
+      "file": "guitar-60.wav"
+    },
+    {
+      "midi": 68,
+      "file": "guitar-68.wav"
+    },
+    {
+      "midi": 76,
+      "file": "guitar-76.wav"
+    },
+    {
+      "midi": 84,
+      "file": "guitar-84.wav"
+    }
+  ],
+  "bass": [
+    {
+      "midi": 25,
+      "file": "bass-25.wav"
+    },
+    {
+      "midi": 33,
+      "file": "bass-33.wav"
+    },
+    {
+      "midi": 36,
+      "file": "bass-36.wav"
+    },
+    {
+      "midi": 42,
+      "file": "bass-42.wav"
+    },
+    {
+      "midi": 48,
+      "file": "bass-48.wav"
+    },
+    {
+      "midi": 54,
+      "file": "bass-54.wav"
+    },
+    {
+      "midi": 60,
+      "file": "bass-60.wav"
+    }
   ]
 } as const

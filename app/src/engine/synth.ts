@@ -60,6 +60,8 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   },
   {
     name: 'Bass',
+    recordedKeys: 'bass',
+    description: 'Recorded fingered electric bass with natural pluck and fret character.',
     rootHz: 65.41,
     patch: {
       voice: 'bass',
@@ -156,6 +158,8 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   },
   {
     name: 'Guitar',
+    recordedKeys: 'guitar',
+    description: 'Recorded electric guitar, with separate low and upper-register notes.',
     rootHz: 164.81,
     patch: {
       voice: 'guitar',
@@ -512,36 +516,6 @@ export async function renderPitchShiftedCopy(source: AudioBuffer, semitones: num
   return ctx.startRendering()
 }
 
-/**
- * CC0 electric-guitar zones sourced from Karoryfer's Black And Green Guitars
- * pack (repackaged as individually trimmed WAVs by MAESTRO String Studio).
- * Every note is derived from the nearest recording, avoiding the artificial
- * 'one sample stretched across an entire neck' sound.
- *
- * Source: https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples
- * License: CC0-1.0.
- */
-const CC0_ELECTRIC_GUITAR_BASE_URL =
-  'https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/'
-const RECORDED_GUITAR_ZONES: RecordedSourceZone[] = [
-  { midi: 52, file: '52_v100_rr1.wav' }, // E3
-  { midi: 59, file: '59_v100_rr1.wav' }, // B3
-  { midi: 67, file: '67_v100_rr1.wav' }, // G4
-]
-
-/**
- * CC0 fingered-bass zones from Karoryfer's Growlybass pack, prepared as
- * browser-decodable WAVs by MAESTRO String Studio, retaining real pluck,
- * fret, and finger character.
- */
-const CC0_BASS_BASE_URL =
-  'https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/'
-const RECORDED_BASS_ZONES: RecordedSourceZone[] = [
-  { midi: 37, file: '37_v100_rr1.wav' }, // C#2
-  { midi: 45, file: '45_v100_rr1.wav' }, // A2
-  { midi: 52, file: '52_v100_rr1.wav' }, // E3
-]
-
 type RecordedSourceZone = { midi: number; file: string }
 
 async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
@@ -579,13 +553,11 @@ interface RecordedSource {
 }
 
 export function usesRecordings(preset: InstrumentPreset): boolean {
-  return !!preset.recordedKeys || preset.patch.voice === 'guitar' || preset.patch.voice === 'bass'
+  return !!preset.recordedKeys
 }
 
 async function recordedSourceFor(preset: InstrumentPreset): Promise<RecordedSource | null> {
   if (preset.recordedKeys) return { zones: RECORDED_KEYS[preset.recordedKeys], url: (file) => import.meta.env.BASE_URL + 'instruments/' + file }
-  if (preset.patch.voice === 'guitar') return { zones: RECORDED_GUITAR_ZONES, url: (file) => CC0_ELECTRIC_GUITAR_BASE_URL + file }
-  if (preset.patch.voice === 'bass') return { zones: RECORDED_BASS_ZONES, url: (file) => CC0_BASS_BASE_URL + file }
   return null
 }
 

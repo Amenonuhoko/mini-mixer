@@ -943,5 +943,163 @@
       "file": "sax-77.wav",
       "seconds": 1.8
     }
+  ],
+  "guitar": [
+    {
+      "kind": "guitar",
+      "note": "E2",
+      "midi": 40,
+      "path": "samples/52_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/52_v100_rr1.wav",
+      "sha256": "44506063b8c359cb2622e0f12e0c9ebd79ce2327f00d24c11156dc1c9c82e577",
+      "license": "CC0-1.0",
+      "file": "guitar-40.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "guitar",
+      "note": "B2",
+      "midi": 47,
+      "path": "samples/59_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/59_v100_rr1.wav",
+      "sha256": "afd5f660963f3ad9216bd2c53dff57c7f45eb5bbc351577739aed529888bf13e",
+      "license": "CC0-1.0",
+      "file": "guitar-47.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "guitar",
+      "note": "G3",
+      "midi": 55,
+      "path": "samples/67_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/67_v100_rr1.wav",
+      "sha256": "dc2e9d0cf53475c283be3c4a587bcb9802ba7bc678fe35685e0ac0382234b940",
+      "license": "CC0-1.0",
+      "file": "guitar-55.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "guitar",
+      "note": "C4",
+      "midi": 60,
+      "path": "samples/72_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/72_v100_rr1.wav",
+      "sha256": "009322d60fef7c05ab0eb230974f6bf0e73f5de92df95ac31c3daf87c537e134",
+      "license": "CC0-1.0",
+      "file": "guitar-60.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "guitar",
+      "note": "G#4",
+      "midi": 68,
+      "path": "samples/80_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/80_v100_rr1.wav",
+      "sha256": "6a430b54a7e22996ad0a033ac2a178cda3499a28fd11c32fa9654c8f8f2be6aa",
+      "license": "CC0-1.0",
+      "file": "guitar-68.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "guitar",
+      "note": "E5",
+      "midi": 76,
+      "path": "samples/88_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/88_v100_rr1.wav",
+      "sha256": "71b3d5aead3918008bed8a09f8f8ef162d019d727e53137c09aeda38660cfc79",
+      "license": "CC0-1.0",
+      "file": "guitar-76.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "guitar",
+      "note": "C6",
+      "midi": 84,
+      "path": "samples/96_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-electric-guitar-samples/resolve/main/samples/96_v100_rr1.wav",
+      "sha256": "151b1e84c93f3a72ce2c65cf5d73da32846fd8419794e020289fabc7cf1af3bd",
+      "license": "CC0-1.0",
+      "file": "guitar-84.wav",
+      "seconds": 2.381
+    }
+  ],
+  "bass": [
+    {
+      "kind": "bass",
+      "note": "C#1",
+      "midi": 25,
+      "path": "samples/37_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/37_v100_rr1.wav",
+      "sha256": "7d1738ee7dc1848f5bba54c8e6fa47c11903cb96a892f15bdf7bc66841345761",
+      "license": "CC0-1.0",
+      "file": "bass-25.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "bass",
+      "note": "A1",
+      "midi": 33,
+      "path": "samples/45_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/45_v100_rr1.wav",
+      "sha256": "2e03d693c3a134f67ebcc8818bc290f085bbc234b2ee5978e2bfd06d5692239f",
+      "license": "CC0-1.0",
+      "file": "bass-33.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "bass",
+      "note": "C2",
+      "midi": 36,
+      "path": "samples/48_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/48_v100_rr1.wav",
+      "sha256": "c77cdd26f3ad7dea37e44120c17a0065f28ecf32bb2e175c99b88e76fef1ff33",
+      "license": "CC0-1.0",
+      "file": "bass-36.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "bass",
+      "note": "F#2",
+      "midi": 42,
+      "path": "samples/54_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/54_v100_rr1.wav",
+      "sha256": "89961abf41ca481a0216f76b1875e1e203c82ff205bb5d19502c2ce492813656",
+      "license": "CC0-1.0",
+      "file": "bass-42.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "bass",
+      "note": "C3",
+      "midi": 48,
+      "path": "samples/60_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/60_v100_rr1.wav",
+      "sha256": "d91ffef3771636d9e6039a44d0661116b83438943608973eb3a2f8c2936d1252",
+      "license": "CC0-1.0",
+      "file": "bass-48.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "bass",
+      "note": "F#3",
+      "midi": 54,
+      "path": "samples/66_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/66_v100_rr1.wav",
+      "sha256": "b61e148eac269af91c2bbbc6da135f187121cd56984d09963b167646de6f33a3",
+      "license": "CC0-1.0",
+      "file": "bass-54.wav",
+      "seconds": 2.5
+    },
+    {
+      "kind": "bass",
+      "note": "C4",
+      "midi": 60,
+      "path": "samples/72_v100_rr1.wav",
+      "sourceUrl": "https://huggingface.co/AEmotionStudio/stringstudio-bass-samples/resolve/main/samples/72_v100_rr1.wav",
+      "sha256": "a42ea16bb0887c61aef3acc704277ef5ee01db02731915ef383accbaa712eeb2",
+      "license": "CC0-1.0",
+      "file": "bass-60.wav",
+      "seconds": 2.5
+    }
   ]
 }

@@ -31,6 +31,15 @@ for item in json.loads((source / 'sources.json').read_text(encoding='utf-8-sig')
     stop = min(len(x), int(nonzero[-1]) + int(rate * .08), start + int(rate * duration))
     x = x[start:stop].copy()
     x -= np.mean(x)
+    if rate != 44100:
+        # Fourier resampling removes frequencies above the destination Nyquist
+        # rather than folding them into the audible range during downsampling.
+        count = round(len(x) * 44100 / rate)
+        spectrum = np.fft.rfft(x)
+        if count < len(x) and count % 2 == 0:
+            spectrum[count // 2] *= 2
+        x = np.fft.irfft(spectrum, n=count) * count / len(x)
+        rate = 44100
     attack, release = min(len(x), int(rate * .001)), min(len(x), int(rate * release_seconds))
     x[:attack] *= np.linspace(0, 1, attack)
     x[-release:] *= np.linspace(1, 0, release)
@@ -38,8 +47,6 @@ for item in json.loads((source / 'sources.json').read_text(encoding='utf-8-sig')
     pitch = {'C':0, 'D':2, 'E':4, 'F':5, 'G':7, 'A':9, 'B':11}[note[0]] + ('#' in note)
     # VCSL marimba labels use C3 = middle C; Steinway labels use C4 = middle C.
     midi = item.get('midi', (int(note[-1]) + (2 if kind == 'marimba' else 1)) * 12 + pitch)
-    if rate != 44100:
-        raise ValueError(f'{kind}-{note}: expected 44100 Hz source, got {rate}')
     file = f'{kind}-{midi}.wav'
     with wave.open(str(out / file), 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)

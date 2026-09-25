@@ -21,10 +21,10 @@ describe('bundled acoustic recordings', () => {
       expect(peak).toBeGreaterThan(1000)
       expect(peak).toBeLessThanOrEqual(24576)
     }
-    expect(bytes).toBeLessThan(24_000_000)
+    expect(bytes).toBeLessThan(27_000_000)
   })
-  it('maps wind recordings to their sounding pitch, including upstream octave conventions', () => {
-    for (const kind of ['flute', 'clarinet', 'trumpet', 'sax'] as const) for (const zone of RECORDED_KEYS[kind]) {
+  it('maps wind and fretted-string recordings to their sounding pitch, including upstream octave conventions', () => {
+    for (const kind of ['flute', 'clarinet', 'trumpet', 'sax', 'guitar', 'bass'] as const) for (const zone of RECORDED_KEYS[kind]) {
       const wav = readFileSync(new URL('../../public/instruments/' + zone.file, import.meta.url))
       // Autocorrelation of the settled attack; the earliest strong period avoids
       // mistaking a stronger second/third harmonic for the instrument's note.
