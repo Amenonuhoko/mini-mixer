@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { RECORDED_KEYS } from './recordedKeys'

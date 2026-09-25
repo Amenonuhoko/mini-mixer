@@ -1,3 +1,5 @@
+import { STYLES } from './library'
+import { pickProgression } from './generator'
 import { describe, expect, it } from 'vitest'
 import { createInitialState } from '../state/defaults'
 import { reducer } from '../state/reducer'
@@ -109,4 +111,17 @@ it('manual new takes offer more than two outcomes without changing sample identi
   const results = Array.from({ length: 8 }, (_, seed) => varyPattern(state, source, 'new-take', ['chords'], seed))
   expect(new Set(results.map((pattern) => JSON.stringify(pattern.steps))).size).toBeGreaterThan(4)
   for (const pattern of results) expect(count(pattern.steps)).toBe(count(source.steps))
+})
+
+
+it('regenerates varied preset drums while leaving locked layers byte-for-byte intact', () => {
+  const state = fixture(), source = state.patterns[0]!
+  const style = STYLES.find((item) => item.id === 'house')!
+  const drums = state.banks.find((bank) => bank.kind === 'drums')!
+  drums.sound = { type: 'kit', kitId: 'electronic-drums' }
+  for (const id of drums.padIds) state.pads.find((pad) => pad.id === id)!.sampleId = id + '-sound'
+  source.groove = { seed: 123, bars: 1, progression: pickProgression(style, 123), layers: { drums: { styleId: style.id, take: 0, intensity: .7 } } }
+  const results = Array.from({ length: 8 }, (_, seed) => varyPattern(state, source, 'new-take', ['bass', 'chords', 'melody'], seed))
+  expect(new Set(results.map((pattern) => JSON.stringify(pattern.steps))).size).toBeGreaterThan(2)
+  for (const result of results) for (const bank of state.banks.filter((bank) => bank.kind !== 'drums')) for (const id of bank.padIds) expect(result.steps[id]).toEqual(source.steps[id])
 })
