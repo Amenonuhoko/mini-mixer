@@ -284,28 +284,57 @@ async function renderOrgan(frequencyHz: number, duration: number): Promise<Audio
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const sr = buffer.sampleRate
-  // 16' through 1' drawbars: the upper harmonics carry enough bite to stay
-  // intelligible in a mix, while the sub octave supplies real body.
+  // Include the 5 1/3' drawbar (1.5x) alongside the 16' sub and 8' root.
+  // Fold upper tonewheels back into their physical range instead of aliasing.
   const drawbars = [
-    [0.5, 0.16], [1, 0.88], [2, 0.53], [3, 0.29],
-    [4, 0.19], [5, 0.09], [6, 0.12], [8, 0.07],
-  ] as const
+    [0.5, 0.18], [1.5, 0.14], [1, 0.88], [2, 0.36], [3, 0.2],
+    [4, 0.12], [5, 0.06], [6, 0.04], [8, 0.025],
+  ].map(([ratio, amplitude]) => {
+    let hz = frequencyHz * ratio!
+    while (hz > 6000) hz /= 2
+    return [hz, amplitude!] as const
+  })
   for (let i = 0; i < data.length; i++) {
     if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const time = i / sr
     // A slow Leslie-like swell plus a faster gentle pitch wobble gives held
     // chords motion without making individual notes sound out of tune.
     const vibrato = Math.sin(2 * Math.PI * 5.8 * time) * (0.0035 / (2 * Math.PI * 5.8))
-    const rotary = 0.88 + 0.12 * Math.sin(2 * Math.PI * 0.74 * time)
+    const rotary = 0.94 + 0.06 * Math.sin(2 * Math.PI * 0.74 * time)
     let value = 0
-    for (const [ratio, amplitude] of drawbars) {
-      value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * (time + vibrato))
+    for (const [hz, amplitude] of drawbars) {
+      const horn = hz > 800 ? .94 + .06 * Math.sin(2 * Math.PI * .81 * time + .7) : 1
+      value += amplitude * horn * Math.sin(2 * Math.PI * hz * (time + vibrato))
     }
-    const percussion = Math.sin(2 * Math.PI * frequencyHz * 4 * time) * 0.18 * Math.exp(-time / 0.09)
-    const keyClick = (Math.random() * 2 - 1) * 0.018 * Math.exp(-time / 0.006)
-    const attack = Math.min(1, time / 0.012)
+    const percussion = frequencyHz * 3 < sr * .45 ? Math.sin(2 * Math.PI * frequencyHz * 3 * time) * 0.2 * Math.exp(-time / 0.16) : 0
+    const keyClick = (Math.random() * 2 - 1) * 0.012 * Math.exp(-time / 0.004)
+    const attack = Math.min(1, time / 0.006)
     const release = Math.min(1, Math.max(0, (duration - time) / 0.24))
     data[i] = (value + percussion + keyClick) * attack * release * rotary
+  }
+  return normalize(buffer)
+}
+
+/** A tine and pickup model, rendered once per key rather than during playback. */
+async function renderElectricPiano(hz: number, duration: number): Promise<AudioBuffer> {
+  const buffer = createRenderedBuffer(duration)
+  const data = buffer.getChannelData(0)
+  const sr = buffer.sampleRate
+  // Bass tines ring longer; upper keys lose their initial metallic modes faster.
+  const decay = Math.max(.55, Math.min(2.5, 1.7 * Math.sqrt(220 / hz)))
+  const filter = 1 - Math.exp(-2 * Math.PI * Math.min(6500, 1800 + hz * 3) / sr)
+  let smooth = 0
+  for (let i = 0; i < data.length; i++) {
+    if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    const t = i / sr
+    const phase = 2 * Math.PI * hz * t
+    const tine = (Math.sin(phase) + .12 * Math.sin(phase * 1.002)) * Math.exp(-t / decay)
+    const pickup = tine + .22 * (tine * tine) + .1 * Math.sin(phase * 3) * Math.exp(-t / (decay * .32))
+    const strike = hz * 6.27 < sr * .45 ? .14 * Math.sin(phase * 6.27) * Math.exp(-t / .065) : 0
+    const hammer = (Math.random() * 2 - 1) * .025 * Math.exp(-t / .003)
+    smooth += filter * (pickup + strike + hammer - smooth)
+    const envelope = (1 - Math.exp(-t / .002)) * Math.min(1, (duration - t) / .2)
+    data[i] = smooth * envelope * (.96 + .04 * Math.cos(2 * Math.PI * 4.2 * t))
   }
   return normalize(buffer)
 }
@@ -428,7 +457,6 @@ async function renderCharacter(hz: number, patch: SynthPatch): Promise<AudioBuff
     const bend = patch.voice === 'bubble' ? 1 + .5 * Math.exp(-t * 35) : patch.voice === 'rubber' ? 1 + .16 * Math.exp(-t * 22) : 1
     phase += 2 * Math.PI * hz * bend / buffer.sampleRate
     let value = 0
-    if (patch.voice === 'electricPiano') value = Math.sin(phase + 1.4 * Math.exp(-t * 8) * Math.sin(phase * 2)) * Math.exp(-t * 1.8) + .12 * Math.sin(phase * 3) * Math.exp(-t * 6)
     if (patch.voice === 'mallet') value = Math.sin(phase) * Math.exp(-t * 5) + .32 * Math.sin(phase * 4) * Math.exp(-t * 16) + .07 * Math.sin(phase * 9.2) * Math.exp(-t * 35)
     if (patch.voice === 'sub') value = (Math.sin(phase) + .12 * Math.sin(phase * 2)) * (1 - Math.exp(-t * 150)) * Math.exp(-t * 2.5)
     if (patch.voice === 'rubber') value = Math.sin(phase + 2 * Math.exp(-t * 5) * Math.sin(phase * 2)) * (1 - Math.exp(-t * 200)) * Math.exp(-t * 6)
@@ -442,6 +470,7 @@ async function renderCharacter(hz: number, patch: SynthPatch): Promise<AudioBuff
 export async function renderSynthNote(frequencyHz: number, patch: SynthPatch): Promise<AudioBuffer> {
   switch (patch.voice) {
     case 'electricPiano':
+      return renderElectricPiano(frequencyHz, patch.totalDurationSeconds)
     case 'mallet':
     case 'sub':
     case 'rubber':
