@@ -723,3 +723,17 @@ describe('reducer', () => {
   })
 
 })
+
+
+it('keeps generator settings with the pattern when switching and copying song parts', () => {
+  let state = createInitialState()
+  const first = state.activePatternId
+  const groove = { seed: 42, bars: 2, progression: [0, 4], layers: { drums: { styleId: 'house', take: 3, intensity: .9 } } }
+  state = reducer(state, { type: 'SET_GROOVE', groove })
+  state = reducer(state, { type: 'ADD_PATTERN' })
+  expect(state.groove).toBeNull()
+  state = reducer(state, { type: 'SET_ACTIVE_PATTERN', patternId: first })
+  expect(state.groove).toEqual(groove)
+  state = reducer(state, { type: 'ADD_PATTERN', copyFromId: first })
+  expect(state.groove).toEqual(groove)
+})

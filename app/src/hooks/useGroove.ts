@@ -1,4 +1,5 @@
 import { useState, useSyncExternalStore } from 'react'
+import { useEngine } from '../state/EngineContext'
 import { buildBank } from '../engine/bankBuilder'
 import { DRUM_KITS } from '../engine/drumSynth'
 import { moodById } from '../music/theory'
@@ -103,6 +104,7 @@ function subscribeBusy(listener: () => void) {
  */
 export function useGroove() {
   const { state, dispatch } = useAppState()
+  const engine = useEngine()
   const busy = useSyncExternalStore(subscribeBusy, () => busyJob)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,35 +114,41 @@ export function useGroove() {
     setError(null)
     try {
       await work()
+      return true
     } catch (caught) {
       console.error(caught)
       setError(caught instanceof Error ? caught.message : 'Could not build that')
+      return false
     } finally {
       setBusyJob(null)
     }
   }
 
-  const startBeat = (style: StyleDef) =>
+  const startBeat = (style: StyleDef, options: { intensity?: number; bars?: 1 | 2 | 4; kinds?: BankKind[]; keepSounds?: boolean } = {}) =>
     run(`start:${style.id}`, async () => {
       const pattern = state.patterns.find((item) => item.id === state.activePatternId)
       if (!pattern) return
-      const groove = newGroove(style)
-      const keepMood = state.mood !== null && style.moods.includes(state.mood)
+      engine.setSequencerPlaybackEnabled(false)
+      engine.stopAllSounds()
+      dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+      const groove = { ...newGroove(style), bars: options.bars ?? style.bars }
+      const keepMood = options.keepSounds || state.mood !== null && style.moods.includes(state.mood)
       const mood = keepMood ? state.mood! : style.moods[0]!
       const key = keepMood ? state.key : moodById(mood).key
       const builds = await Promise.all(
-        state.banks.map((bank) => buildBank(bank, styleSound(style, bank.kind), { key, padLayout: state.padLayout, samples: state.samples })),
+        state.banks.filter((bank) => !options.keepSounds || !bank.sound).map((bank) => buildBank(bank, styleSound(style, bank.kind), { key, padLayout: state.padLayout, samples: state.samples })),
       )
-      dispatch({ type: 'APPLY_BANK_BUILDS', builds, remap: 'index', key, mood })
+      if (builds.length) dispatch({ type: 'APPLY_BANK_BUILDS', builds, remap: 'index', key, mood })
       dispatch({ type: 'SET_BPM', bpm: beatBpm(style, groove.seed) })
       dispatch({ type: 'START_PATTERN', patternId: pattern.id, stepCount: groove.bars * 16 })
-      const layer: GrooveLayer = { styleId: style.id, take: 0, intensity: DEFAULT_INTENSITY }
+      const kinds = options.kinds ?? BANK_KINDS
+      const layer: GrooveLayer = { styleId: style.id, take: 0, intensity: options.intensity ?? DEFAULT_INTENSITY }
       const fresh = { ...state, key, patterns: state.patterns.map((item) => (item.id === pattern.id ? { ...item, stepCount: groove.bars * 16 } : item)) }
-      for (const build of builds) {
-        const bank = state.banks.find((item) => item.id === build.bankId)!
-        writeLayer(fresh, dispatch, groove, bank, layer, build.sound, build.pads)
+      for (const bank of state.banks) {
+        const build = builds.find((item) => item.bankId === bank.id)
+        if (kinds.includes(bank.kind)) writeLayer(fresh, dispatch, groove, bank, layer, build?.sound ?? bank.sound, build?.pads ?? visibleBankPads(state, bank))
       }
-      dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers: Object.fromEntries(BANK_KINDS.map((kind) => [kind, layer])) } })
+      dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers: Object.fromEntries(kinds.map((kind) => [kind, layer])) } })
     })
 
   const setLayerStyle = (kind: BankKind, style: StyleDef) =>
@@ -212,5 +220,34 @@ export function useGroove() {
       dispatch({ type: 'SET_GROOVE', groove: next })
     })
 
-  return { busy, error, startBeat, setLayerStyle, newTake, setIntensity, clearLayer, newChords }
+  const hearBeat = () => {
+    engine.getContext()
+    engine.setSequencerPlaybackEnabled(false)
+    engine.stopAllSounds()
+    const section = state.songSections.find((item) => item.id === state.transport.auditionSectionId && item.patternId === state.activePatternId)
+    if (section) dispatch({ type: 'AUDITION_SONG_SECTION', sectionId: section.id, scope: 'loop' })
+    else {
+      dispatch({ type: 'SET_PLAY_MODE', mode: 'pattern' })
+      dispatch({ type: 'SET_LOOP_MODE', loopMode: 'continuous' })
+      dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: true })
+    }
+  }
+
+  const varyBeat = (intensity?: number) => run('variation', () => {
+    const groove = state.groove
+    if (!groove) return
+    const layers = { ...groove.layers }
+    for (const kind of BANK_KINDS) {
+      const current = layers[kind]
+      if (!current) continue
+      const layer = { ...current, take: current.take + 1, intensity: intensity ?? current.intensity }
+      const bank = getBank(state, kind)
+      writeLayer(state, dispatch, groove, bank, layer, bank.sound, visibleBankPads(state, bank))
+      layers[kind] = layer
+    }
+    dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers } })
+    hearBeat()
+  })
+
+  return { busy, error, hearBeat, varyBeat, startBeat, setLayerStyle, newTake, setIntensity, clearLayer, newChords }
 }

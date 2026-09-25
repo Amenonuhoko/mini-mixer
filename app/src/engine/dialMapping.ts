@@ -114,7 +114,7 @@ function shapeGritSample(x: number, { mode, amount }: GritParams): number {
     // Soft-clip saturation via tanh — increasing drive pushes more of the
     // waveform into the curve's shoulder, adding warmth, then outright grind.
     const drive = 1 + amount * 12
-    return Math.tanh(x * drive) / Math.tanh(drive)
+    return Math.tanh(x * drive) / (Math.tanh(drive) * Math.sqrt(drive))
   }
   // Crush: quantize to progressively fewer steps for a harsh, digital lo-fi
   // character. amount 0 -> 32 steps (barely audible), amount 1 -> 4 steps (harsh).
@@ -174,7 +174,9 @@ export function buildReverbImpulse(ctx: BaseAudioContext, decaySeconds: number):
   for (let channel = 0; channel < impulse.numberOfChannels; channel++) {
     const data = impulse.getChannelData(channel)
     for (let i = 0; i < length; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2)
+      // Damped high frequencies keep a synthetic room from adding a hissy tail.
+      const noise = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2)
+      data[i] = noise * 0.3 + (i > 0 ? data[i - 1]! * 0.7 : 0)
     }
   }
   return impulse

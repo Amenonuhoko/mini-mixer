@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { ReverbRooms } from './channel'
+import { describe, expect, it, vi } from 'vitest'
+import { Channel, ReverbRooms, shapeEnvelope } from './channel'
 import { dialToReverbParams } from './dialMapping'
 
 describe('ReverbRooms.weights', () => {
@@ -27,4 +27,34 @@ describe('ReverbRooms.weights', () => {
       previous = next
     }
   })
+})
+
+
+it('keeps tiny trimmed notes envelopes ordered and ends at silence', () => {
+  const times: number[] = []
+  const values: number[] = []
+  const param = {
+    setValueAtTime: (value: number, time: number) => { times.push(time); values.push(value) },
+    linearRampToValueAtTime: (value: number, time: number) => { times.push(time); values.push(value) },
+  } as unknown as AudioParam
+  shapeEnvelope(param, 1, .5, { fadeIn: true, end: 1.001 })
+  expect(times).toEqual([...times].sort((a, b) => a - b))
+  expect(times.at(-1)).toBe(1.001)
+  expect(values.at(-1)).toBe(0)
+})
+
+it('does not allocate an echo loop for dry pads and initializes silent faders without a ramp', () => {
+  const makeParam = () => ({ value: 1, cancelScheduledValues: vi.fn(), setTargetAtTime: vi.fn() })
+  const node = () => ({ connect: vi.fn(), disconnect: vi.fn(), gain: makeParam(), frequency: makeParam(), pan: makeParam(), delayTime: makeParam() })
+  const ctx = { currentTime: 0, createGain: vi.fn(node), createBiquadFilter: vi.fn(node), createWaveShaper: vi.fn(node), createStereoPanner: vi.fn(node), createDelay: vi.fn(node) } as unknown as BaseAudioContext
+  const output = node() as unknown as AudioNode
+  const channel = new Channel(ctx, output, new ReverbRooms(ctx, output))
+  channel.applyEffects([], true)
+  channel.setMixLevel(0, true)
+  expect(vi.mocked(ctx.createGain).mock.results[2]!.value.gain.value).toBe(0)
+  expect(ctx.createDelay).not.toHaveBeenCalled()
+  channel.setDial('echo', 50)
+  channel.setDial('echo', 75)
+  expect(ctx.createDelay).toHaveBeenCalledTimes(1)
+  channel.dispose()
 })

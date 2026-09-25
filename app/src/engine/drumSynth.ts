@@ -1,3 +1,5 @@
+import { queuedRender } from './renderQueue'
+import { polishSample } from './samplePolish'
 /**
  * Temporary pad layouts for percussion. Acoustic Drums and Cymbals & Metal
  * use a CC0 recorded kit; the other two layouts remain deliberately focused
@@ -130,20 +132,7 @@ export function isDrumInstrumentName(name: string): boolean {
   return getDrumKitByName(name) !== undefined
 }
 
-function normalize(buffer: AudioBuffer, targetRms = .16, ceiling = .96): AudioBuffer {
-  let energy = 0, peak = 0
-  for (const data of Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel))) {
-    for (const value of data) { energy += value * value; peak = Math.max(peak, Math.abs(value)) }
-  }
-  const rms = Math.sqrt(energy / Math.max(1, buffer.length * buffer.numberOfChannels))
-  if (!rms || !peak) return buffer
-  const gain = Math.min(targetRms / rms, ceiling / peak)
-  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-    const data = buffer.getChannelData(channel)
-    for (let i = 0; i < data.length; i++) data[i] = (data[i] ?? 0) * gain
-  }
-  return buffer
-}
+const normalize = polishSample
 
 function targetRmsForVoice(voice: DrumVoice): number {
   // Long cymbals and quiet stick articulations otherwise lose audibility to a
@@ -156,15 +145,15 @@ function targetRmsForVoice(voice: DrumVoice): number {
     case 'snare':
       return .19
     case 'rim':
-      return .185
+      return .12
     case 'hihat':
     case 'ride':
-      return .18
+      return .10
     case 'crash':
     case 'china':
-      return .19
+      return .11
     default:
-      return .17
+      return .13
   }
 }
 
@@ -224,16 +213,16 @@ export async function renderDrumVoice(voice: DrumVoice): Promise<AudioBuffer> {
       env.gain.setValueAtTime(.6,.024); env.gain.exponentialRampToValueAtTime(.001,voice.decaySeconds)
     }
   }
-  return normalize(await ctx.startRendering())
+  return normalize(await ctx.startRendering(), targetRmsForVoice(voice))
 }
 
 export async function buildDrumKitKeys(kitId: DrumKitPreset['id'] = 'acoustic-drums'): Promise<AudioBuffer[]> {
   const kit = DRUM_KITS.find((item) => item.id === kitId) ?? DRUM_KITS[0]!
-  return Promise.all(kit.voices.map(async (voice) => {
+  return Promise.all(kit.voices.map((voice) => queuedRender(async () => {
     if (voice.recordedFile) {
       try { return await recordedVoice(voice) }
       catch (error) { console.warn(`Recorded ${voice.name} unavailable; using fallback.`, error) }
     }
     return renderDrumVoice(voice)
-  }))
+  })))
 }

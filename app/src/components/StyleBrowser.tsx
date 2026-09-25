@@ -4,14 +4,12 @@ import { bankHasSteps, useGroove } from '../hooks/useGroove'
 import { useIsWideScreen } from '../hooks/useIsWideScreen'
 import { useAppState } from '../state/AppStateContext'
 import { BANK_KINDS, BANK_NAMES, getBank } from '../state/banks'
-import type { BankKind } from '../state/types'
 import { progressionNames } from '../styles/generator'
 import { STYLES, styleById } from '../styles/library'
 import type { Pulse, StyleDef } from '../styles/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { CloseIcon, DiceIcon, SparkIcon } from './icons'
 
-const LAYER_SHORT: Record<BankKind, string> = { drums: 'Drm', bass: 'Bass', chords: 'Chd', melody: 'Mel' }
 
 /** The style's signature: its first kick, backbeat and hat lines. */
 function previewLines(style: StyleDef): Pulse[] {
@@ -82,7 +80,7 @@ function StyleBrowser({ onClose, onStarted }: StyleDockProps) {
   return (
     <div className="style-browser">
       <header className="style-browser-head">
-        <h2 className="module-title">Styles</h2>
+        <h2 className="module-title">Layer presets</h2>
         {groove ? (
           <span className="style-browser-chords" title="The chords every preset layer follows">
             {chords.join(' · ')}
@@ -185,7 +183,7 @@ function StyleBrowser({ onClose, onStarted }: StyleDockProps) {
                     aria-label={`${on ? 'New take of' : 'Add'} ${style.name} ${BANK_NAMES[kind].toLowerCase()}`}
                     title={on ? `Playing — tap for a new take` : `Put ${style.name} ${BANK_NAMES[kind].toLowerCase()} in the ${BANK_NAMES[kind]} bank`}
                   >
-                    {busy === `${kind}:${style.id}` ? '…' : LAYER_SHORT[kind]}
+                    {busy === `${kind}:${style.id}` ? '…' : BANK_NAMES[kind]}
                   </button>
                 )
               })}
@@ -197,7 +195,7 @@ function StyleBrowser({ onClose, onStarted }: StyleDockProps) {
                 aria-label={`Start a whole ${style.name} beat`}
                 title="A whole beat in this style — tempo, mood, sounds and all four layers"
               >
-                {busy === `start:${style.id}` ? '…' : <SparkIcon size={12} />}
+                {busy === `start:${style.id}` ? '…' : <><SparkIcon size={12} /> Whole beat</>}
               </button>
             </span>
           </div>

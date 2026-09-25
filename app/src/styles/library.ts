@@ -1,3 +1,4 @@
+import { EXTRA_STYLES } from './extraStyles'
 import type { StyleDef } from './types'
 
 /*
@@ -66,7 +67,7 @@ export const STYLES: StyleDef[] = [
     moods: ['dark', 'tense', 'epic'],
     bars: 2,
     swing: 0,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Pad', melody: 'Bell' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Pad', melody: 'Bell' },
     progressions: [[0, 5], [0, 3, 5, 4], [0, 1], [5, 0]],
     drums: {
       lines: {
@@ -89,7 +90,7 @@ export const STYLES: StyleDef[] = [
     moods: ['bright', 'soulful', 'dreamy'],
     bars: 2,
     swing: 0.15,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Organ', melody: 'Pluck' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Organ', melody: 'Pluck' },
     progressions: [[0, 5, 3, 4], [1, 4], [0, 3], [5, 3, 4, 0]],
     drums: {
       lines: {
@@ -113,7 +114,7 @@ export const STYLES: StyleDef[] = [
     moods: ['dark', 'tense'],
     bars: 1,
     swing: 0,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Pad', melody: 'Pluck' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Pad', melody: 'Pluck' },
     progressions: [[0], [0, 5], [0, 1]],
     drums: {
       lines: {
@@ -136,7 +137,7 @@ export const STYLES: StyleDef[] = [
     moods: ['bright', 'dark', 'soulful'],
     bars: 2,
     swing: 0,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Pluck', melody: 'Lead' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Pluck', melody: 'Lead' },
     progressions: [[0, 5, 3, 4], [5, 3, 0, 4], [0, 4, 5, 3]],
     drums: {
       lines: {
@@ -158,7 +159,7 @@ export const STYLES: StyleDef[] = [
     moods: ['bright', 'soulful', 'chill'],
     bars: 2,
     swing: 0.2,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Guitar', melody: 'Pluck' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Guitar', melody: 'Pluck' },
     progressions: [[0, 3, 4, 3], [0, 5, 3, 4], [1, 4, 0, 0]],
     drums: {
       lines: {
@@ -228,7 +229,7 @@ export const STYLES: StyleDef[] = [
     moods: ['soulful', 'chill', 'dreamy'],
     bars: 4,
     swing: 0.45,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Pad', melody: 'Alto Saxophone' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Pad', melody: 'Alto Saxophone' },
     progressions: [[3, 2, 1, 0], [0, 5, 1, 4], [1, 4, 0, 3]],
     drums: {
       lines: {
@@ -250,7 +251,7 @@ export const STYLES: StyleDef[] = [
     moods: ['dreamy', 'epic', 'dark'],
     bars: 4,
     swing: 0,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Pad', melody: 'Lead' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Pad', melody: 'Lead' },
     progressions: [[0, 5, 3, 4], [5, 3, 0, 4], [0, 3, 5, 4]],
     drums: {
       lines: {
@@ -273,7 +274,7 @@ export const STYLES: StyleDef[] = [
     moods: ['dark', 'tense', 'epic'],
     bars: 2,
     swing: 0,
-    sounds: { drums: 'electronic-drums', bass: 'Bass', chords: 'Pad', melody: 'Pluck' },
+    sounds: { drums: 'electronic-drums', bass: 'Sub Bass', chords: 'Pad', melody: 'Pluck' },
     progressions: [[0, 5], [0, 3], [5, 4]],
     drums: {
       lines: {
@@ -288,6 +289,7 @@ export const STYLES: StyleDef[] = [
     chords: { rhythms: ['x...............'] },
     melody: { rhythms: ['x..x..x.....x...', '..x...x..x......'], leap: 0.2, register: 'mid' },
   },
+  ...EXTRA_STYLES,
 ]
 
 export function styleById(id: string): StyleDef | undefined {

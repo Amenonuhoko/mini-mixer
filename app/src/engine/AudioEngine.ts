@@ -23,9 +23,9 @@ function effectiveEffects(pad: Pad): EffectSetting[] {
 /** How long a stolen or released note takes to fade out. */
 const RELEASE_SECONDS = 0.015
 /** Most notes one pad may ring at once; the oldest fades out to make room. */
-const MAX_VOICES_PER_PAD = 6
+const MAX_VOICES_PER_PAD = 4
 /** Most notes the whole app may ring at once. */
-const MAX_VOICES = 48
+const MAX_VOICES = 32
 
 /** Samples per meter read — ~5ms at 48kHz, short enough to track a drum transient frame to frame. */
 const METER_FFT_SIZE = 256
@@ -54,6 +54,7 @@ interface LiveVoice extends Voice {
   padId: string
   source: AudioBufferSourceNode
   loop: boolean
+  readonly released: boolean
   /** Fades the note out, from `at` (default: now). */
   release(fadeSeconds?: number, at?: number): void
 }
@@ -132,8 +133,15 @@ export class AudioEngine {
     return () => this.listeners.delete(listener)
   }
 
+  private notifyPending = false
+
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    if (this.notifyPending) return
+    this.notifyPending = true
+    queueMicrotask(() => {
+      this.notifyPending = false
+      for (const listener of this.listeners) listener()
+    })
   }
 
   private markStarted(padId: string): void {
@@ -173,7 +181,9 @@ export class AudioEngine {
 
   getContext(): AudioContext {
     if (!this.ctx) {
-      this.ctx = new AudioContext()
+      // A modest buffer helps mobile output survive render/UI bursts. Browsers may ignore the hint.
+      const touchDevice = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+      this.ctx = new AudioContext({ latencyHint: touchDevice ? 0.04 : 'interactive' })
     }
     if (this.ctx.state === 'suspended') {
       void this.ctx.resume()
@@ -431,7 +441,7 @@ export class AudioEngine {
     const window = trimToPlaybackWindow(pad.trimStart, pad.trimEnd, buffer.duration)
     shapeEnvelope(env.gain, start, level, {
       fadeIn: window.offset > 0.001 || loop,
-      end: !loop && pad.trimEnd < 1 ? start + window.duration / (rate * Math.pow(2, detune / 1200)) : null,
+      end: !loop ? start + window.duration / (rate * Math.pow(2, detune / 1200)) : null,
     })
 
     let released = false
@@ -439,12 +449,17 @@ export class AudioEngine {
       padId: pad.id,
       source,
       loop,
+      get released() { return released },
       release: (fadeSeconds = RELEASE_SECONDS, at = ctx.currentTime) => {
         if (released) return
         released = true
         const from = Math.max(at, ctx.currentTime)
         // Glide down from whatever level the note has reached — works before, during or after its attack.
-        env.gain.cancelScheduledValues(from)
+        if (typeof env.gain.cancelAndHoldAtTime === 'function') env.gain.cancelAndHoldAtTime(from)
+        else {
+          env.gain.cancelScheduledValues(from)
+          env.gain.setValueAtTime(env.gain.value, from)
+        }
         env.gain.setTargetAtTime(0, from, fadeSeconds / 4)
         try {
           source.stop(from + fadeSeconds * 1.5)
@@ -480,10 +495,11 @@ export class AudioEngine {
 
   /** Voice limits: fades out the oldest one-shot note of this pad (and of the whole app) when they're full. */
   private makeRoom(padId: string, at: number): void {
-    const oneShots = this.voices.filter((voice) => !voice.loop)
+    const oneShots = this.voices.filter((voice) => !voice.loop && !voice.released)
     const ofPad = oneShots.filter((voice) => voice.padId === padId)
     if (ofPad.length >= MAX_VOICES_PER_PAD) ofPad[0]!.release(RELEASE_SECONDS, at)
-    if (oneShots.length >= MAX_VOICES) oneShots[0]!.release(RELEASE_SECONDS, at)
+    const live = this.voices.filter((voice) => !voice.released)
+    if (live.length >= MAX_VOICES) (oneShots[0] ?? live[0])!.release(RELEASE_SECONDS, at)
   }
 
   /**

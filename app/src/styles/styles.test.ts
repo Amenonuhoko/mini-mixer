@@ -182,3 +182,14 @@ describe('mixing styles', () => {
     expect(normalizeGroove(groove)).toBe(groove)
   })
 })
+
+
+it('offers substantially sparser simple beats and repeatable variations across the library', () => {
+  for (const style of STYLES) {
+    const target = kitTarget(style.sounds.drums)
+    const count = (intensity: number) => Array.from({ length: 8 }, (_, seed) => Object.values(generateLayer(ctxFor(style, { seed, intensity }), target)).flat().length).reduce((a, b) => a + b, 0)
+    expect(count(.1), style.name).toBeLessThan(count(.9))
+    const takes = new Set(Array.from({ length: 12 }, (_, take) => JSON.stringify(generateLayer(ctxFor(style, { take, intensity: .9 }), target))))
+    expect(takes.size, style.name).toBeGreaterThan(2)
+  }
+})

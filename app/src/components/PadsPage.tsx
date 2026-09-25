@@ -6,6 +6,9 @@ import { getActiveBank, visibleBankPads } from '../state/banks'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
 import { EditIcon, FxIcon, MuteIcon, SwapIcon } from './icons'
+import { BeatStarter } from './BeatStarter'
+import { useIsWideScreen } from '../hooks/useIsWideScreen'
+import { useIsLandscapeLayout } from '../hooks/useIsLandscapeLayout'
 import { PadGrid } from './PadGrid'
 import { PadLibraryPicker } from './PadLibraryPicker'
 
@@ -21,6 +24,8 @@ import { PadLibraryPicker } from './PadLibraryPicker'
 export function PadsPage() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
+  const isWide = useIsWideScreen()
+  const isLandscape = useIsLandscapeLayout()
   const { goToEditPad } = useNavigation()
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
   const [pickingLibrary, setPickingLibrary] = useState(false)
@@ -101,6 +106,7 @@ export function PadsPage() {
 
   return (
     <div className="page pads-page">
+      {!isWide && !isLandscape && <BeatStarter key={state.activePatternId} />}
       <PadGrid selectedPadId={selectedPadId} onSelectPad={setSelectedPadId} footer={contextStrip} />
       {pickingLibrary && selectedPad && (
         <PadLibraryPicker padId={selectedPad.id} onClose={() => setPickingLibrary(false)} />

@@ -3,6 +3,13 @@ import type { DrumVoiceKind } from '../engine/drumSynth'
 /** Bundled presets get a recognizable glyph by name; anything else falls back by source. */
 const PRESET_ICONS: Record<string, string> = {
   Piano: '🎹',
+  'Electric Piano': '🎹',
+  Marimba: '🪵',
+  'Sub Bass': '〰️',
+  'Velvet Strings': '🎻',
+  Chiptune: '👾',
+  'Rubber Duck': '🦆',
+  'Bubble Keys': '🫧',
   Bass: '🎸',
   Lead: '🎺',
   Pad: '🌫️',

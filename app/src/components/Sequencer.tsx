@@ -18,6 +18,7 @@ import { PadLibraryPicker } from './PadLibraryPicker'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
 import { Stepper } from './Stepper'
+import { BeatStarter } from './BeatStarter'
 import { SongArranger } from './SongArranger'
 
 const GROUP_SIZE = 4
@@ -129,6 +130,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   return (
     // The Styles dock sits in the same column as the sequencer it feeds.
     <div className="sequencer-column">
+    <BeatStarter key={state.activePatternId} />
     <SongArranger onBounced={onBounced} arrangerOpen={songArrangeOpen} setArrangerOpen={setSongArrangeOpen} />
     <section
       className={pattern.stepCount <= 16 ? 'module sequencer sequencer-fits-desktop' : 'module sequencer'}
@@ -179,13 +181,13 @@ export function Sequencer({ onBounced }: SequencerProps) {
         <div className="module-head-tools">
           <button
             type="button"
-            className={stylesOpen ? 'icon-btn on' : 'icon-btn'}
+            className={stylesOpen ? 'chip-btn on' : 'chip-btn'}
             onClick={() => setStylesOpen((open) => !open)}
-            aria-label="Styles"
+            aria-label="Layer presets"
             aria-expanded={stylesOpen}
             title="Styles — drop preset layers into the beat, or start a whole beat"
           >
-            <SparkIcon />
+            <SparkIcon /> Layer presets
           </button>
         </div>
       </header>

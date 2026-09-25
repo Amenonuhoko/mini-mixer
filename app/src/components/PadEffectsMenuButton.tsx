@@ -159,12 +159,11 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
       reverb: preset.reverb,
     })
     for (const pad of visiblePads) {
-      if (!engine.isPadLooping(pad.id)) continue
+      if (pad.effectsBypassed) continue
       for (const effectId of ['filter', 'grit', 'echo', 'reverb'] as const) {
         engine.updateLoopingPadEffect(pad.id, effectId, preset[effectId])
       }
     }
-    setOpen(false)
   }
 
   const saveCurrentPreset = () => {
@@ -189,7 +188,7 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
   const handleDialChange = (effectId: EffectId, value: number) => {
     dispatch({ type: 'SET_ALL_PADS_EFFECT', effectId, value })
     for (const pad of visiblePads) {
-      if (engine.isPadLooping(pad.id)) engine.updateLoopingPadEffect(pad.id, effectId, value)
+      if (!pad.effectsBypassed) engine.updateLoopingPadEffect(pad.id, effectId, value)
     }
   }
 
@@ -197,9 +196,7 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
     const bypassed = !anyBypassed
     dispatch({ type: 'SET_ALL_PADS_EFFECTS_BYPASSED', bypassed })
     for (const pad of visiblePads) {
-      if (engine.isPadLooping(pad.id)) {
-        engine.updateLoopingPadEffectsBypass(pad.id, { ...pad, effectsBypassed: bypassed })
-      }
+      engine.updateLoopingPadEffectsBypass(pad.id, { ...pad, effectsBypassed: bypassed })
     }
   }
 
@@ -228,7 +225,7 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
           <span className="muted">{visiblePads.length} pads</span>
         </div>
         <EffectsSwitch bypassed={anyBypassed} onToggle={toggleBypassAll} />
-        {floating && (
+        {(
           // Following the last-played pad can land the panel right over its
           // own toggle button (a pad near the header, or a tall panel
           // flipped upward) — a guaranteed close affordance inside the panel
@@ -243,11 +240,13 @@ export function PadEffectsMenuButton({ followPadId = null }: PadEffectsMenuButto
           <button
             key={preset.name}
             type="button"
-            className="fx-preset-button"
+            className={CHARACTER_EFFECT_IDS.every((id) => currentCharacterValue(id) === preset[id]) ? 'fx-preset-button on' : 'fx-preset-button'}
+            title={preset.description}
+            aria-pressed={CHARACTER_EFFECT_IDS.every((id) => currentCharacterValue(id) === preset[id])}
             onClick={() => applyPreset(preset)}
           >
             <EffectPreview preset={preset} />
-            <span>{preset.name}</span>
+            <span>{preset.name}<small className="fx-preset-description">{preset.description ?? 'Your saved sound'}</small></span>
           </button>
         ))}
       </div>

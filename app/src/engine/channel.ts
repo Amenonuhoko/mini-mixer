@@ -21,14 +21,15 @@ export const DECLICK_SECONDS = 0.004
  * live playback and the offline bounce, so both sound the same.
  */
 export function shapeEnvelope(gain: AudioParam, start: number, level: number, options: { fadeIn: boolean; end: number | null }): void {
+  const fade = options.end === null ? DECLICK_SECONDS : Math.min(DECLICK_SECONDS, Math.max(0, options.end - start) / 2)
   if (options.fadeIn) {
     gain.setValueAtTime(0, start)
-    gain.linearRampToValueAtTime(level, start + DECLICK_SECONDS)
+    gain.linearRampToValueAtTime(level, start + fade)
   } else {
     gain.setValueAtTime(level, start)
   }
   if (options.end !== null) {
-    gain.setValueAtTime(level, Math.max(start + DECLICK_SECONDS, options.end - DECLICK_SECONDS))
+    gain.setValueAtTime(level, Math.max(start + fade, options.end - fade))
     gain.linearRampToValueAtTime(0, options.end)
   }
 }
@@ -57,7 +58,7 @@ function softClipCurve(): Float32Array<ArrayBuffer> {
 /**
  * The master stage between the mix and the output: headroom, a fast limiter
  * that holds the mix together, and a soft clipper as the final ceiling —
- * however many layers stack up, the output never distorts. Returns the node
+ * dense mixes stay bounded, though heavy limiting still colors the sound. Returns the node
  * to feed and the node to take the result from.
  */
 export function createMasterStage(ctx: BaseAudioContext): { input: GainNode; output: WaveShaperNode } {
@@ -71,7 +72,7 @@ export function createMasterStage(ctx: BaseAudioContext): { input: GainNode; out
   limiter.release.value = 0.12
   const ceiling = ctx.createWaveShaper()
   ceiling.curve = softClipCurve()
-  ceiling.oversample = '4x'
+  ceiling.oversample = '2x'
   input.connect(limiter)
   limiter.connect(ceiling)
   return { input, output: ceiling }
@@ -155,9 +156,9 @@ export class Channel {
   private readonly filter: BiquadFilterNode
   private readonly shaper: WaveShaperNode
   private readonly volume: GainNode
-  private readonly delay: DelayNode
-  private readonly feedback: GainNode
-  private readonly echoWet: GainNode
+  private delay: DelayNode | null = null
+  private feedback: GainNode | null = null
+  private echoWet: GainNode | null = null
   private readonly mix: GainNode
   private readonly panner: StereoPannerNode
   private readonly sends: Array<GainNode | null> = [null, null, null]
@@ -171,9 +172,6 @@ export class Channel {
     this.filter = ctx.createBiquadFilter()
     this.shaper = ctx.createWaveShaper()
     this.volume = ctx.createGain()
-    this.delay = ctx.createDelay(1)
-    this.feedback = ctx.createGain()
-    this.echoWet = ctx.createGain()
     this.mix = ctx.createGain()
     this.panner = ctx.createStereoPanner()
 
@@ -181,14 +179,10 @@ export class Channel {
     this.filter.connect(this.shaper)
     this.shaper.connect(this.volume)
     this.volume.connect(this.mix)
-    this.volume.connect(this.delay)
-    this.delay.connect(this.feedback)
-    this.feedback.connect(this.delay)
-    this.delay.connect(this.echoWet)
-    this.echoWet.connect(this.mix)
     this.mix.connect(this.panner)
     this.panner.connect(destination)
     if (meter) this.panner.connect(meter)
+    this.applyEffects([], false)
   }
 
   /**
@@ -200,8 +194,9 @@ export class Channel {
     for (const id of CHANNEL_EFFECTS) {
       const value = effects.find((effect) => effect.id === id)?.value ?? 0
       if (this.applied.get(id) === value) continue
+      const initialized = this.applied.has(id)
       this.applied.set(id, value)
-      this.setEffect(id, value, ramp)
+      this.setEffect(id, value, ramp && initialized)
     }
   }
 
@@ -214,12 +209,16 @@ export class Channel {
 
   setMixLevel(level: number, ramp: boolean): void {
     if (this.mixLevel === level) return
+    const initialized = this.mixLevel !== null
     this.mixLevel = level
-    this.setParam(this.mix.gain, mixLevelToGain(level), ramp)
+    this.setParam(this.mix.gain, mixLevelToGain(level), ramp && initialized)
   }
 
   private setParam(param: AudioParam, value: number, ramp: boolean): void {
-    if (ramp) param.setTargetAtTime(value, this.ctx.currentTime, PARAM_RAMP_SECONDS)
+    if (ramp) {
+      param.cancelScheduledValues(this.ctx.currentTime)
+      param.setTargetAtTime(value, this.ctx.currentTime, PARAM_RAMP_SECONDS)
+    }
     else {
       param.cancelScheduledValues(0)
       param.value = value
@@ -244,10 +243,24 @@ export class Channel {
         this.setParam(this.volume.gain, dialToGain(value), ramp)
         break
       case 'echo': {
+        if (!this.delay && value === 0) break
+        if (!this.delay) {
+          this.delay = this.ctx.createDelay(1)
+          this.feedback = this.ctx.createGain()
+          this.echoWet = this.ctx.createGain()
+          this.feedback.gain.value = 0
+          this.echoWet.gain.value = 0
+          this.volume.connect(this.delay)
+          this.delay.connect(this.feedback)
+          this.feedback.connect(this.delay)
+          this.delay.connect(this.echoWet)
+          this.echoWet.connect(this.mix)
+          ramp = false
+        }
         const params = dialToEchoParams(value)
         this.setParam(this.delay.delayTime, params.delaySeconds, ramp)
-        this.setParam(this.feedback.gain, params.feedback, ramp)
-        this.setParam(this.echoWet.gain, params.wetMix, ramp)
+        this.setParam(this.feedback!.gain, params.feedback, ramp)
+        this.setParam(this.echoWet!.gain, params.wetMix, ramp)
         break
       }
       case 'reverb': {
@@ -276,7 +289,8 @@ export class Channel {
   /** Fades the channel out (echo tail included) — for panic, before it's discarded. */
   fadeOut(seconds: number): void {
     const now = this.ctx.currentTime
-    for (const param of [this.mix.gain, this.feedback.gain]) {
+    for (const param of [this.mix.gain, this.feedback?.gain]) {
+      if (!param) continue
       param.cancelScheduledValues(now)
       param.setValueAtTime(param.value, now)
       param.linearRampToValueAtTime(0, now + seconds)
@@ -285,7 +299,7 @@ export class Channel {
 
   dispose(): void {
     for (const node of [this.input, this.filter, this.shaper, this.volume, this.delay, this.feedback, this.echoWet, this.mix, this.panner]) {
-      node.disconnect()
+      node?.disconnect()
     }
     for (const send of this.sends) send?.disconnect()
   }

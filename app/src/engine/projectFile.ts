@@ -229,6 +229,7 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
     return {
       ...pattern,
       stepCount,
+      groove: normalizeGroove(pattern.groove),
       traceSteps: pattern.traceSteps ?? null,
       traceSource: pattern.traceSource ?? (pattern.traceSteps ? 'reference' : null),
       steps: Object.fromEntries(
@@ -298,7 +299,10 @@ export function normalizeGroove(saved: unknown): Groove | null {
 export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>): AppState {
   const pads = normalizePads(meta.pads)
   const banks = normalizeBanks(meta)
-  const patterns = normalizePatterns(meta.patterns, pads)
+  const patterns = normalizePatterns(meta.patterns, pads).map((pattern) => ({
+    ...pattern,
+    groove: pattern.groove ?? (pattern.id === meta.activePatternId ? normalizeGroove(meta.groove) : null),
+  }))
   const patternIds = new Set(patterns.map((pattern) => pattern.id))
   return {
     samples,

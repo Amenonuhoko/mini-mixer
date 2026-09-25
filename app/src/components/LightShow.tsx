@@ -47,6 +47,8 @@ export function LightShow() {
       el.style.opacity = value.toFixed(3)
       written.set(el, value)
     }
+    const frameInterval = window.matchMedia('(pointer: coarse)').matches ? 1000 / 30 : 1000 / 60
+    let lastFrame = 0
     let scene = 0
     let frame = 0
     let playhead: number | null = null
@@ -62,9 +64,11 @@ export function LightShow() {
     })
     observer.observe(document.body, { childList: true, subtree: true })
 
-    const tick = () => {
+    const tick = (now: number) => {
       frame = requestAnimationFrame(tick)
-      if (document.hidden) return
+      if (document.hidden || now - lastFrame < frameInterval - 1) return
+      const release = Math.pow(RELEASE, Math.min(100, now - lastFrame) / (1000 / 60))
+      lastFrame = now
 
       const { phase, locked } = engine.getBeatPhase()
       // A sharp swell on each downbeat that decays through the beat — reads as
@@ -80,7 +84,7 @@ export function LightShow() {
         if (level === undefined) {
           const previous = levels.get(padId) ?? 0
           const raw = engine.isPadPlaying(padId) || previous > 0.002 ? engine.getPadLevel(padId) : 0
-          level = raw >= previous ? raw : Math.max(raw, previous * RELEASE)
+          level = raw >= previous ? raw : Math.max(raw, previous * release)
           if (level < 0.002) level = 0
           levels.set(padId, level)
           frameLevels.set(padId, level)
@@ -125,7 +129,7 @@ export function LightShow() {
       for (const el of beatEls) setOpacity(el, 0.15 + beat * 0.85)
 
       const master = engine.getMasterLevel()
-      scene = master >= scene ? master : Math.max(master, scene * RELEASE)
+      scene = master >= scene ? master : Math.max(master, scene * release)
       const field = fieldRef.current
       if (field) {
         const mesh = field.firstElementChild as HTMLElement | null

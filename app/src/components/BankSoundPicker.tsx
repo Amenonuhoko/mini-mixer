@@ -9,10 +9,11 @@ import { instrumentIconForName } from '../utils/instrumentIcon'
 import { Overlay } from './Overlay'
 
 const PRESET_GROUPS = [
-  { label: 'Keys', names: ['Piano', 'Organ', 'Bell'] },
-  { label: 'Strings', names: ['Guitar', 'Pluck', 'Bass'] },
+  { label: 'Keys', names: ['Piano', 'Electric Piano', 'Organ', 'Bell', 'Marimba'] },
+  { label: 'Strings', names: ['Guitar', 'Pluck', 'Bass', 'Velvet Strings'] },
   { label: 'Winds', names: ['Alto Saxophone', 'Trumpet', 'Flute', 'Clarinet'] },
-  { label: 'Synths', names: ['Lead', 'Pad'] },
+  { label: 'Synths', names: ['Lead', 'Pad', 'Sub Bass', 'Chiptune'] },
+  { label: 'Playful', names: ['Rubber Duck', 'Bubble Keys'] },
 ].map(({ label, names }) => ({
   label,
   names: names.filter((name) => INSTRUMENT_PRESETS.some((preset) => preset.name === name)),
@@ -55,6 +56,7 @@ export function BankSoundPicker({ bank, onClose }: BankSoundPickerProps) {
             className={soundKey(choice.sound) === current ? 'choice on' : 'choice'}
             onClick={() => void pick(choice)}
             disabled={busy !== null}
+            title={INSTRUMENT_PRESETS.find((preset) => preset.name === choice.name)?.description}
             aria-pressed={soundKey(choice.sound) === current}
           >
             <span className="choice-icon" aria-hidden="true">{choice.icon}</span>

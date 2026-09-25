@@ -62,9 +62,9 @@ export function hitChance(char: string, step: number, intensity: number, fillabl
   const t = low ? intensity / 0.5 : (intensity - 0.5) / 0.5
   switch (char) {
     case 'x':
-      return step % 4 === 0 || intensity >= 0.25 ? 1 : lerp(0.35, 1, intensity / 0.25)
+      return step % 4 === 0 || intensity >= 0.5 ? 1 : lerp(0.08, 1, intensity / 0.5)
     case 'o':
-      return low ? lerp(0.12, 0.65, t) : lerp(0.65, 0.95, t)
+      return low ? lerp(0, 0.65, t) : lerp(0.65, 0.95, t)
     case '-':
       return low ? lerp(0, 0.25, t) : lerp(0.25, 0.7, t)
     default:

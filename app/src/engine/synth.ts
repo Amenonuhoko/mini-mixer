@@ -1,6 +1,8 @@
+import { queuedRender } from './renderQueue'
+import { polishSample } from './samplePolish'
 
 export type SynthWaveform = OscillatorType
-type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar'
+type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar' | 'electricPiano' | 'mallet' | 'sub' | 'rubber' | 'bubble'
 
 /** A real sampled wind source, fetched only when its layout is selected. */
 export type RecordedWindPack = 'altoSaxophone' | 'trumpet' | 'flute' | 'clarinet'
@@ -32,6 +34,7 @@ export interface SynthPatch {
 export interface InstrumentPreset {
   name: string
   /** Frequency of key 0 (the root); each subsequent key is one semitone higher. */
+  description?: string
   rootHz: number
   /** Real CC0 recordings are preferred; the patch is the offline fallback. */
   recordedWindPack?: RecordedWindPack
@@ -180,12 +183,18 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
     name: 'Clarinet', rootHz: 130.81, recordedWindPack: 'clarinet',
     patch: { voice: 'lead', waveform: 'square', overtoneGain: 0.07, attackSeconds: 0.055, decaySeconds: 0.18, sustainLevel: 0.68, releaseSeconds: 0.48, totalDurationSeconds: 2.7, lowpassHz: 2500, vibratoHz: 4.9, vibratoCents: 6, filterMovement: 0.06 },
   },
+  { name: 'Electric Piano', description: 'Soft tines with a warm bell attack', rootHz: 261.63, patch: { voice: 'electricPiano', waveform: 'sine', attackSeconds: .004, decaySeconds: .7, sustainLevel: 0, releaseSeconds: .5, totalDurationSeconds: 2.6 } },
+  { name: 'Marimba', description: 'Rounded wooden mallets', rootHz: 261.63, patch: { voice: 'mallet', waveform: 'sine', attackSeconds: .002, decaySeconds: .4, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.3 } },
+  { name: 'Sub Bass', description: 'Deep, clean low end with a gentle harmonic', rootHz: 65.41, patch: { voice: 'sub', waveform: 'sine', attackSeconds: .008, decaySeconds: .2, sustainLevel: .7, releaseSeconds: .2, totalDurationSeconds: .95 } },
+  { name: 'Velvet Strings', description: 'Slow bowed synth ensemble', rootHz: 261.63, patch: { voice: 'pad', waveform: 'sawtooth', unisonDetuneCents: 7, attackSeconds: .22, decaySeconds: .4, sustainLevel: .55, releaseSeconds: .9, totalDurationSeconds: 3.1, lowpassHz: 2600, vibratoHz: 4.7, vibratoCents: 4 } },
+  { name: 'Chiptune', description: 'Bright square-wave arcade notes', rootHz: 261.63, patch: { voice: 'lead', waveform: 'square', attackSeconds: .003, decaySeconds: .12, sustainLevel: .28, releaseSeconds: .12, totalDurationSeconds: .65, lowpassHz: 5200 } },
+  { name: 'Rubber Duck', description: 'A springy, nasal quack with a pitched body', rootHz: 261.63, patch: { voice: 'rubber', waveform: 'sine', attackSeconds: .004, decaySeconds: .2, sustainLevel: 0, releaseSeconds: .15, totalDurationSeconds: .85 } },
+  { name: 'Bubble Keys', description: 'Bouncy water-drop notes and glassy tails', rootHz: 261.63, patch: { voice: 'bubble', waveform: 'sine', attackSeconds: .003, decaySeconds: .3, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.25 } },
 ]
 
 function createRenderedBuffer(durationSeconds: number): AudioBuffer {
   const sampleRate = 44100
-  const ctx = new OfflineAudioContext(1, Math.max(1, Math.ceil(durationSeconds * sampleRate)), sampleRate)
-  return ctx.createBuffer(1, Math.max(1, Math.ceil(durationSeconds * sampleRate)), sampleRate)
+  return new AudioBuffer({ numberOfChannels: 1, length: Math.max(1, Math.ceil(durationSeconds * sampleRate)), sampleRate })
 }
 
 /**
@@ -194,25 +203,9 @@ function createRenderedBuffer(durationSeconds: number): AudioBuffer {
  * RMS normalisation brings their usable level together, while the ceiling
  * preserves headroom and prevents boosted renderings from clipping.
  */
-function normalize(buffer: AudioBuffer, targetRms = 0.16, ceiling = 0.82): AudioBuffer {
-  const data = buffer.getChannelData(0)
-  let peak = 0
-  let energy = 0
-  for (const value of data) {
-    const magnitude = Math.abs(value)
-    peak = Math.max(peak, magnitude)
-    energy += value * value
-  }
+const normalize = polishSample
 
-  const rms = Math.sqrt(energy / Math.max(1, data.length))
-  if (rms === 0 || peak === 0) return buffer
-
-  const scale = Math.min(targetRms / rms, ceiling / peak)
-  for (let i = 0; i < data.length; i++) data[i] = (data[i] ?? 0) * scale
-  return buffer
-}
-
-function renderPiano(frequencyHz: number, duration: number): AudioBuffer {
+async function renderPiano(frequencyHz: number, duration: number): Promise<AudioBuffer> {
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const sr = buffer.sampleRate
@@ -228,9 +221,11 @@ function renderPiano(frequencyHz: number, duration: number): AudioBuffer {
   ] as const
   const fundamentalDecay = Math.max(0.72, 2.5 - frequencyHz / 520)
   for (let i = 0; i < data.length; i++) {
+    if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const time = i / sr
     let value = 0
     for (const [ratio, amplitude, decayScale] of partials) {
+      if (frequencyHz * ratio >= sr * 0.45) continue
       value += amplitude * Math.sin(2 * Math.PI * frequencyHz * ratio * time) * Math.exp(-time / (fundamentalDecay * decayScale))
     }
     // The very short filtered-noise-like transient supplies a felt-hammer cue.
@@ -240,13 +235,14 @@ function renderPiano(frequencyHz: number, duration: number): AudioBuffer {
   return normalize(buffer)
 }
 
-function renderBass(frequencyHz: number, duration: number): AudioBuffer {
+async function renderBass(frequencyHz: number, duration: number): Promise<AudioBuffer> {
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const sr = buffer.sampleRate
   let lowpass = 0
   const coefficient = 1 - Math.exp((-2 * Math.PI * 1100) / sr)
   for (let i = 0; i < data.length; i++) {
+    if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const time = i / sr
     const body = Math.sin(2 * Math.PI * frequencyHz * time) + 0.34 * Math.sin(2 * Math.PI * frequencyHz * 2 * time) + 0.12 * Math.sin(2 * Math.PI * frequencyHz * 3 * time)
     const pluck = (Math.random() * 2 - 1) * 0.16 * Math.exp(-time / 0.018)
@@ -257,7 +253,7 @@ function renderBass(frequencyHz: number, duration: number): AudioBuffer {
   return normalize(buffer)
 }
 
-function renderPluckedString(frequencyHz: number, duration: number, brightness: number): AudioBuffer {
+async function renderPluckedString(frequencyHz: number, duration: number, brightness: number): Promise<AudioBuffer> {
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const period = Math.max(2, Math.round(buffer.sampleRate / frequencyHz))
@@ -271,6 +267,7 @@ function renderPluckedString(frequencyHz: number, duration: number, brightness: 
   const damping = 0.9945 - Math.min(0.003, frequencyHz / 300000)
   let cursor = 0
   for (let i = 0; i < data.length; i++) {
+    if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const current = delay[cursor]!
     const next = delay[(cursor + 1) % delay.length]!
     const averaged = (current * (0.52 + brightness * 0.12) + next * (0.48 - brightness * 0.12)) * damping
@@ -282,7 +279,7 @@ function renderPluckedString(frequencyHz: number, duration: number, brightness: 
   return normalize(buffer)
 }
 
-function renderOrgan(frequencyHz: number, duration: number): AudioBuffer {
+async function renderOrgan(frequencyHz: number, duration: number): Promise<AudioBuffer> {
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const sr = buffer.sampleRate
@@ -293,10 +290,11 @@ function renderOrgan(frequencyHz: number, duration: number): AudioBuffer {
     [4, 0.19], [5, 0.09], [6, 0.12], [8, 0.07],
   ] as const
   for (let i = 0; i < data.length; i++) {
+    if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const time = i / sr
     // A slow Leslie-like swell plus a faster gentle pitch wobble gives held
     // chords motion without making individual notes sound out of tune.
-    const vibrato = Math.sin(2 * Math.PI * 5.8 * time) * 0.0035
+    const vibrato = Math.sin(2 * Math.PI * 5.8 * time) * (0.0035 / (2 * Math.PI * 5.8))
     const rotary = 0.88 + 0.12 * Math.sin(2 * Math.PI * 0.74 * time)
     let value = 0
     for (const [ratio, amplitude] of drawbars) {
@@ -311,7 +309,7 @@ function renderOrgan(frequencyHz: number, duration: number): AudioBuffer {
   return normalize(buffer)
 }
 
-function renderBell(frequencyHz: number, duration: number): AudioBuffer {
+async function renderBell(frequencyHz: number, duration: number): Promise<AudioBuffer> {
   const buffer = createRenderedBuffer(duration)
   const data = buffer.getChannelData(0)
   const sr = buffer.sampleRate
@@ -322,6 +320,7 @@ function renderBell(frequencyHz: number, duration: number): AudioBuffer {
     [5.43, 0.16, 0.28], [6.8, 0.1, 0.2], [8.93, 0.065, 0.14],
   ] as const
   for (let i = 0; i < data.length; i++) {
+    if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const time = i / sr
     let value = 0
     for (const [ratio, amplitude, decay] of modes) {
@@ -416,9 +415,37 @@ function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<Aud
   return ctx.startRendering().then((buffer) => normalize(buffer))
 }
 
+
+/** Small pre-rendered models: no oscillators or modulation run during playback. */
+async function renderCharacter(hz: number, patch: SynthPatch): Promise<AudioBuffer> {
+  const buffer = createRenderedBuffer(patch.totalDurationSeconds)
+  const data = buffer.getChannelData(0)
+  let phase = 0
+  for (let i = 0; i < data.length; i++) {
+    if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    const t = i / buffer.sampleRate
+    const bend = patch.voice === 'bubble' ? 1 + .5 * Math.exp(-t * 35) : patch.voice === 'rubber' ? 1 + .16 * Math.exp(-t * 22) : 1
+    phase += 2 * Math.PI * hz * bend / buffer.sampleRate
+    let value = 0
+    if (patch.voice === 'electricPiano') value = Math.sin(phase + 1.4 * Math.exp(-t * 8) * Math.sin(phase * 2)) * Math.exp(-t * 1.8) + .12 * Math.sin(phase * 3) * Math.exp(-t * 6)
+    if (patch.voice === 'mallet') value = Math.sin(phase) * Math.exp(-t * 5) + .32 * Math.sin(phase * 4) * Math.exp(-t * 16) + .07 * Math.sin(phase * 9.2) * Math.exp(-t * 35)
+    if (patch.voice === 'sub') value = (Math.sin(phase) + .12 * Math.sin(phase * 2)) * (1 - Math.exp(-t * 150)) * Math.exp(-t * 2.5)
+    if (patch.voice === 'rubber') value = Math.sin(phase + 2 * Math.exp(-t * 5) * Math.sin(phase * 2)) * (1 - Math.exp(-t * 200)) * Math.exp(-t * 6)
+    if (patch.voice === 'bubble') value = (Math.sin(phase) + .18 * Math.sin(phase * 2.76) * Math.exp(-t * 10)) * Math.exp(-t * 5)
+    data[i] = value
+  }
+  return normalize(buffer)
+}
+
 /** Renders a preset key into a standalone buffer; acoustic voices use their own instrument-specific model. */
 export async function renderSynthNote(frequencyHz: number, patch: SynthPatch): Promise<AudioBuffer> {
   switch (patch.voice) {
+    case 'electricPiano':
+    case 'mallet':
+    case 'sub':
+    case 'rubber':
+    case 'bubble':
+      return renderCharacter(frequencyHz, patch)
     case 'piano':
       return renderPiano(frequencyHz, patch.totalDurationSeconds)
     case 'bass':
@@ -589,12 +616,12 @@ export async function renderPresetNotes(preset: InstrumentPreset, midis: number[
     if (recorded) {
       return new Map(
         await Promise.all(
-          unique.map(async (midi) => {
+          unique.map((midi) => queuedRender(async () => {
             const zone = nearestZone(midi, recorded.zones)
             const url = recorded.url(zone.file)
             const source = await cached(zoneBufferCache, url, () => decodeRemoteAudio(url))
-            return [midi, normalize(await renderPitchShiftedCopy(source, midi - zone.midi))] as const
-          }),
+            return [midi, midi === zone.midi ? source : normalize(await renderPitchShiftedCopy(source, midi - zone.midi))] as const
+          })),
         ),
       )
     }
@@ -602,14 +629,14 @@ export async function renderPresetNotes(preset: InstrumentPreset, midis: number[
     console.warn(`Recorded ${preset.name} samples unavailable; using the built-in model.`, error)
   }
   return new Map(
-    await Promise.all(unique.map(async (midi) => [midi, await renderSynthNote(midiToFrequency(midi), preset.patch)] as const)),
+    await Promise.all(unique.map((midi) => queuedRender(async () => [midi, await renderSynthNote(midiToFrequency(midi), preset.patch)] as const))),
   )
 }
 
 /** Renders one buffer per requested MIDI note from a user recording, treating the recording as middle C. */
 export async function renderRecordingNotes(root: AudioBuffer, midis: number[], rootMidi = 60): Promise<Map<number, AudioBuffer>> {
   const unique = [...new Set(midis)]
-  return new Map(await Promise.all(unique.map(async (midi) => [midi, await renderPitchShiftedCopy(root, midi - rootMidi)] as const)))
+  return new Map(await Promise.all(unique.map((midi) => queuedRender(async () => [midi, await renderPitchShiftedCopy(root, midi - rootMidi)] as const))))
 }
 
 /** Sums buffers (a chord's notes) into one mono buffer as long as the longest, then levels it like any other key. */

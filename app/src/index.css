@@ -3373,3 +3373,25 @@ body.style-drawer-open .app-shell {
     inset 0 1px 0 rgb(var(--orange-rgb) / 0.3),
     inset 0 0 18px rgb(var(--orange-rgb) / 0.08);
 }
+
+/* Preset creation is a visible first step on both phone pages. */
+.beat-starter { padding: 14px; display: grid; gap: 10px; flex-shrink: 0; }
+.beat-starter-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.beat-starter p { margin: 0; font-size: 12px; line-height: 1.5; }
+.beat-starter-heading p { margin-top: 6px; }
+.beat-style-label { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.beat-style-label select { flex: 1; min-width: 0; }
+.beat-starter select { background: var(--deck-raised); color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px; }
+.beat-options, .beat-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.beat-options label, .beat-keep-sounds { display: flex; align-items: center; gap: 6px; font-size: 12px; min-height: 32px; }
+.beat-options .chip-btn, .beat-actions .btn { min-height: 40px; }
+.beat-options input, .beat-keep-sounds input { accent-color: var(--cyan); width: 16px; height: 16px; }
+.beat-actions .btn:first-child { background: var(--cyan); color: #08232a; font-weight: 700; }
+.beat-hint { color: var(--text-faint); }
+.pads-page > .beat-starter { margin-bottom: 12px; }
+.fx-preset-description { display: block; font-size: 10px; line-height: 1.3; font-weight: normal; color: var(--text-faint); margin-top: 3px; }
+.fx-preset-button.on { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / .12); }
+.fx-floating-panel { width: min(360px, calc(100vw - 24px)); }
+.style-card-layers { flex-wrap: wrap; }
+.layer-add { min-height: 32px; }
+.layer-strip-controls .chip-btn { white-space: nowrap; }

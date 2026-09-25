@@ -450,7 +450,7 @@ export function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'SET_GROOVE':
-      return { ...state, groove: action.groove }
+      return { ...updatePattern(state, state.activePatternId, (pattern) => ({ ...pattern, groove: action.groove })), groove: action.groove }
 
     case 'START_PATTERN': {
       const stepCount = Math.min(MAX_STEP_COUNT, Math.max(MIN_STEP_COUNT, action.stepCount))
@@ -808,6 +808,7 @@ export function reducer(state: AppState, action: Action): AppState {
       const pattern: Pattern = {
         id: createId('pattern'),
         name: `Pattern ${state.patterns.length + 1}`,
+        groove: source?.groove ?? (source?.id === state.activePatternId ? state.groove : null),
         stepCount: source?.stepCount ?? 16,
         steps: Object.fromEntries(state.pads.map((pad) => [
           pad.id,
@@ -816,7 +817,7 @@ export function reducer(state: AppState, action: Action): AppState {
         traceSteps: null,
         traceSource: null,
       }
-      return { ...state, patterns: [...state.patterns, pattern], activePatternId: pattern.id }
+      return { ...state, patterns: [...state.patterns, pattern], activePatternId: pattern.id, groove: pattern.groove ?? null }
     }
 
     case 'APPLY_SONG_TEMPLATE': {
@@ -853,6 +854,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         patterns,
         activePatternId: assigned.get(names[0]!)!,
+        groove: patterns.find((pattern) => pattern.id === assigned.get(names[0]!))?.groove ?? null,
         songSections: names.map((name) => ({
           id: createId('section'),
           name,
@@ -868,7 +870,7 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'SET_ACTIVE_PATTERN':
       return state.patterns.some((pattern) => pattern.id === action.patternId)
-        ? { ...state, activePatternId: action.patternId }
+        ? { ...state, activePatternId: action.patternId, groove: state.patterns.find((pattern) => pattern.id === action.patternId)?.groove ?? null }
         : state
 
     case 'ADD_SONG_SECTION': {

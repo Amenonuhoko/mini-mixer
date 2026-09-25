@@ -147,6 +147,8 @@ export interface BankBuild {
 }
 
 export interface Pattern {
+  /** Generator settings belonging to this pattern, restored when editing another song part. */
+  groove?: Groove | null
   id: string
   name: string
   /** Number of 16th-note cells in this pattern (starts at 16, can grow to 64). */

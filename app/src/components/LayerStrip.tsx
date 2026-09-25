@@ -19,7 +19,7 @@ interface LayerStripProps {
  */
 export function LayerStrip({ kind }: LayerStripProps) {
   const { state } = useAppState()
-  const { busy, setLayerStyle, newTake, setIntensity } = useGroove()
+  const { busy, error, setLayerStyle, newTake, setIntensity } = useGroove()
   const layer = state.groove?.layers[kind]
   const hasLayer = !!layer && bankHasSteps(state, getBank(state, kind))
   const intensity = Math.round((layer?.intensity ?? 0.5) * 100)
@@ -41,13 +41,13 @@ export function LayerStrip({ kind }: LayerStripProps) {
       <div className="layer-strip-controls">
         <button
           type="button"
-          className="icon-btn icon-btn-sm"
+          className="chip-btn"
           onClick={() => newTake(kind)}
           disabled={!hasLayer || busy !== null}
           aria-label={`New take of the ${BANK_NAMES[kind]} layer`}
           title="New take — same style, different variation"
         >
-          <DiceIcon size={14} />
+          <DiceIcon size={14} /> New take
         </button>
         <input
           type="range"
@@ -63,7 +63,8 @@ export function LayerStrip({ kind }: LayerStripProps) {
           title="Sparse ↔ busy"
         />
       </div>
-      <span className="layer-strip-label" aria-hidden="true">Style</span>
+      <span className="layer-strip-label">Simple ↔ complex</span>
+      {error && <span role="alert" className="sheet-error">{error}</span>}
       <div className="layer-strip-styles" ref={stylesRef}>
         {STYLES.map((style) => {
           const on = layer?.styleId === style.id && hasLayer

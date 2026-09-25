@@ -42,6 +42,8 @@ export const EFFECT_IDS = ['volume', 'speed', 'pitch', 'filter', 'pan', 'grit', 
  */
 export interface EffectPreset {
   name: string
+  description?: string
+  group?: 'Tone' | 'Space' | 'Texture'
   filter: number
   grit: number
   echo: number
@@ -49,22 +51,24 @@ export interface EffectPreset {
 }
 
 export const EFFECT_PRESETS: EffectPreset[] = [
-  { name: 'Telephone', filter: 75, grit: -25, echo: 0, reverb: 0 },
-  { name: 'Underwater', filter: -75, grit: 0, echo: 50, reverb: 25 },
-  { name: 'Vinyl', filter: -25, grit: -50, echo: -25, reverb: 0 },
-  { name: 'Cavern', filter: -50, grit: 0, echo: 100, reverb: 100 },
-  { name: 'Radio', filter: 60, grit: -15, echo: -20, reverb: 0 },
-  { name: 'Lo-Fi', filter: -30, grit: -60, echo: 0, reverb: 10 },
-  { name: 'Crunch', filter: 25, grit: 75, echo: 0, reverb: 0 },
-  { name: 'Slapback', filter: 0, grit: 0, echo: -75, reverb: 0 },
-  { name: 'Clean Air', filter: 25, grit: 0, echo: 0, reverb: 15 },
-  { name: 'Warm Tape', filter: -25, grit: -25, echo: -25, reverb: 10 },
-  { name: 'Wide Hall', filter: 0, grit: 0, echo: 25, reverb: 75 },
-  { name: 'Dub', filter: -25, grit: 0, echo: 75, reverb: 25 },
-  { name: 'Bitcrush', filter: 25, grit: 100, echo: 0, reverb: 0 },
-  { name: 'Dream', filter: -25, grit: 0, echo: 25, reverb: 100 },
-  { name: 'Ice', filter: 100, grit: 0, echo: 25, reverb: 50 },
-  { name: 'Tunnel', filter: -100, grit: 50, echo: -25, reverb: -25 },
+  { name: 'Clean', group: 'Tone', description: 'Original sound, no coloration', filter: 0, grit: 0, echo: 0, reverb: 0 },
+  { name: 'Warm Tape', group: 'Tone', description: 'Soft highs and gentle saturation', filter: -25, grit: 15, echo: 0, reverb: 0 },
+  { name: 'Radio', group: 'Tone', description: 'Thin, gritty speaker tone', filter: 80, grit: 25, echo: 0, reverb: 0 },
+  { name: 'Underwater', group: 'Tone', description: 'Deeply muffled with drifting repeats', filter: -85, grit: 0, echo: 35, reverb: 20 },
+  { name: 'Air', group: 'Tone', description: 'Light low cut and a small room', filter: 25, grit: 0, echo: 0, reverb: -25 },
+  { name: 'Small Room', group: 'Space', description: 'A close, dry studio space', filter: 0, grit: 0, echo: 0, reverb: -55 },
+  { name: 'Slapback', group: 'Space', description: 'A quick rockabilly double', filter: 0, grit: 0, echo: -80, reverb: 0 },
+  { name: 'Wide Hall', group: 'Space', description: 'Clear notes with a long stereo tail', filter: 0, grit: 0, echo: 0, reverb: 65 },
+  { name: 'Dream', group: 'Space', description: 'Soft focus and a spacious wash', filter: -40, grit: 0, echo: 30, reverb: 100 },
+  { name: 'Dub', group: 'Space', description: 'Dark, pronounced echo repeats', filter: -35, grit: 10, echo: 90, reverb: 15 },
+  { name: 'Cavern', group: 'Space', description: 'Distant echoes in a huge dark space', filter: -55, grit: 0, echo: 100, reverb: 85 },
+  { name: 'Bright Echo', group: 'Space', description: 'Crisp repeats for plucks and keys', filter: 35, grit: 0, echo: 55, reverb: -20 },
+  { name: 'Lo-fi', group: 'Texture', description: 'Dusty, softened digital grain', filter: -45, grit: -35, echo: -20, reverb: 0 },
+  { name: 'Crunch', group: 'Texture', description: 'Strong warm overdrive', filter: -10, grit: 75, echo: 0, reverb: 0 },
+  { name: 'Bitcrush', group: 'Texture', description: 'Deliberate crunchy digital steps', filter: 0, grit: -85, echo: 0, reverb: 0 },
+  { name: 'Broken Toy', group: 'Texture', description: 'Tiny crushed speaker with a short echo', filter: 90, grit: -70, echo: -45, reverb: 0 },
+  { name: 'Fuzz Room', group: 'Texture', description: 'Thick distortion in a tight room', filter: -30, grit: 100, echo: 0, reverb: -60 },
+  { name: 'Ice', group: 'Texture', description: 'Thin, glassy reflections', filter: 100, grit: 0, echo: 25, reverb: 50 },
 ]
 
 /** Trim handles can't collapse closer than this (fraction of the sample's duration). */

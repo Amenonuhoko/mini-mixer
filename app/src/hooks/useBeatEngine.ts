@@ -77,7 +77,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
         }
       },
-      { bpm: state.transport.bpm },
+      { bpm: state.transport.bpm, scheduleAheadSeconds: 0.18 },
     )
     schedulerRef.current = scheduler
     return () => scheduler.stop()
