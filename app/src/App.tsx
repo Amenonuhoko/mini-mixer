@@ -1,3 +1,4 @@
+import { VariationDecision } from './components/VariationPanel'
 import { useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
 import { LightShow } from './components/LightShow'
@@ -169,6 +170,7 @@ function Shell() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        <VariationDecision />
         <CurrentPage onBounced={setPendingRecording} />
       </main>
       <div className="bottom-stack" ref={bottomRef}>

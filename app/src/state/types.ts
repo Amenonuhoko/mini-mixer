@@ -260,6 +260,9 @@ export interface Groove {
 }
 
 export interface AppState {
+  /** Session-only audition snapshot. Later musical edits accept it; Keep/Undo are explicit while auditioning. */
+  variationPreview?: { label: string; patterns: Pattern[]; songSections: SongSection[]; activePatternId: string } | undefined
+
   /** The sample library ("arsenal") — first-class, independent of pad assignment. */
   samples: Record<string, Sample>
   /** Display/edit order for the library — samples themselves stay keyed by id in `samples`. */

@@ -1,3 +1,4 @@
+import { varyPattern, sectionEnergy, type VariationKind } from '../styles/variations'
 import { tonicMidi } from '../music/theory'
 import {
   BPM_MIN,
@@ -38,6 +39,11 @@ import type {
 } from './types'
 
 export type Action =
+  | { type: 'PREVIEW_VARIATION'; kind: VariationKind; locked: BankKind[]; seed: number }
+  | { type: 'PREVIEW_RELATED_SONG'; locked: BankKind[] }
+  | { type: 'KEEP_VARIATION' }
+  | { type: 'UNDO_VARIATION' }
+
   | { type: 'ADD_SAMPLE'; sample: Sample }
   /** Adds a sample onto the next pad of the Drums (sampler) bank. */
   | { type: 'ADD_SAMPLE_TO_NEW_PAD'; sample: Sample }
@@ -101,6 +107,7 @@ export type Action =
   | { type: 'UPDATE_SONG_SECTION'; sectionId: string; name?: string; patternId?: string; repeats?: number }
   | { type: 'SET_SONG_SECTION_BANK_VOLUME'; sectionId: string; bank: BankKind; level: number }
   | { type: 'SET_SONG_SECTION_BANK_INCLUDED'; sectionId: string; bank: BankKind; included: boolean }
+  | { type: 'EDIT_SECTION_ENDING'; sectionId: string }
   | { type: 'MAKE_SECTION_UNIQUE'; sectionId: string }
   | { type: 'DUPLICATE_SONG_SECTION'; sectionId: string }
   | { type: 'MOVE_SONG_SECTION'; sectionId: string; direction: -1 | 1 }
@@ -362,6 +369,11 @@ function applyBankBuild(
 }
 
 export function reducer(state: AppState, action: Action): AppState {
+  // Audition/navigation may continue. A subsequent musical edit accepts the draft,
+  // so Undo can never silently discard newer notes, sound assignments or deleted samples.
+  const auditionActions = ['PREVIEW_VARIATION', 'PREVIEW_RELATED_SONG', 'KEEP_VARIATION', 'UNDO_VARIATION', 'SET_ACTIVE_PATTERN', 'SET_ACTIVE_BANK', 'SET_PLAY_MODE', 'AUDITION_SONG_SECTION', 'SET_CURRENT_SONG_SECTION', 'SET_TRANSPORT_PLAYING', 'SET_LOOP_MODE', 'SET_METRONOME_ENABLED', 'SET_CURRENT_STEP']
+  if (state.variationPreview && !auditionActions.includes(action.type)) state = { ...state, variationPreview: undefined }
+
   switch (action.type) {
     case 'ADD_SAMPLE':
       return {
@@ -965,6 +977,60 @@ export function reducer(state: AppState, action: Action): AppState {
           return { ...section, excludedBanks: [...excluded] }
         }),
       }
+
+    case 'KEEP_VARIATION':
+      return { ...state, variationPreview: undefined }
+    case 'UNDO_VARIATION': {
+      const before = state.variationPreview
+      if (!before) return state
+      return { ...state, patterns: before.patterns, songSections: before.songSections,
+        activePatternId: before.activePatternId,
+        groove: before.patterns.find((item) => item.id === before.activePatternId)?.groove ?? null,
+        variationPreview: undefined,
+        transport: { ...state.transport, isPlaying: false, auditionSectionId: null, currentSongSectionId: null } }
+    }
+    case 'PREVIEW_VARIATION': {
+      const source = state.patterns.find((item) => item.id === state.activePatternId)
+      if (!source) return state
+      const pattern = varyPattern(state, source, action.kind, action.locked, action.seed)
+      if (JSON.stringify(pattern.steps) === JSON.stringify(source.steps)) return state
+      return { ...updatePattern(state, source.id, () => pattern), variationPreview: state.variationPreview ?? {
+        label: 'Pattern variation', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId } }
+    }
+    case 'PREVIEW_RELATED_SONG': {
+      const source = state.patterns.find((item) => item.id === state.activePatternId)
+      if (!source || !Object.values(source.steps).some((row) => row.some(Boolean))) return state
+      const patterns = [...state.patterns]
+      const byName = new Map<string, string>()
+      const songSections = state.songSections.map((section) => {
+        const key = section.name.toLowerCase()
+        let id = byName.get(key)
+        if (!id) {
+          id = createId('pattern')
+          const pattern = varyPattern(state, source, sectionEnergy(section.name), action.locked)
+          const versions = patterns.filter((item) => item.name.startsWith(section.name + ' · variation ')).length
+          patterns.push({ ...pattern, id, name: section.name + ' · variation ' + (versions + 1), traceSteps: null, traceSource: null })
+          byName.set(key, id)
+        }
+        return { ...section, patternId: id }
+      })
+      const activePatternId = songSections[0]?.patternId ?? source.id
+      return { ...state, patterns, songSections, activePatternId,
+        groove: patterns.find((item) => item.id === activePatternId)?.groove ?? null,
+        variationPreview: state.variationPreview ?? { label: 'Related song parts', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId } }
+    }
+
+    case 'EDIT_SECTION_ENDING': {
+      const section = state.songSections.find((item) => item.id === action.sectionId)
+      const source = state.patterns.find((item) => item.id === section?.patternId)
+      if (!section || !source) return state
+      const pattern: Pattern = { ...source, id: createId('pattern'), name: section.name + ' ending',
+        steps: Object.fromEntries(Object.entries(source.steps).map(([id, row]) => [id, [...row]])) }
+      const ending = { ...section, id: createId('section'), name: section.name + ' ending', patternId: pattern.id, repeats: 1 }
+      const songSections = state.songSections.flatMap((item) => item.id !== section.id ? [item] : section.repeats > 1 ? [{ ...section, repeats: section.repeats - 1 }, ending] : [ending])
+      return { ...state, patterns: [...state.patterns, pattern], songSections, activePatternId: pattern.id, groove: pattern.groove ?? null,
+        transport: { ...state.transport, isPlaying: true, playMode: 'song', auditionSectionId: ending.id, auditionScope: 'loop', currentSongSectionId: null } }
+    }
 
     case 'MAKE_SECTION_UNIQUE': {
       const section = state.songSections.find((item) => item.id === action.sectionId)

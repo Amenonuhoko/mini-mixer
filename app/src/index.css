@@ -3631,3 +3631,10 @@ button.list-item:hover .list-wave {
 
 .song-link-note { grid-column: 2 / -1; margin: 0; }
 .beat-edit-context { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; }
+
+.variation-panel { margin: 10px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.variation-panel summary { cursor: pointer; font-weight: 700; padding: 5px 0; }
+.variation-panel select { max-width: 100%; }
+.variation-panel .beat-actions { flex-wrap: wrap; margin: 10px 0; }
+.variation-decision { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px; background: var(--deck-solid); border: 1px solid var(--cyan); border-radius: 10px; margin-bottom: 10px; flex-shrink: 0; }
+.variation-decision small { flex-basis: 100%; }

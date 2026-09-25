@@ -1,3 +1,4 @@
+import { VariationPanel } from './VariationPanel'
 import { useState } from 'react'
 import { bankHasSteps, useGroove } from '../hooks/useGroove'
 import { useAppState } from '../state/AppStateContext'
@@ -19,7 +20,7 @@ export function BeatStarter() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { goToSong } = useNavigation()
-  const { busy, error, startBeat, hearBeat, varyBeat } = useGroove()
+  const { busy, error, startBeat, hearBeat } = useGroove()
   const [styleId, setStyleId] = useState(state.groove?.layers.drums?.styleId ?? 'house')
   const [intensity, setIntensity] = useState(Object.values(state.groove?.layers ?? {})[0]?.intensity ?? 0.5)
   const [bars, setBars] = useState<1 | 2 | 4>((state.groove?.bars as 1 | 2 | 4) ?? 2)
@@ -30,7 +31,6 @@ export function BeatStarter() {
   const style = STYLES.find((item) => item.id === styleId) ?? STYLES[0]!
   const hasSteps = state.banks.some((bank) => bankHasSteps(state, bank))
   const pattern = state.patterns.find((item) => item.id === state.activePatternId)
-  const generated = state.groove && Object.keys(state.groove.layers).length > 0
   const create = async () => {
     setConfirm(false)
     // Unlock audio on the gesture, before asynchronous instrument rendering.
@@ -152,17 +152,6 @@ export function BeatStarter() {
         <button
           type="button"
           className="btn"
-          disabled={busy !== null || !generated || !hasSteps}
-          onClick={() => {
-            engine.getContext()
-            void varyBeat(intensity)
-          }}
-        >
-          New variation
-        </button>
-        <button
-          type="button"
-          className="btn"
           disabled={!hasSteps || busy !== null}
           onClick={state.transport.isPlaying ? stop : hearBeat}
         >
@@ -171,10 +160,11 @@ export function BeatStarter() {
       </div>
       {!collapsed && (
         <p className="muted beat-hint">
-          New variation keeps the sounds, tempo and chords, and uses your chosen complexity. Fine-tune individual layers
+          Develop this beat below to lock parts and audition variations. Fine-tune individual layers
           in the sequencer.
         </p>
       )}
+      {hasSteps && <VariationPanel />}
       {error && (
         <p className="sheet-error" role="alert">
           {error}

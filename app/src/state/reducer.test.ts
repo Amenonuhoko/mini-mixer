@@ -777,3 +777,16 @@ describe('independent song sections', () => {
     expect(copy.steps).not.toBe(original.steps)
   })
 })
+
+
+it('isolates only the final repeat for a transition without changing song duration', () => {
+  const state = createInitialState()
+  const section = state.songSections[0]!
+  const originalRepeats = section.repeats
+  const next = reducer(state, { type: 'EDIT_SECTION_ENDING', sectionId: section.id })
+  expect(next.songSections.reduce((sum, item) => sum + item.repeats, 0)).toBe(originalRepeats)
+  expect(next.songSections.at(-1)!.repeats).toBe(1)
+  expect(next.songSections.at(-1)!.patternId).not.toBe(section.patternId)
+  expect(next.transport.auditionScope).toBe('loop')
+  expect(next.transport.auditionSectionId).toBe(next.songSections.at(-1)!.id)
+})

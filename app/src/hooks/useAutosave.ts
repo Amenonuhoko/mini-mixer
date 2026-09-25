@@ -57,7 +57,12 @@ export function useAutosave(
     // before it's had a chance to be restored.
     if (!hydratedRef.current) return
     const timer = setTimeout(() => {
-      void saveAutosave(state).catch(() => {
+      void saveAutosave(state.variationPreview ? {
+        ...state, patterns: state.variationPreview.patterns, songSections: state.variationPreview.songSections,
+        activePatternId: state.variationPreview.activePatternId,
+        groove: state.variationPreview.patterns.find((item) => item.id === state.variationPreview!.activePatternId)?.groove ?? null,
+        variationPreview: undefined,
+      } : state).catch(() => {
         // Best-effort — a failed write just means this tick isn't persisted.
       })
     }, AUTOSAVE_DEBOUNCE_MS)

@@ -1,3 +1,4 @@
+import { VariationPanel } from './VariationPanel'
 import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
@@ -172,6 +173,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           </button>
           <span>Edit opens a section's pattern in Seq, looping it. ▶ From here checks a transition.</span>
         </div>
+        <VariationPanel song />
         <ol className="song-sections">
           {state.songSections.map((section, index) => {
             const linkedPattern = state.patterns.find((pattern) => pattern.id === section.patternId)
@@ -259,6 +261,10 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                 </div>
                 <p className="song-section-summary song-link-note">{linkedCount > 1 ? 'Shared by ' + linkedCount + ' sections — editing updates all of them.' : 'Independent pattern — edits affect only this section.'}</p>
                 <div className="song-section-actions">
+                  <button type="button" className="chip-btn" disabled={!programmedBanks.length} onClick={() => {
+                    engine.getContext(); engine.setSequencerPlaybackEnabled(false); engine.stopAllSounds()
+                    dispatch({ type: 'EDIT_SECTION_ENDING', sectionId: section.id }); goToSequencer()
+                  }} title="Separate the final repeat so a fill or pause happens only at the end">Edit ending / transition</button>
                   {linkedCount > 1 && <button type="button" className="chip-btn" onClick={() => dispatch({ type: 'MAKE_SECTION_UNIQUE', sectionId: section.id })}>Make this section unique</button>}
                   <button
                     type="button"
