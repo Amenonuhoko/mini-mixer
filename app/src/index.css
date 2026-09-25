@@ -3638,3 +3638,5 @@ button.list-item:hover .list-wave {
 .variation-panel .beat-actions { flex-wrap: wrap; margin: 10px 0; }
 .variation-decision { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px; background: var(--deck-solid); border: 1px solid var(--cyan); border-radius: 10px; margin-bottom: 10px; flex-shrink: 0; }
 .variation-decision small { flex-basis: 100%; }
+
+.instrument-source { display: block; font-size: 10px; color: var(--text-dim); margin-top: 3px; font-weight: normal; }

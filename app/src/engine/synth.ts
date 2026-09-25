@@ -1,3 +1,4 @@
+import { RECORDED_KEYS } from './recordedKeys'
 import { queuedRender } from './renderQueue'
 import { polishSample } from './samplePolish'
 
@@ -35,8 +36,9 @@ export interface InstrumentPreset {
   name: string
   /** Frequency of key 0 (the root); each subsequent key is one semitone higher. */
   description?: string
+  recordedKeys?: keyof typeof RECORDED_KEYS
   rootHz: number
-  /** Real CC0 recordings are preferred; the patch is the offline fallback. */
+  /** A real CC0 wind pack; download errors leave the existing bank unchanged. */
   recordedWindPack?: RecordedWindPack
   patch: SynthPatch
 }
@@ -51,6 +53,8 @@ export interface InstrumentPreset {
 export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   {
     name: 'Piano',
+    description: 'Recorded Steinway grand: felt hammer attack and natural string decay.',
+    recordedKeys: 'piano',
     rootHz: 261.63,
     patch: {
       voice: 'piano',
@@ -184,7 +188,7 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
     patch: { voice: 'lead', waveform: 'square', overtoneGain: 0.07, attackSeconds: 0.055, decaySeconds: 0.18, sustainLevel: 0.68, releaseSeconds: 0.48, totalDurationSeconds: 2.7, lowpassHz: 2500, vibratoHz: 4.9, vibratoCents: 6, filterMovement: 0.06 },
   },
   { name: 'Electric Piano', description: 'Soft tines with a warm bell attack', rootHz: 261.63, patch: { voice: 'electricPiano', waveform: 'sine', attackSeconds: .004, decaySeconds: .7, sustainLevel: 0, releaseSeconds: .5, totalDurationSeconds: 2.6 } },
-  { name: 'Marimba', description: 'Rounded wooden mallets', rootHz: 261.63, patch: { voice: 'mallet', waveform: 'sine', attackSeconds: .002, decaySeconds: .4, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.3 } },
+  { name: 'Marimba', recordedKeys: 'marimba', description: 'Rounded wooden mallets', rootHz: 261.63, patch: { voice: 'mallet', waveform: 'sine', attackSeconds: .002, decaySeconds: .4, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.3 } },
   { name: 'Sub Bass', description: 'Deep, clean low end with a gentle harmonic', rootHz: 65.41, patch: { voice: 'sub', waveform: 'sine', attackSeconds: .008, decaySeconds: .2, sustainLevel: .7, releaseSeconds: .2, totalDurationSeconds: .95 } },
   { name: 'Velvet Strings', description: 'Slow bowed synth ensemble', rootHz: 261.63, patch: { voice: 'pad', waveform: 'sawtooth', unisonDetuneCents: 7, attackSeconds: .22, decaySeconds: .4, sustainLevel: .55, releaseSeconds: .9, totalDurationSeconds: 3.1, lowpassHz: 2600, vibratoHz: 4.7, vibratoCents: 4 } },
   { name: 'Chiptune', description: 'Bright square-wave arcade notes', rootHz: 261.63, patch: { voice: 'lead', waveform: 'square', attackSeconds: .003, decaySeconds: .12, sustainLevel: .28, releaseSeconds: .12, totalDurationSeconds: .65, lowpassHz: 5200 } },
@@ -551,7 +555,7 @@ function windFileUrl(baseUrl: string, file: string): string {
 }
 
 async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
-  const response = await fetch(url)
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
   if (!response.ok) throw new Error(`Could not load recorded sample (${response.status})`)
   const audioData = await response.arrayBuffer()
   const decoder = new OfflineAudioContext(1, 1, 44100)
@@ -578,13 +582,18 @@ interface RecordedSource {
   url: (file: string) => string
 }
 
+export function usesRecordings(preset: InstrumentPreset): boolean {
+  return !!preset.recordedKeys || !!preset.recordedWindPack || preset.patch.voice === 'guitar' || preset.patch.voice === 'bass'
+}
+
 async function recordedSourceFor(preset: InstrumentPreset): Promise<RecordedSource | null> {
+  if (preset.recordedKeys) return { zones: RECORDED_KEYS[preset.recordedKeys], url: (file) => import.meta.env.BASE_URL + 'instruments/' + file }
   if (preset.recordedWindPack) {
     const pack = CC0_WIND_PACKS[preset.recordedWindPack]
     const zones = isStaticWindPack(pack)
       ? pack.zones
       : await cached(zoneListCache, pack.manifestUrl, async () => {
-          const response = await fetch(pack.manifestUrl)
+          const response = await fetch(pack.manifestUrl, { signal: AbortSignal.timeout(15000) })
           if (!response.ok) throw new Error(`Could not load wind sample manifest (${response.status})`)
           return parseWindZones(await response.json())
         })
@@ -605,9 +614,8 @@ function midiToFrequency(midi: number): number {
 
 /**
  * Renders one buffer per requested MIDI note in a preset's voice. Presets with
- * real recordings pitch the nearest recorded zone; everything else (and any
- * recording whose host is offline — a sound must never be unusable because a
- * third-party host is down) uses the built-in model.
+ * Real recordings pitch the nearest zone. Intentionally synthetic voices use
+ * the built-in model; unavailable recordings are reported instead of substituted.
  */
 export async function renderPresetNotes(preset: InstrumentPreset, midis: number[]): Promise<Map<number, AudioBuffer>> {
   const unique = [...new Set(midis)]
@@ -626,7 +634,7 @@ export async function renderPresetNotes(preset: InstrumentPreset, midis: number[
       )
     }
   } catch (error) {
-    console.warn(`Recorded ${preset.name} samples unavailable; using the built-in model.`, error)
+    throw new Error(`Could not load the real ${preset.name} recordings. Check your connection and retry; your current sound has been kept.`, { cause: error })
   }
   return new Map(
     await Promise.all(unique.map((midi) => queuedRender(async () => [midi, await renderSynthNote(midiToFrequency(midi), preset.patch)] as const))),

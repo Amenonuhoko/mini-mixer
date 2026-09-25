@@ -21,9 +21,11 @@ export function useBankBuilder() {
     setError(null)
     try {
       await work()
+      return true
     } catch (caught) {
       console.error(caught)
       setError(caught instanceof Error ? caught.message : 'Could not build that sound')
+      return false
     } finally {
       setBusy(null)
     }

@@ -108,7 +108,7 @@ export function developSection(state: AppState, source: Pattern, name: string, l
   const role = name.toLowerCase()
   if (/chorus|drop|final/.test(role) && !/breakdown/.test(role)) return varyPattern(state, varyPattern(state, source, 'new-take', locked, seed), 'busier', locked, seed)
   if (/bridge/.test(role)) return varyPattern(state, source, 'syncopated', locked, seed)
-  const sparse = varyPattern(state, source, 'sparser', locked, seed)
+  const sparse = varyPattern(state, varyPattern(state, source, 'new-take', locked, seed), 'sparser', locked, seed)
   if (/build/.test(role)) {
     const busy = varyPattern(state, source, 'busier', locked, seed)
     return { ...source, steps: Object.fromEntries(Object.keys(source.steps).map((id) => [id,

@@ -1,5 +1,5 @@
 import { DRUM_KITS } from '../engine/drumSynth'
-import { INSTRUMENT_PRESETS } from '../engine/synth'
+import { INSTRUMENT_PRESETS, usesRecordings } from '../engine/synth'
 import { useBankBuilder } from '../hooks/useBankBuilder'
 import { keyName } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
@@ -45,8 +45,8 @@ export function BankSoundPicker({ bank, onClose }: BankSoundPickerProps) {
   const current = soundKey(bank.sound)
 
   const pick = async (choice: Choice) => {
-    await setBankSound(bank, choice.sound, choice.id)
-    onClose()
+    const loaded = await setBankSound(bank, choice.sound, choice.id)
+    if (loaded) onClose()
   }
 
   const renderChoices = (choices: Choice[]) => (
@@ -62,7 +62,7 @@ export function BankSoundPicker({ bank, onClose }: BankSoundPickerProps) {
             aria-pressed={soundKey(choice.sound) === current}
           >
             <span className="choice-icon" aria-hidden="true">{choice.icon}</span>
-            <span className="choice-name">{busy === choice.id ? 'Building…' : choice.name}</span>
+            <span className="choice-name">{busy === choice.id ? 'Building…' : choice.name}{choice.sound.type === 'preset' && <small className="instrument-source">{INSTRUMENT_PRESETS.some((preset) => preset.name === choice.name && usesRecordings(preset)) ? 'Real recording' : 'Synth voice'}</small>}</span>
           </button>
         </li>
       ))}

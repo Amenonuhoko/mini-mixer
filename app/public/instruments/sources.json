@@ -1,0 +1,213 @@
+{
+  "piano": [
+    {
+      "kind": "piano",
+      "note": "C2",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C2_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 36,
+      "file": "piano-36.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "C3",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C3_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 48,
+      "file": "piano-48.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "C4",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C4_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 60,
+      "file": "piano-60.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "C5",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C5_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 72,
+      "file": "piano-72.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "C6",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C6_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 84,
+      "file": "piano-84.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "E2",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E2_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 40,
+      "file": "piano-40.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "E3",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E3_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 52,
+      "file": "piano-52.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "E4",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E4_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 64,
+      "file": "piano-64.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "E5",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E5_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 76,
+      "file": "piano-76.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "G#2",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#2_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 44,
+      "file": "piano-44.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "G#3",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#3_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 56,
+      "file": "piano-56.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "G#4",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#4_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 68,
+      "file": "piano-68.wav",
+      "seconds": 5.0
+    },
+    {
+      "kind": "piano",
+      "note": "G#5",
+      "path": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#5_vl3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 80,
+      "file": "piano-80.wav",
+      "seconds": 5.0
+    }
+  ],
+  "marimba": [
+    {
+      "kind": "marimba",
+      "note": "B2",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B2_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 59,
+      "file": "marimba-59.wav",
+      "seconds": 3.5
+    },
+    {
+      "kind": "marimba",
+      "note": "B4",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_B4_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 83,
+      "file": "marimba-83.wav",
+      "seconds": 1.176
+    },
+    {
+      "kind": "marimba",
+      "note": "C2",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C2_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 48,
+      "file": "marimba-48.wav",
+      "seconds": 3.5
+    },
+    {
+      "kind": "marimba",
+      "note": "C4",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C4_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 72,
+      "file": "marimba-72.wav",
+      "seconds": 2.264
+    },
+    {
+      "kind": "marimba",
+      "note": "C6",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C6_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 96,
+      "file": "marimba-96.wav",
+      "seconds": 1.356
+    },
+    {
+      "kind": "marimba",
+      "note": "F1",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F1_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 41,
+      "file": "marimba-41.wav",
+      "seconds": 3.5
+    },
+    {
+      "kind": "marimba",
+      "note": "F3",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F3_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 65,
+      "file": "marimba-65.wav",
+      "seconds": 3.265
+    },
+    {
+      "kind": "marimba",
+      "note": "F5",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_F5_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 89,
+      "file": "marimba-89.wav",
+      "seconds": 1.345
+    },
+    {
+      "kind": "marimba",
+      "note": "G2",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G2_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 55,
+      "file": "marimba-55.wav",
+      "seconds": 3.5
+    },
+    {
+      "kind": "marimba",
+      "note": "G4",
+      "path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_G4_med_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "midi": 79,
+      "file": "marimba-79.wav",
+      "seconds": 1.231
+    }
+  ]
+}

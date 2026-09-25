@@ -230,6 +230,7 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
       ...pattern,
       stepCount,
       groove: normalizeGroove(pattern.groove),
+      variationLocks: BANK_KINDS.filter((kind) => pattern.variationLocks?.includes(kind)),
       traceSteps: pattern.traceSteps ?? null,
       traceSource: pattern.traceSource ?? (pattern.traceSteps ? 'reference' : null),
       steps: Object.fromEntries(
