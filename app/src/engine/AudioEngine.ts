@@ -123,6 +123,9 @@ export class AudioEngine {
   // so the analysers are pulled by the graph even though they're otherwise
   // dead ends.
   private readonly padMeters = new Map<string, AnalyserNode>()
+  /** Each pad's own level and its bank's volume (0–1); a channel plays their product. */
+  private readonly padMixLevels = new Map<string, number>()
+  private readonly bankScales = new Map<string, number>()
   private masterMeter: AnalyserNode | null = null
   private meterSink: GainNode | null = null
   private readonly meterScratch = new Float32Array(METER_FFT_SIZE)
@@ -443,7 +446,8 @@ export class AudioEngine {
     // A silent pad takes its settings at once; one that's sounding glides to them so nothing clicks.
     const sounding = this.activeInstanceCounts.has(pad.id)
     channel.applyEffects(effects, sounding)
-    channel.setMixLevel(pad.mixLevel, sounding)
+    this.padMixLevels.set(pad.id, pad.mixLevel)
+    channel.setMixLevel(pad.mixLevel * (this.bankScales.get(pad.id) ?? 1), sounding)
 
     // A note scheduled for a moment that has already passed plays now.
     const start = Math.max(options.time ?? ctx.currentTime, ctx.currentTime)
@@ -617,9 +621,24 @@ export class AudioEngine {
     return this.startVoice(pad, buffer, { time, cents, level })
   }
 
+  /**
+   * A bank's volume (0–100) over all its pads — kept apart from each pad's
+   * own level, and live on anything those pads are playing.
+   */
+  setBankVolume(padIds: string[], level: number): void {
+    const scale = Math.max(0, Math.min(100, level)) / 100
+    for (const padId of padIds) {
+      if (this.bankScales.get(padId) === scale) continue
+      this.bankScales.set(padId, scale)
+      const padLevel = this.padMixLevels.get(padId)
+      if (padLevel !== undefined) this.channels.get(padId)?.setMixLevel(padLevel * scale, true)
+    }
+  }
+
   /** Live-updates a pad's Mixer Mode fader — heard on everything the pad is playing. */
   updateLoopingPadMixLevel(padId: string, level: number): void {
-    this.channels.get(padId)?.setMixLevel(level, true)
+    this.padMixLevels.set(padId, level)
+    this.channels.get(padId)?.setMixLevel(level * (this.bankScales.get(padId) ?? 1), true)
   }
 
   /**

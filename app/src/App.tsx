@@ -1,4 +1,4 @@
-import { VariationDecision } from './components/VariationPanel'
+import { VariationDecision } from './components/VariationDecision'
 import { useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { Library } from './components/Library'
 import { LightShow } from './components/LightShow'
@@ -91,6 +91,7 @@ function Shell() {
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const shellRef = useRef<HTMLElement>(null)
   const swipeStart = useRef<{ x: number; y: number; identifier: number; startedAt: number } | null>(null)
   useAutosave(state, dispatch, engine)
 
@@ -105,6 +106,12 @@ function Shell() {
 
   // The bottom stack (Styles drawer, tab bar) changes
   // height as its parts come and go; the page and toasts sit right above it.
+  // Every page opens at its top — the page area is one shared scroll container,
+  // so without this a page would open wherever the last one was scrolled to.
+  useLayoutEffect(() => {
+    shellRef.current?.scrollTo(0, 0)
+  }, [page])
+
   useLayoutEffect(() => {
     const stack = bottomRef.current
     if (!stack) return
@@ -160,6 +167,7 @@ function Shell() {
       <LightShow />
       <TransportStrip onOpenSettings={() => setSettingsOpen(true)} />
       <main
+        ref={shellRef}
         className={[
           'app-shell',
           page === 'library' ? 'library-shell' : '',

@@ -120,6 +120,8 @@ export type Action =
   /** Resizes one bank's showing pads (the active bank unless bankId is given). */
   | { type: 'SET_VISIBLE_PAD_COUNT'; count: number; bankId?: string }
   | { type: 'REMOVE_PAD'; padId: string }
+  /** One bank's overall volume, 0–100, on top of each pad's own level. */
+  | { type: 'SET_BANK_VOLUME'; bankId: string; level: number }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
@@ -930,6 +932,12 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'RENAME_PATTERN':
       return updatePattern(state, action.patternId, (pattern) => ({ ...pattern, name: action.name.slice(0, 40) }))
+
+    case 'SET_BANK_VOLUME':
+      return {
+        ...state,
+        banks: state.banks.map((bank) => (bank.id === action.bankId ? { ...bank, volume: clamp(Math.round(action.level), 0, 100) } : bank)),
+      }
 
     case 'SET_ACTIVE_PATTERN':
       return state.patterns.some((pattern) => pattern.id === action.patternId)

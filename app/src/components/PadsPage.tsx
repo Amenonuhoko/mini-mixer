@@ -2,9 +2,6 @@ import { useEffect } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { getActiveBank, visibleBankPads } from '../state/banks'
 import { useNavigation } from '../state/NavigationContext'
-import { BeatStarter } from './BeatStarter'
-import { useIsWideScreen } from '../hooks/useIsWideScreen'
-import { useIsLandscapeLayout } from '../hooks/useIsLandscapeLayout'
 import { PadGrid } from './PadGrid'
 import type { PendingRecording } from './RecordingReview'
 
@@ -17,8 +14,6 @@ import type { PendingRecording } from './RecordingReview'
 export function PadsPage({ onRecorded }: { onRecorded: (recording: PendingRecording) => void }) {
   const { state } = useAppState()
   const { selectedPadId, selectPad } = useNavigation()
-  const isWide = useIsWideScreen()
-  const isLandscape = useIsLandscapeLayout()
   const bank = getActiveBank(state)
   const visiblePads = visibleBankPads(state, bank)
 
@@ -35,7 +30,6 @@ export function PadsPage({ onRecorded }: { onRecorded: (recording: PendingRecord
 
   return (
     <div className="page pads-page">
-      {!isWide && !isLandscape && <BeatStarter key={state.activePatternId} />}
       <PadGrid selectedPadId={selectedPadId} onSelectPad={selectPad} onRecorded={onRecorded} />
     </div>
   )

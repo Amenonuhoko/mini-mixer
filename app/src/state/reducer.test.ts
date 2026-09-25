@@ -790,3 +790,17 @@ it('isolates only the final repeat for a transition without changing song durati
   expect(next.transport.auditionScope).toBe('loop')
   expect(next.transport.auditionSectionId).toBe(next.songSections.at(-1)!.id)
 })
+
+describe('bank volume', () => {
+  it('sets one bank\'s volume, clamped, leaving its pads\' own levels alone', () => {
+    let state = createInitialState()
+    const drums = getBank(state, 'drums')
+    const levels = state.pads.map((pad) => pad.mixLevel)
+    state = reducer(state, { type: 'SET_BANK_VOLUME', bankId: drums.id, level: 42.4 })
+    expect(getBank(state, 'drums').volume).toBe(42)
+    expect(getBank(state, 'bass').volume).toBeUndefined()
+    expect(state.pads.map((pad) => pad.mixLevel)).toEqual(levels)
+    state = reducer(state, { type: 'SET_BANK_VOLUME', bankId: drums.id, level: 140 })
+    expect(getBank(state, 'drums').volume).toBe(100)
+  })
+})
