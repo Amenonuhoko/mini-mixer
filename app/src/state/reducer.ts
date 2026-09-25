@@ -987,7 +987,7 @@ export function reducer(state: AppState, action: Action): AppState {
         activePatternId: before.activePatternId,
         groove: before.patterns.find((item) => item.id === before.activePatternId)?.groove ?? null,
         variationPreview: undefined,
-        transport: { ...state.transport, isPlaying: false, auditionSectionId: null, currentSongSectionId: null } }
+        transport: { ...before.transport, isPlaying: false, currentSongSectionId: null } }
     }
     case 'PREVIEW_VARIATION': {
       const source = state.patterns.find((item) => item.id === state.activePatternId)
@@ -995,7 +995,7 @@ export function reducer(state: AppState, action: Action): AppState {
       const pattern = varyPattern(state, source, action.kind, action.locked, action.seed)
       if (JSON.stringify(pattern.steps) === JSON.stringify(source.steps)) return state
       return { ...updatePattern(state, source.id, () => pattern), variationPreview: state.variationPreview ?? {
-        label: 'Pattern variation', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId } }
+        label: 'Pattern variation', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId, transport: state.transport } }
     }
     case 'PREVIEW_RELATED_SONG': {
       const source = state.patterns.find((item) => item.id === state.activePatternId)
@@ -1017,7 +1017,7 @@ export function reducer(state: AppState, action: Action): AppState {
       const activePatternId = songSections[0]?.patternId ?? source.id
       return { ...state, patterns, songSections, activePatternId,
         groove: patterns.find((item) => item.id === activePatternId)?.groove ?? null,
-        variationPreview: state.variationPreview ?? { label: 'Related song parts', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId } }
+        variationPreview: state.variationPreview ?? { label: 'Related song parts', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId, transport: state.transport } }
     }
 
     case 'EDIT_SECTION_ENDING': {

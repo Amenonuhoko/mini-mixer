@@ -96,12 +96,14 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
   }
 
   const audition = (sectionId: string, scope: 'section' | 'rest') => {
+    engine.getContext()
     engine.setSequencerPlaybackEnabled(false)
     engine.stopAllSounds()
     dispatch({ type: 'AUDITION_SONG_SECTION', sectionId, scope })
   }
 
   const editSection = (sectionId: string, patternId: string) => {
+    engine.getContext()
     engine.setSequencerPlaybackEnabled(false)
     engine.stopAllSounds()
     dispatch({ type: 'SET_ACTIVE_PATTERN', patternId })

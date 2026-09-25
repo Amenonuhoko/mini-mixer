@@ -48,12 +48,16 @@ describe('musical variations', () => {
   })
   it('keeps audition undo available during playback and restores exact patterns', () => {
     const original = fixture()
+    original.transport.auditionSectionId = original.songSections[0]!.id
+    original.transport.auditionScope = 'loop'
     let next = reducer(original, { type: 'PREVIEW_VARIATION', kind: 'sparser', locked: [], seed: 1 })
     next = reducer(next, { type: 'SET_TRANSPORT_PLAYING', isPlaying: true })
     expect(next.variationPreview).toBeDefined()
     next = reducer(next, { type: 'UNDO_VARIATION' })
     expect(next.patterns).toEqual(original.patterns)
     expect(next.transport.isPlaying).toBe(false)
+    expect(next.transport.auditionSectionId).toBe(original.transport.auditionSectionId)
+    expect(next.transport.auditionScope).toBe('loop')
   })
   it('accepts a preview before later edits so undo cannot erase new work', () => {
     const original = fixture()

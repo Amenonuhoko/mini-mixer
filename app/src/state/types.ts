@@ -261,7 +261,7 @@ export interface Groove {
 
 export interface AppState {
   /** Session-only audition snapshot. Later musical edits accept it; Keep/Undo are explicit while auditioning. */
-  variationPreview?: { label: string; patterns: Pattern[]; songSections: SongSection[]; activePatternId: string } | undefined
+  variationPreview?: { label: string; patterns: Pattern[]; songSections: SongSection[]; activePatternId: string; transport: Transport } | undefined
 
   /** The sample library ("arsenal") — first-class, independent of pad assignment. */
   samples: Record<string, Sample>

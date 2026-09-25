@@ -419,3 +419,11 @@ Reversed from the original "session-only, no persistence" decision once real use
 - Seven additional instruments: Electric Piano, Marimba, Sub Bass, Velvet Strings, Chiptune, Rubber Duck and Bubble Keys (19 total). Rendered samples have DC removal, shared stereo normalization and gentle edge fades. Procedural generation yields between chunks and shares a two-job queue across banks.
 - 18 consolidated effect presets with descriptions in Mix; Bitcrush uses quantization, Warm Tape uses saturation, and reverb impulses are damped. Presets and bypass update currently sounding one-shots as well as loops. Dry channels allocate no echo nodes.
 - Mobile retains its 40 ms output-buffer hint, 180 ms scheduler lookahead, lighter reverb and seamless loops; pad glow updates run at 30 fps on coarse-pointer devices. Physical Pixel 9 / Firefox playback remains a device verification step.
+
+### Guided song development
+
+Song starts with structure choices (Simple, Hook first, Full pop and Electronic) and an explicit Play whole song action. Each section offers Hear, Edit, Duplicate and Remove; shared patterns are labelled and can be made unique. Editing loops that section and shows a Back to song link.
+
+Develop your song creates new, related patterns from a selected starting beat, keeps the original patterns saved, and links repeated section names. Develop this beat offers Sparser, Busier, More syncopated, New take, Drum fill, Opening crash, Short pause and Bass dropout. Bank locks preserve exact notes; transformations reuse sample IDs without rebuilding sounds. Chords are not retriggered by Busier. Fill/crash need appropriate loaded kit voices.
+
+Changes audition immediately with global Keep / Undo. Undo restores the original patterns, arrangement and editing context; later musical edits accept the draft to protect newer work. Autosave preserves the pre-audition version until Keep or a later edit. Edit ending / transition splits only the final repeat into an independent pattern without changing song length, so fills or dropouts can happen only before the next section.

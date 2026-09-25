@@ -60,6 +60,7 @@ export function useAutosave(
       void saveAutosave(state.variationPreview ? {
         ...state, patterns: state.variationPreview.patterns, songSections: state.variationPreview.songSections,
         activePatternId: state.variationPreview.activePatternId,
+        transport: state.variationPreview.transport,
         groove: state.variationPreview.patterns.find((item) => item.id === state.variationPreview!.activePatternId)?.groove ?? null,
         variationPreview: undefined,
       } : state).catch(() => {
