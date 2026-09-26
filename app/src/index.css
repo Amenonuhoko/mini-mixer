@@ -3730,7 +3730,8 @@ button.list-item:hover .list-wave {
 }
 .phrasing-editor { display: grid; gap: 1rem; }
 .phrasing-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
-.phrasing-choices .choice { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; text-align: left; white-space: normal; }
+.phrasing-choices .choice { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: .3rem; height: auto; min-height: 60px; padding: 10px 12px; text-align: left; white-space: normal; }
 .phrasing-choices small { font-size: .75rem; font-weight: normal; line-height: 1.4; opacity: .75; }
 .phrasing-editor input[type="range"] { display: block; width: 100%; margin-top: .6rem; }
-.phrasing-editor select { max-width: 100%; }
+.phrasing-editor select { flex: 1 1 200px; min-width: 0; max-width: 100%; min-height: 40px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / 0.8); color: var(--text); font: inherit; }
+.phrasing-editor select:disabled { opacity: .5; }
