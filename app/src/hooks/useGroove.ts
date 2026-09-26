@@ -21,6 +21,7 @@ function layerTarget(bank: Bank, sound: BankSound | null, pads: Array<{ music: P
   const kit = sound?.type === 'kit' ? DRUM_KITS.find((item) => item.id === sound.kitId) : undefined
   return {
     kind: bank.kind,
+    instrument: sound?.type === 'preset' ? sound.name : undefined,
     pads: pads.map((pad, index) => {
       const voice = kit?.voices[index]
       return voice ? { music: pad.music, voice: { name: voice.name, kind: voice.kind } } : { music: pad.music }

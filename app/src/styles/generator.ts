@@ -1,4 +1,5 @@
 import type { DrumVoiceKind } from '../engine/drumSynth'
+import { WIND_INSTRUMENTS } from '../engine/phrasing'
 import { chordName, diatonicChord, pitchClass, SCALES, type BankKind, type MusicalKey, type PadMusic } from '../music/theory'
 import { createRng, mixSeed, pick, weighted } from './random'
 import type { DrumRole, Pulse, StyleDef } from './types'
@@ -6,6 +7,7 @@ import type { DrumRole, Pulse, StyleDef } from './types'
 /** Where a generated layer lands: a bank's showing pads in grid order. */
 export interface LayerTarget {
   kind: BankKind
+  instrument?: string | undefined
   pads: Array<{ music: PadMusic | null; voice?: { name: string; kind: DrumVoiceKind } }>
 }
 
@@ -288,6 +290,10 @@ function generateMelody(ctx: LayerContext, target: LayerTarget): LayerSteps {
   const lastBar = ctx.bars - 1
   const steps: LayerSteps = {}
   for (const step of hits) {
+    // Wind players need a breath every two bars (or at the end of a short
+    // one-bar phrase). Keep the motif and harmony, leave its last eighth free.
+    const phraseLength = Math.min(ctx.bars * 16, 32)
+    if (target.instrument && WIND_INSTRUMENTS.has(target.instrument) && step % phraseLength >= phraseLength - 2) continue
     // The last bar answers the motif a step higher, so the loop turns around.
     let index = Math.max(0, Math.min(pads.length - 1, motif[step % 16]! + (Math.floor(step / 16) === lastBar && ctx.bars > 1 ? 1 : 0)))
     if (step % 4 === 0) {

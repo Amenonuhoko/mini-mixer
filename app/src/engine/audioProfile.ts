@@ -19,7 +19,9 @@ export interface AudioProfile {
 }
 
 const DESKTOP: AudioProfile = { latencyHint: 'interactive', maxVoices: 48, scheduleAheadSeconds: 0.1, lightReverb: false }
-const PHONE: AudioProfile = { latencyHint: 0.04, maxVoices: 32, scheduleAheadSeconds: 0.18, lightReverb: true }
+// Extra headroom for dense recorded parts on Android/Firefox. Browsers may
+// treat the latency request as a hint; voice limits remain enforced by us.
+const PHONE: AudioProfile = { latencyHint: 0.06, maxVoices: 24, scheduleAheadSeconds: 0.2, lightReverb: true }
 
 /** A touch-first device: coarse pointer, no mouse or trackpad. */
 function isTouchFirst(): boolean {

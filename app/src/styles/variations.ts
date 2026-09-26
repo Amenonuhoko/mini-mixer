@@ -26,7 +26,8 @@ export function varyPattern(state: AppState, source: Pattern, kind: VariationKin
       const pads = bank.padIds.slice(0, bank.visibleCount).map((id) => state.pads.find((pad) => pad.id === id))
       const generated = generateLayer({ style, key: state.key, seed: source.groove.seed, take: layer.take + seed + 1,
         bars: source.groove.bars, progression: source.groove.progression, intensity: layer.intensity }, {
-        kind: bank.kind, pads: pads.map((pad, i) => ({ music: pad?.music ?? null, ...(kit?.voices[i] ? { voice: kit.voices[i]! } : {}) })) })
+        kind: bank.kind, instrument: bank.sound?.type === 'preset' ? bank.sound.name : undefined,
+        pads: pads.map((pad, i) => ({ music: pad?.music ?? null, ...(kit?.voices[i] ? { voice: kit.voices[i]! } : {}) })) })
       for (const id of bank.padIds) steps[id] = new Array<string | null>(end).fill(null)
       for (const [index, hits] of Object.entries(generated)) {
         const pad = pads[Number(index)]

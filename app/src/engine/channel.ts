@@ -20,17 +20,39 @@ export const DECLICK_SECONDS = 0.004
  * the sample's own end — the two places a hard edge would click. Shared by
  * live playback and the offline bounce, so both sound the same.
  */
-export function shapeEnvelope(gain: AudioParam, start: number, level: number, options: { fadeIn: boolean; end: number | null }): void {
-  const fade = options.end === null ? DECLICK_SECONDS : Math.min(DECLICK_SECONDS, Math.max(0, options.end - start) / 2)
-  if (options.fadeIn) {
+export interface EnvelopeOptions { fadeIn: boolean; end: number | null; attackSeconds?: number | undefined; releaseSeconds?: number | undefined }
+
+/** Returns the scheduled level too, for browsers without cancelAndHoldAtTime. */
+export function shapeEnvelope(gain: AudioParam, start: number, level: number, options: EnvelopeOptions): (time: number) => number {
+  const half = options.end === null ? Infinity : Math.max(0, options.end - start) / 2
+  const attack = Math.min(options.attackSeconds ?? (options.fadeIn ? DECLICK_SECONDS : 0), half)
+  const release = Math.min(options.releaseSeconds ?? DECLICK_SECONDS, half)
+  if (attack > 0) {
     gain.setValueAtTime(0, start)
-    gain.linearRampToValueAtTime(level, start + fade)
+    gain.linearRampToValueAtTime(level, start + attack)
   } else {
     gain.setValueAtTime(level, start)
   }
   if (options.end !== null) {
-    gain.setValueAtTime(level, Math.max(start + fade, options.end - fade))
+    gain.setValueAtTime(level, Math.max(start + attack, options.end - release))
     gain.linearRampToValueAtTime(0, options.end)
+  }
+  return (time) => {
+    if (time < start || (options.end !== null && time >= options.end)) return 0
+    const up = attack > 0 ? Math.min(1, (time - start) / attack) : 1
+    const down = options.end !== null && release > 0 ? Math.min(1, (options.end - time) / release) : 1
+    return level * Math.max(0, Math.min(up, down))
+  }
+}
+
+export function holdEnvelope(gain: AudioParam, time: number, levelAt: (time: number) => number): void {
+  if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(time)
+  else {
+    gain.cancelScheduledValues(time)
+    // Recreate a ramp cut in its middle; reading gain.value can be stale or
+    // describe the render cursor rather than this future scheduled stop.
+    gain.linearRampToValueAtTime(levelAt(time), time)
+    gain.setValueAtTime(levelAt(time), time)
   }
 }
 

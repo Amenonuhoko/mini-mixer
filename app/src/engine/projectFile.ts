@@ -1,4 +1,5 @@
 import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
+import { normalizePhrasing } from './phrasing'
 import { computePeaks } from '../utils/waveform'
 import { BANK_KINDS, createBank } from '../state/banks'
 import { createId, DEFAULT_PERFORM } from '../state/defaults'
@@ -230,6 +231,7 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
       ...pattern,
       stepCount,
       groove: normalizeGroove(pattern.groove),
+      phrasing: normalizePhrasing(pattern.phrasing),
       variationLocks: BANK_KINDS.filter((kind) => pattern.variationLocks?.includes(kind)),
       traceSteps: pattern.traceSteps ?? null,
       traceSource: pattern.traceSource ?? (pattern.traceSteps ? 'reference' : null),

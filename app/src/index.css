@@ -3728,3 +3728,9 @@ button.list-item:hover .list-wave {
 .song-link-note {
   text-transform: none;
 }
+.phrasing-editor { display: grid; gap: 1rem; }
+.phrasing-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.phrasing-choices .choice { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; text-align: left; white-space: normal; }
+.phrasing-choices small { font-size: .75rem; font-weight: normal; line-height: 1.4; opacity: .75; }
+.phrasing-editor input[type="range"] { display: block; width: 100%; margin-top: .6rem; }
+.phrasing-editor select { max-width: 100%; }

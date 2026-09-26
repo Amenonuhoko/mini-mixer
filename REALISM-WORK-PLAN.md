@@ -17,3 +17,9 @@
 - Merged preview through 6ca41f6, preserving the newer Song/Seq/Mix layout and pattern-copy workflow.
 - Browser checks before the merge: all four winds, recorded strings/bells/harp, Organ and Electric Piano build and trigger without errors. Final merged checks recorded below. Physical Pixel 9/Firefox listening remains unverified; single-shot recordings are not expressive legato/velocity-layer instruments.
 - Final merged verification: 193 tests pass across 16 files; production build and diff check pass; lint has three existing Fast Refresh warnings. Guitar, Bass and Clarinet rebuild and trigger in the merged UI. The development tab needed a full reload after the multi-file merge (stale Fast Refresh context); no new playback errors followed the reload.
+
+## Articulation and dense mobile playback
+- Pixel 9 / Firefox feedback: crackles during dense beats. Increased phone latency request to 60 ms, scheduler horizon to 200 ms, and reduced voice budget to 24. Replaced stale AudioParam.value release fallback with an analytical envelope hold.
+- Added per-pattern bank phrasing (Original, Short, Detached, Connected), note length limits, deterministic dynamics and Hear/Keep/Undo. Winds and bass default to detached notes; original full-sample playback remains selectable. Wind generation leaves breaths.
+- Live playback and bounce share the same phrasing plan. Settings survive normalization, copying and the existing global audition snapshot. Playback plans are computed on musical edits instead of each scheduled step.
+- Checkpoint: focused 43 tests pass; build passes. Remaining: browser UI and dense audio signal checks, full suite, documentation and push preview. Physical phone listening after the change remains required.

@@ -2,7 +2,8 @@ import { DEFAULT_BPM, STEP_COUNT } from '../state/constants'
 import type { EffectId, EffectSetting, Pad } from '../state/types'
 import { AUDIO_PROFILE } from './audioProfile'
 import { preferPlaybackSession } from './audioSession'
-import { Channel, createMasterStage, PARAM_RAMP_SECONDS, ReverbRooms, shapeEnvelope } from './channel'
+import { Channel, createMasterStage, holdEnvelope, PARAM_RAMP_SECONDS, ReverbRooms, shapeEnvelope } from './channel'
+import type { NotePerformance } from './phrasing'
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { Performer } from './performer'
 import { seamlessLoopBuffer } from './loopSeam'
@@ -439,7 +440,7 @@ export class AudioEngine {
    * pad's (and the app's) voice limits fade the oldest note out rather than
    * letting notes pile up.
    */
-  private startVoice(pad: Pad, buffer: AudioBuffer, options: { time?: number; loop?: boolean; cents?: number; level?: number } = {}): LiveVoice {
+  private startVoice(pad: Pad, buffer: AudioBuffer, options: { time?: number; loop?: boolean; cents?: number } & Partial<NotePerformance> = {}): LiveVoice {
     const ctx = this.getContext()
     const channel = this.channelFor(pad.id)
     const effects = effectiveEffects(pad)
@@ -473,9 +474,12 @@ export class AudioEngine {
 
     // Every one-shot fades out over its last few milliseconds — a recording that
     // stops mid-waveform would otherwise click at its natural end, not just a trimmed one.
-    shapeEnvelope(env.gain, start, level, {
+    const duration = Math.min(window.duration / (rate * Math.pow(2, detune / 1200)), options.durationSeconds ?? Infinity)
+    const levelAt = shapeEnvelope(env.gain, start, level, {
       fadeIn: window.offset > 0.001 || loop,
-      end: loop ? null : start + window.duration / (rate * Math.pow(2, detune / 1200)),
+      end: loop ? null : start + duration,
+      attackSeconds: options.attackSeconds,
+      releaseSeconds: options.releaseSeconds,
     })
 
     /** When the note's fade-out begins — a later, earlier-reaching release (a Stop) still wins. */
@@ -493,11 +497,7 @@ export class AudioEngine {
         if (releasedAt !== null && from >= releasedAt) return
         releasedAt = from
         // Glide down from whatever level the note has reached — works before, during or after its attack.
-        if (typeof env.gain.cancelAndHoldAtTime === 'function') env.gain.cancelAndHoldAtTime(from)
-        else {
-          env.gain.cancelScheduledValues(from)
-          env.gain.setValueAtTime(env.gain.value, from)
-        }
+        holdEnvelope(env.gain, from, levelAt)
         env.gain.setTargetAtTime(0, from, fadeSeconds / 4)
         try {
           source.stop(from + fadeSeconds * 1.5)
@@ -524,6 +524,7 @@ export class AudioEngine {
       source.start(start)
     } else {
       source.start(start, window.offset, window.duration)
+      if (options.durationSeconds !== undefined) source.stop(start + duration)
     }
     for (const listener of this.hitListeners) listener(pad.id, start)
     return voice
@@ -607,8 +608,9 @@ export class AudioEngine {
    * Fire a single sequencer step hit for a pad at a precise audio-clock time
    * (from the lookahead Scheduler). Always a one-shot.
    */
-  triggerStep(pad: Pad, buffer: AudioBuffer, time: number, level = 1): void {
-    if (level > 0) this.startVoice(pad, buffer, { time, level })
+  triggerStep(pad: Pad, buffer: AudioBuffer, time: number, level = 1, performance?: NotePerformance): void {
+    const gain = level * (performance?.level ?? 1)
+    if (gain > 0) this.startVoice(pad, buffer, { ...performance, time, level: gain })
   }
 
   /**

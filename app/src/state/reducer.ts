@@ -1,5 +1,6 @@
 import { varyPattern, developSection, type VariationKind } from '../styles/variations'
 import { tonicMidi } from '../music/theory'
+import { normalizePhrasing } from '../engine/phrasing'
 import {
   BPM_MIN,
   BPM_MAX,
@@ -34,11 +35,13 @@ import type {
   PadLayout,
   PadPlaybackMode,
   Pattern,
+  Phrasing,
   Sample,
   SequenceTrace,
 } from './types'
 
 export type Action =
+  | { type: 'SET_PATTERN_PHRASING' | 'PREVIEW_PATTERN_PHRASING'; patternId: string; bank: BankKind; phrasing: Phrasing | null }
   | { type: 'PREVIEW_VARIATION'; kind: VariationKind; locked: BankKind[]; seed: number }
   | { type: 'SET_VARIATION_LOCKS'; locked: BankKind[] }
   | { type: 'PREVIEW_RELATED_SONG'; locked: BankKind[]; evolve?: boolean; transition?: 'fill' | 'pause' | 'bass-drop'; seed?: number }
@@ -385,9 +388,23 @@ export function reducer(state: AppState, action: Action): AppState {
   // Audition/navigation may continue. A subsequent musical edit accepts the draft,
   // so Undo can never silently discard newer notes, sound assignments or deleted samples.
   const auditionActions = ['PREVIEW_VARIATION', 'PREVIEW_RELATED_SONG', 'SET_VARIATION_LOCKS', 'KEEP_VARIATION', 'UNDO_VARIATION', 'SET_ACTIVE_PATTERN', 'SET_ACTIVE_BANK', 'SET_PLAY_MODE', 'AUDITION_SONG_SECTION', 'SET_CURRENT_SONG_SECTION', 'SET_TRANSPORT_PLAYING', 'SET_LOOP_MODE', 'SET_METRONOME_ENABLED', 'SET_CURRENT_STEP']
-  if (state.variationPreview && !auditionActions.includes(action.type)) state = { ...state, variationPreview: undefined }
+  if (state.variationPreview && action.type !== 'PREVIEW_PATTERN_PHRASING' && !auditionActions.includes(action.type)) state = { ...state, variationPreview: undefined }
 
   switch (action.type) {
+    case 'PREVIEW_PATTERN_PHRASING':
+    case 'SET_PATTERN_PHRASING': {
+      if (!state.patterns.some((pattern) => pattern.id === action.patternId)) return state
+      const next = updatePattern(state, action.patternId, (pattern) => {
+        const phrasing = { ...pattern.phrasing }
+        if (action.phrasing === null) delete phrasing[action.bank]
+        else Object.assign(phrasing, normalizePhrasing({ [action.bank]: action.phrasing }))
+        return { ...pattern, phrasing }
+      })
+      return action.type === 'SET_PATTERN_PHRASING' ? next : { ...next, variationPreview: state.variationPreview ?? {
+        label: 'Phrasing', patterns: state.patterns, songSections: state.songSections,
+        activePatternId: state.activePatternId, transport: state.transport,
+      } }
+    }
     case 'ADD_SAMPLE':
       return {
         ...state,
@@ -681,6 +698,7 @@ export function reducer(state: AppState, action: Action): AppState {
           ]),
         ),
         groove: source.groove ?? null,
+        phrasing: normalizePhrasing(source.phrasing),
         traceSteps: null,
         traceSource: null,
       }))
@@ -897,6 +915,7 @@ export function reducer(state: AppState, action: Action): AppState {
         id: createId('pattern'),
         name: `Pattern ${state.patterns.length + 1}`,
         groove: source?.groove ?? (source?.id === state.activePatternId ? state.groove : null),
+        phrasing: normalizePhrasing(source?.phrasing),
         stepCount: source?.stepCount ?? 16,
         steps: Object.fromEntries(state.pads.map((pad) => [
           pad.id,

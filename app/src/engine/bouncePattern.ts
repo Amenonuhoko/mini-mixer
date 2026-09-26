@@ -4,6 +4,7 @@ import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 import { bankVolumeScale, playablePads } from '../state/banks'
 import { buildSongTimeline, sectionBankGain } from './songTimeline'
+import { planPhrasing, type NotePerformance } from './phrasing'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
   return effects.find((effect) => effect.id === id)?.value ?? 0
@@ -14,6 +15,7 @@ interface ScheduledHit {
   sample: Sample
   offsetSeconds: number
   level?: number
+  performance?: NotePerformance | undefined
 }
 
 /**
@@ -34,6 +36,7 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
 
   const secondsPerStep = 60 / state.transport.bpm / 4
   const pads = playablePads(state)
+  const phrasing = planPhrasing(pattern, state.banks, pads, state.transport.bpm)
 
   const hits: ScheduledHit[] = []
   for (const pad of pads) {
@@ -42,7 +45,7 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
     steps.forEach((sampleId, stepIndex) => {
       if (!sampleId) return
       const sample = state.samples[sampleId]
-      if (sample) hits.push({ pad, sample, offsetSeconds: stepIndex * secondsPerStep })
+      if (sample) hits.push({ pad, sample, offsetSeconds: stepIndex * secondsPerStep, performance: phrasing.get(pad.id)?.[stepIndex] })
     })
   }
   if (hits.length === 0) {
@@ -63,6 +66,7 @@ export async function renderSongToBuffer(state: AppState): Promise<AudioBuffer> 
   const bankByPad = new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const)))
   const hits: ScheduledHit[] = []
   for (const span of timeline) {
+    const phrasing = planPhrasing(span.pattern, state.banks, pads, state.transport.bpm)
     for (let repeat = 0; repeat < span.section.repeats; repeat++) {
       for (const pad of pads) {
         if (pad.muted) continue
@@ -74,6 +78,7 @@ export async function renderSongToBuffer(state: AppState): Promise<AudioBuffer> 
             pad,
             sample,
             level,
+            performance: phrasing.get(pad.id)?.[patternStep],
             offsetSeconds: (span.startStep + repeat * span.pattern.stepCount + patternStep) * secondsPerStep,
           })
         })
@@ -137,12 +142,15 @@ async function renderHits(hits: ScheduledHit[], sequenceSeconds: number, bankSca
     env.gain.value = 0
     source.connect(env)
     env.connect(channel.input)
-    const duration = window.duration
-    shapeEnvelope(env.gain, offsetSeconds, hit.level ?? 1, {
+    const duration = Math.min(window.duration / (rate * Math.pow(2, detune / 1200)), hit.performance?.durationSeconds ?? Infinity)
+    shapeEnvelope(env.gain, offsetSeconds, (hit.level ?? 1) * (hit.performance?.level ?? 1), {
       fadeIn: window.offset > 0.001,
-      end: offsetSeconds + duration / (rate * Math.pow(2, detune / 1200)),
+      end: offsetSeconds + duration,
+      attackSeconds: hit.performance?.attackSeconds,
+      releaseSeconds: hit.performance?.releaseSeconds,
     })
-    source.start(offsetSeconds, window.offset, duration)
+    source.start(offsetSeconds, window.offset, window.duration)
+    source.stop(offsetSeconds + duration)
   })
 
   return ctx.startRendering()

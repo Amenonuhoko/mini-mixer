@@ -148,7 +148,16 @@ export interface BankBuild {
   noteSampleIds: Record<string, string>
 }
 
+export interface Phrasing {
+  articulation: 'natural' | 'short' | 'detached' | 'connected'
+  /** Maximum note length in sixteenth-note steps; 0 follows the next onset. */
+  lengthSteps: number
+  /** 0 = even, 100 = strongest accents and note-to-note dynamics. */
+  dynamics: number
+}
+
 export interface Pattern {
+  phrasing?: Partial<Record<BankKind, Phrasing>> | undefined
   variationLocks?: BankKind[]
 
   /** Generator settings belonging to this pattern, restored when editing another song part. */

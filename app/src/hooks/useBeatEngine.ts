@@ -1,5 +1,6 @@
 import { AUDIO_PROFILE } from '../engine/audioProfile'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { planPhrasing } from '../engine/phrasing'
 import { AudioEngine } from '../engine/AudioEngine'
 import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
@@ -20,9 +21,18 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
   const schedulerRef = useRef<Scheduler | null>(null)
   const lastSongSectionRef = useRef<string | null>(null)
   const stateRef = useRef(state)
+  const playbackPlan = useMemo(() => ({
+    timeline: buildSongTimeline(state),
+    bankByPad: new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const))),
+    phrasing: new Map(state.patterns.map((pattern) => [pattern.id, planPhrasing(pattern, state.banks, playablePads(state), state.transport.bpm)])),
+  // Only musical edits rebuild the plan; playhead updates do not allocate it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [state.patterns, state.songSections, state.banks, state.pads, state.transport.bpm])
+  const planRef = useRef(playbackPlan)
   useEffect(() => {
     stateRef.current = state
-  }, [state])
+    planRef.current = playbackPlan
+  }, [state, playbackPlan])
 
   useEffect(() => {
     const engine = engineRef.current!
@@ -39,7 +49,8 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
           engine.playMetronomeClick(time, stepIndex === 0)
         }
         if (!current.transport.isPlaying || !engine.isSequencerPlaybackEnabled()) return
-        const song = current.transport.playMode === 'song' ? buildSongTimeline(current) : []
+        const plan = planRef.current
+        const song = current.transport.playMode === 'song' ? plan.timeline : []
         const auditionSpan = song.find((span) => span.section.id === current.transport.auditionSectionId)
         const songPosition = songStepAt(song, stepIndex)
         const pattern = songPosition?.span.pattern ?? current.patterns.find((p) => p.id === current.activePatternId)
@@ -51,7 +62,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         engine.markStep(patternStep, time, pattern?.stepCount ?? 16)
         if (pattern) {
           const visiblePads = playablePads(current)
-          const bankByPad = new Map(current.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const)))
+          const bankByPad = plan.bankByPad
           for (const pad of visiblePads) {
             if (pad.muted) continue
             // A programmed cell owns its source reference. The pad may have
@@ -62,7 +73,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             if (!sample) continue
             const bank = bankByPad.get(pad.id)
             const level = songPosition && bank ? sectionBankGain(songPosition.span.section, bank) : 1
-            engine.triggerStep(pad, sample.buffer, time, level)
+            engine.triggerStep(pad, sample.buffer, time, level, plan.phrasing.get(pattern.id)?.get(pad.id)?.[patternStep])
           }
         }
         const finalStep = auditionSpan && current.transport.auditionScope === 'section'

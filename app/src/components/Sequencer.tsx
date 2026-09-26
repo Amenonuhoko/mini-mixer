@@ -19,6 +19,7 @@ import type { PendingRecording } from './RecordingReview'
 import { StepsMenu } from './StepsMenu'
 import { Stepper } from './Stepper'
 import { BeatStarter } from './BeatStarter'
+import { PhrasingEditor } from './PhrasingEditor'
 
 const GROUP_SIZE = 4
 /** Painting near the scroll area's edge scrolls it: how close (px), and how fast (px per frame). */
@@ -80,6 +81,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
   const [deletingBankId, setDeletingBankId] = useState<string | null>(null)
+  const [phrasingBankId, setPhrasingBankId] = useState<string | null>(null)
   const [sequencerGateMode, setSequencerGateMode] = useState(false)
   const [previewOnClick, setPreviewOnClick] = useState(true)
   const [loadPickerOpen, setLoadPickerOpen] = useState(false)
@@ -466,6 +468,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
               <div className={`sequencer-bank bank-${bank.kind}`} key={bank.id}>
                 <div className="sequencer-bank-head">
                   <span className="sequencer-bank-name">{BANK_NAMES[bank.kind]}</span>
+                  <button type="button" className="sequencer-bank-style" aria-label={`${BANK_NAMES[bank.kind]} phrasing`} onClick={() => { dispatch({ type: 'KEEP_VARIATION' }); setPhrasingBankId(bank.id) }}>Phrasing</button>
                   <button
                     type="button"
                     className="sequencer-bank-style"
@@ -533,6 +536,9 @@ export function Sequencer({ onBounced }: SequencerProps) {
           }
           onClose={() => setFillOpen(false)}
         />
+      )}
+      {phrasingBankId && state.banks.find((bank) => bank.id === phrasingBankId) && (
+        <PhrasingEditor bank={state.banks.find((bank) => bank.id === phrasingBankId)!} pattern={pattern} onClose={() => setPhrasingBankId(null)} />
       )}
       {patternMenuOpen && (
         <Overlay onClose={() => setPatternMenuOpen(false)} title="Pattern" subtitle="Everything about the pattern in the grid.">

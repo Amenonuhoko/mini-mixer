@@ -9,6 +9,19 @@ import { createRng } from './random'
 
 const C_MAJOR: MusicalKey = { tonic: 0, scale: 'major', chordColor: 'triad' }
 
+it('leaves deterministic breathing gaps in generated wind melodies while preserving other notes', () => {
+  const context = ctxFor(STYLES[0]!, { bars: 4, intensity: 1 })
+  const target = melodicTarget('melody')
+  const ordinary = generateLayer(context, target)
+  const wind = generateLayer(context, { ...target, instrument: 'Flute' })
+  expect(Object.values(wind).flat().length).toBeGreaterThan(0)
+  for (const [pad, hits] of Object.entries(wind)) {
+    expect(hits.every((step) => step % 32 < 30)).toBe(true)
+    expect(hits.every((step) => ordinary[Number(pad)]?.includes(step))).toBe(true)
+  }
+  expect(wind).toEqual(generateLayer(context, { ...target, instrument: 'Flute' }))
+})
+
 /** A layer of a beat in `style` (its own length and progression) unless overridden. */
 function ctxFor(style: (typeof STYLES)[number], overrides: Partial<LayerContext> = {}): LayerContext {
   const seed = overrides.seed ?? 42

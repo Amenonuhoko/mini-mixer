@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Channel, ReverbRooms, shapeEnvelope } from './channel'
+import { Channel, holdEnvelope, ReverbRooms, shapeEnvelope } from './channel'
 import { dialToReverbParams } from './dialMapping'
 
 describe('ReverbRooms.weights', () => {
@@ -27,6 +27,20 @@ describe('ReverbRooms.weights', () => {
       previous = next
     }
   })
+})
+
+it('holds the scheduled envelope without reading a stale AudioParam.value', () => {
+  const param = { value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn() } as unknown as AudioParam
+  const at = shapeEnvelope(param, 1, .8, { fadeIn: true, end: 2, attackSeconds: .1, releaseSeconds: .2 })
+  expect(at(.9)).toBe(0)
+  expect(at(1.05)).toBeCloseTo(.4)
+  expect(at(1.5)).toBeCloseTo(.8)
+  expect(at(1.9)).toBeCloseTo(.4)
+  expect(at(2)).toBe(0)
+  holdEnvelope(param, 1.9, at)
+  expect(param.cancelScheduledValues).toHaveBeenLastCalledWith(1.9)
+  expect(vi.mocked(param.setValueAtTime).mock.calls.at(-1)![0]).toBeCloseTo(.4)
+  expect(param.linearRampToValueAtTime).toHaveBeenLastCalledWith(at(1.9), 1.9)
 })
 
 
