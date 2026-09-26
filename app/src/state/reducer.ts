@@ -128,6 +128,8 @@ export type Action =
   | { type: 'REMOVE_PAD'; padId: string }
   /** One bank's overall volume, 0–100, on top of each pad's own level. */
   | { type: 'SET_BANK_VOLUME'; bankId: string; level: number }
+  /** One bank's Pitch in one pattern, in semitones (±12) — it plays wherever that pattern plays, and nowhere else. */
+  | { type: 'SET_PATTERN_PITCH'; patternId: string; bank: BankKind; semitones: number }
   /** Replaces a pattern's steps (and length and generator settings) with another pattern's — e.g. the Intro copied into the Verse. */
   | { type: 'COPY_PATTERN_FROM'; patternId: string; fromId: string }
   | { type: 'SET_BPM'; bpm: number }
@@ -702,6 +704,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ),
         groove: source.groove ?? null,
         phrasing: normalizePhrasing(source.phrasing),
+        ...(source.pitch ? { pitch: { ...source.pitch } } : {}),
         traceSteps: null,
         traceSource: null,
       }))
@@ -919,6 +922,7 @@ export function reducer(state: AppState, action: Action): AppState {
         name: `Pattern ${state.patterns.length + 1}`,
         groove: source?.groove ?? (source?.id === state.activePatternId ? state.groove : null),
         phrasing: normalizePhrasing(source?.phrasing),
+        ...(source?.pitch ? { pitch: { ...source.pitch } } : {}),
         stepCount: source?.stepCount ?? 16,
         steps: Object.fromEntries(state.pads.map((pad) => [
           pad.id,
@@ -1114,6 +1118,17 @@ export function reducer(state: AppState, action: Action): AppState {
         variationPreview: before ?? { label: 'Ending', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId, transport: state.transport },
         transport: { ...state.transport, playMode: 'song', isPlaying: true, auditionSectionId: target?.id ?? null, auditionScope: 'handover',
           currentSongSectionId: null, playbackRunId: state.transport.playbackRunId + 1 } }
+    }
+
+    case 'SET_PATTERN_PITCH': {
+      const semitones = clamp(Math.round(action.semitones), -12, 12)
+      return updatePattern(state, action.patternId, (pattern) => {
+        const { [action.bank]: _old, ...rest } = pattern.pitch ?? {}
+        const pitch = semitones === 0 ? rest : { ...rest, [action.bank]: semitones }
+        if (Object.keys(pitch).length > 0) return { ...pattern, pitch }
+        const { pitch: _none, ...plain } = pattern
+        return plain
+      })
     }
 
     case 'MAKE_SECTION_UNIQUE': {

@@ -128,6 +128,8 @@ export class AudioEngine {
   /** Each pad's own level and its bank's volume (0–1); a channel plays their product. */
   private readonly padMixLevels = new Map<string, number>()
   private readonly bankScales = new Map<string, number>()
+  /** Cents each pad is shifted by the pattern in the grid (its bank's Pitch) — for taps, loops and performed notes. */
+  private readonly livePitch = new Map<string, number>()
   private masterMeter: AnalyserNode | null = null
   private meterSink: GainNode | null = null
   private readonly meterScratch = new Float32Array(METER_FFT_SIZE)
@@ -441,7 +443,7 @@ export class AudioEngine {
    * pad's (and the app's) voice limits fade the oldest note out rather than
    * letting notes pile up.
    */
-  private startVoice(pad: Pad, buffer: AudioBuffer, options: { time?: number; loop?: boolean; cents?: number } & Partial<NotePerformance> = {}): LiveVoice {
+  private startVoice(pad: Pad, buffer: AudioBuffer, options: { time?: number; loop?: boolean; cents?: number; patternCents?: number } & Partial<NotePerformance> = {}): LiveVoice {
     const ctx = this.getContext()
     const channel = this.channelFor(pad.id)
     const effects = effectiveEffects(pad)
@@ -464,7 +466,8 @@ export class AudioEngine {
     source.buffer = loop ? seamlessLoopBuffer(ctx, buffer, window.loopStart, window.loopEnd) : buffer
     source.loop = loop
     const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
-    const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (options.cents ?? 0)
+    // A sequencer step brings its own pattern's pitch; anything played live takes the pattern in the grid's.
+    const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (options.cents ?? 0) + (options.patternCents ?? this.livePitch.get(pad.id) ?? 0)
     source.playbackRate.value = rate
     source.detune.value = detune
 
@@ -592,7 +595,7 @@ export class AudioEngine {
       const loop = this.loopingVoices.get(padId)
       if (!loop) return
       const param = effectId === 'pitch' ? loop.source.detune : loop.source.playbackRate
-      const target = effectId === 'pitch' ? dialToDetuneCents(value) : dialToPlaybackRate(value)
+      const target = effectId === 'pitch' ? dialToDetuneCents(value) + (this.livePitch.get(padId) ?? 0) : dialToPlaybackRate(value)
       param.setTargetAtTime(target, ctx.currentTime, PARAM_RAMP_SECONDS)
       return
     }
@@ -610,9 +613,23 @@ export class AudioEngine {
    * Fire a single sequencer step hit for a pad at a precise audio-clock time
    * (from the lookahead Scheduler). Always a one-shot.
    */
-  triggerStep(pad: Pad, buffer: AudioBuffer, time: number, level = 1, performance?: NotePerformance): void {
+  triggerStep(pad: Pad, buffer: AudioBuffer, time: number, level = 1, performance?: NotePerformance, patternCents = 0): void {
     const gain = level * (performance?.level ?? 1)
-    if (gain > 0) this.startVoice(pad, buffer, { ...performance, time, level: gain })
+    if (gain > 0) this.startVoice(pad, buffer, { ...performance, time, level: gain, patternCents })
+  }
+
+  /**
+   * The pattern in the grid's Pitch for these pads (a bank), in cents — what
+   * taps, loops and performed notes play at. Live on a running loop.
+   */
+  setLivePitch(padIds: string[], cents: number): void {
+    for (const padId of padIds) {
+      if ((this.livePitch.get(padId) ?? 0) === cents) continue
+      if (cents === 0) this.livePitch.delete(padId)
+      else this.livePitch.set(padId, cents)
+      const loop = this.loopingVoices.get(padId)
+      if (loop && this.ctx) loop.source.detune.setTargetAtTime(dialToDetuneCents(effectValue(effectiveEffects(loop.pad), 'pitch')) + cents, this.ctx.currentTime, PARAM_RAMP_SECONDS)
+    }
   }
 
   /**

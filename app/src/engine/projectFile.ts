@@ -233,6 +233,12 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
       stepCount,
       groove: normalizeGroove(pattern.groove),
       phrasing: normalizePhrasing(pattern.phrasing),
+      ...(pattern.pitch ? { pitch: Object.fromEntries(BANK_KINDS.flatMap((kind) => {
+        const semitones = pattern.pitch?.[kind]
+        return typeof semitones === 'number' && Number.isFinite(semitones) && Math.round(semitones) !== 0
+          ? [[kind, Math.max(-12, Math.min(12, Math.round(semitones)))]]
+          : []
+      })) } : {}),
       variationLocks: BANK_KINDS.filter((kind) => pattern.variationLocks?.includes(kind)),
       traceSteps: pattern.traceSteps ?? null,
       traceSource: pattern.traceSource ?? (pattern.traceSteps ? 'reference' : null),

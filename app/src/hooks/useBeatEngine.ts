@@ -6,7 +6,7 @@ import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
 import { playablePads } from '../state/banks'
-import { buildSongTimeline, handoverRange, sectionBankGain, songStepAt } from '../engine/songTimeline'
+import { buildSongTimeline, handoverRange, patternPitchCents, sectionBankGain, songStepAt } from '../engine/songTimeline'
 
 /**
  * Owns the single AudioEngine + Scheduler pair for the app's lifetime and keeps
@@ -73,7 +73,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             if (!sample) continue
             const bank = bankByPad.get(pad.id)
             const level = songPosition && bank ? sectionBankGain(songPosition.span.section, bank) : 1
-            engine.triggerStep(pad, sample.buffer, time, level, plan.phrasing.get(pattern.id)?.get(pad.id)?.[patternStep])
+            engine.triggerStep(pad, sample.buffer, time, level, plan.phrasing.get(pattern.id)?.get(pad.id)?.[patternStep], patternPitchCents(pattern, bank))
           }
         }
         const handover = auditionSpan && current.transport.auditionScope === 'handover' ? handoverRange(song, auditionSpan.section.id) : null
@@ -132,6 +132,12 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
   useEffect(() => {
     for (const bank of state.banks) engineRef.current?.setBankVolume(bank.padIds, bank.volume ?? 100)
   }, [state.banks])
+
+  // Pads played by hand (taps, loops, Perform) follow the pattern in the grid's Pitch.
+  const activePattern = state.patterns.find((pattern) => pattern.id === state.activePatternId)
+  useEffect(() => {
+    for (const bank of state.banks) engineRef.current?.setLivePitch(bank.padIds, activePattern ? patternPitchCents(activePattern, bank.kind) : 0)
+  }, [state.banks, activePattern])
 
   // The lookahead clock itself runs whenever *either* the sequencer is playing or
   // the metronome is on — the metronome toggle starts/stops it independently of

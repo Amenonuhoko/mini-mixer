@@ -57,3 +57,9 @@ export function handoverRange(spans: SongSpan[], sectionId: string): { start: nu
     end: next ? Math.min(next.endStep, next.startStep + Math.min(16, next.pattern.stepCount)) : span.endStep,
   }
 }
+
+/** A pattern's Pitch for a bank, in cents — whole semitones, ±12 (an octave). */
+export function patternPitchCents(pattern: Pattern, bank: BankKind | undefined): number {
+  const semitones = bank ? pattern.pitch?.[bank] : undefined
+  return typeof semitones === 'number' && Number.isFinite(semitones) ? Math.max(-12, Math.min(12, Math.round(semitones))) * 100 : 0
+}

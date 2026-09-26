@@ -3,7 +3,7 @@ import { Channel, createMasterStage, ReverbRooms, shapeEnvelope } from './channe
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 import { bankVolumeScale, playablePads } from '../state/banks'
-import { buildSongTimeline, sectionBankGain } from './songTimeline'
+import { buildSongTimeline, patternPitchCents, sectionBankGain } from './songTimeline'
 import { planPhrasing, type NotePerformance } from './phrasing'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
@@ -16,6 +16,8 @@ interface ScheduledHit {
   offsetSeconds: number
   level?: number
   performance?: NotePerformance | undefined
+  /** The pattern's Pitch for this pad's bank. */
+  cents?: number
 }
 
 /**
@@ -37,15 +39,17 @@ export async function renderPatternToBuffer(state: AppState, patternId: string):
   const secondsPerStep = 60 / state.transport.bpm / 4
   const pads = playablePads(state)
   const phrasing = planPhrasing(pattern, state.banks, pads, state.transport.bpm)
+  const bankByPad = new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const)))
 
   const hits: ScheduledHit[] = []
   for (const pad of pads) {
     if (pad.muted) continue
+    const cents = patternPitchCents(pattern, bankByPad.get(pad.id))
     const steps = pattern.steps[pad.id] ?? []
     steps.forEach((sampleId, stepIndex) => {
       if (!sampleId) return
       const sample = state.samples[sampleId]
-      if (sample) hits.push({ pad, sample, offsetSeconds: stepIndex * secondsPerStep, performance: phrasing.get(pad.id)?.[stepIndex] })
+      if (sample) hits.push({ pad, sample, cents, offsetSeconds: stepIndex * secondsPerStep, performance: phrasing.get(pad.id)?.[stepIndex] })
     })
   }
   if (hits.length === 0) {
@@ -72,12 +76,14 @@ export async function renderSongToBuffer(state: AppState): Promise<AudioBuffer> 
         if (pad.muted) continue
         const bank = bankByPad.get(pad.id)
         const level = bank ? sectionBankGain(span.section, bank) : 1
+        const cents = patternPitchCents(span.pattern, bank)
         span.pattern.steps[pad.id]?.forEach((sampleId, patternStep) => {
           const sample = sampleId ? state.samples[sampleId] : undefined
           if (sample) hits.push({
             pad,
             sample,
             level,
+            cents,
             performance: phrasing.get(pad.id)?.[patternStep],
             offsetSeconds: (span.startStep + repeat * span.pattern.stepCount + patternStep) * secondsPerStep,
           })
@@ -134,7 +140,7 @@ async function renderHits(hits: ScheduledHit[], sequenceSeconds: number, bankSca
     const source = ctx.createBufferSource()
     source.buffer = sample.buffer
     const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
-    const detune = dialToDetuneCents(effectValue(effects, 'pitch'))
+    const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (hit.cents ?? 0)
     source.playbackRate.value = rate
     source.detune.value = detune
 

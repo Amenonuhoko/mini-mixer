@@ -3,6 +3,7 @@ import { BPM_MAX, BPM_MIN, EFFECT_MAX, EFFECT_MIN, MIN_TRIM_GAP } from './consta
 import { createInitialState } from './defaults'
 import { reducer } from './reducer'
 import { getBank, visibleBankPads } from './banks'
+import { patternPitchCents } from '../engine/songTimeline'
 import type { AppState, BankBuild, BankKind, PadMusic, Sample } from './types'
 
 function makeSample(id: string): Sample {
@@ -813,5 +814,37 @@ describe('copy a pattern from another', () => {
     // Independent: editing the copy leaves the source alone.
     state = reducer(state, { type: 'TOGGLE_STEP', patternId: verse!.patternId, padId, stepIndex: 7, sampleId: 'kick' })
     expect(state.patterns.find((pattern) => pattern.id === intro!.patternId)!.steps[padId]![7]).toBeNull()
+  })
+})
+
+describe('pattern pitch', () => {
+  it('belongs to one pattern: pitching the Verse leaves the Chorus alone', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'ADD_PATTERN' })
+    const [verse, chorus] = state.patterns
+    state = reducer(state, { type: 'SET_PATTERN_PITCH', patternId: verse!.id, bank: 'melody', semitones: 7 })
+    expect(state.patterns.find((pattern) => pattern.id === verse!.id)!.pitch).toEqual({ melody: 7 })
+    expect(state.patterns.find((pattern) => pattern.id === chorus!.id)!.pitch).toBeUndefined()
+    expect(patternPitchCents(state.patterns.find((pattern) => pattern.id === verse!.id)!, 'melody')).toBe(700)
+    expect(patternPitchCents(state.patterns.find((pattern) => pattern.id === verse!.id)!, 'bass')).toBe(0)
+  })
+
+  it('clamps to an octave and drops back to nothing at 0', () => {
+    let state = createInitialState()
+    const id = state.patterns[0]!.id
+    state = reducer(state, { type: 'SET_PATTERN_PITCH', patternId: id, bank: 'bass', semitones: 30 })
+    expect(state.patterns[0]!.pitch).toEqual({ bass: 12 })
+    state = reducer(state, { type: 'SET_PATTERN_PITCH', patternId: id, bank: 'bass', semitones: 0 })
+    expect(state.patterns[0]!.pitch).toBeUndefined()
+  })
+
+  it('travels with copies: duplicating a section keeps its pitch on the new pattern', () => {
+    let state = createInitialState()
+    const id = state.patterns[0]!.id
+    state = reducer(state, { type: 'SET_PATTERN_PITCH', patternId: id, bank: 'melody', semitones: -5 })
+    state = reducer(state, { type: 'DUPLICATE_SONG_SECTION', sectionId: state.songSections[0]!.id })
+    const copy = state.patterns.find((pattern) => pattern.id === state.songSections[1]!.patternId)!
+    expect(copy.id).not.toBe(id)
+    expect(copy.pitch).toEqual({ melody: -5 })
   })
 })

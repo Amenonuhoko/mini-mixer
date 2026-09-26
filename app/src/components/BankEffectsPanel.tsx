@@ -12,7 +12,6 @@ import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import type { EffectId } from '../state/types'
 import { EffectsSwitch } from './EffectsSwitch'
-import { dialToSemitones, formatSemitones, semitonesToDial } from '../engine/dialMapping'
 import { BANK_NAMES, getActiveBank, visibleBankPads } from '../state/banks'
 
 const CUSTOM_PRESETS_KEY = 'mini-mixer.custom-effect-presets'
@@ -47,8 +46,8 @@ function readCustomPresets(): EffectPreset[] {
  * Effects for every pad of the active bank at once — the "All" scope of the
  * Mix sheet (see PadEditOverlay): on/off for the whole bank, one-tap presets
  * (with a preview of their Filter/Grit/Echo/Reverb balance, plus any you've
- * saved), Pitch in semitones (presets leave it alone), the four character
- * dials, save-as-preset and reset.
+ * saved), Pitch in semitones for the pattern in the grid (presets leave it
+ * alone), the four character dials, save-as-preset and reset.
  */
 export function BankEffectsPanel() {
   const { state, dispatch } = useAppState()
@@ -88,7 +87,12 @@ export function BankEffectsPanel() {
   const currentCharacterValue = (effectId: (typeof CHARACTER_EFFECT_IDS)[number]): number =>
     visiblePads[0]?.effects.find((effect) => effect.id === effectId)?.value ?? 0
 
-  const pitch = visiblePads[0]?.effects.find((effect) => effect.id === 'pitch')?.value ?? 0
+  // Pitch belongs to the pattern in the grid (the Verse can sit higher than the Chorus), not to the pads.
+  const pattern = state.patterns.find((item) => item.id === state.activePatternId)
+  const pitch = pattern?.pitch?.[bank.kind] ?? 0
+  // Named the way the song knows it: the sections that play this pattern (they share it), else the pattern.
+  const pitchScope = [...new Set(state.songSections.filter((section) => section.patternId === pattern?.id).map((section) => section.name).filter(Boolean))].join(', ') || pattern?.name || 'this pattern'
+  const setPitch = (semitones: number) => pattern && dispatch({ type: 'SET_PATTERN_PITCH', patternId: pattern.id, bank: bank.kind, semitones })
 
   const handleDialChange = (effectId: EffectId, value: number) => {
     dispatch({ type: 'SET_ALL_PADS_EFFECT', effectId, value })
@@ -107,6 +111,7 @@ export function BankEffectsPanel() {
 
   const resetAll = () => {
     dispatch({ type: 'RESET_ALL_PADS_EFFECTS' })
+    setPitch(0)
     for (const pad of visiblePads) {
       if (pad.effectsBypassed) continue
       for (const effectId of EFFECT_IDS) engine.updateLoopingPadEffect(pad.id, effectId, NEUTRAL_EFFECT_VALUE)
@@ -133,25 +138,25 @@ export function BankEffectsPanel() {
         <div className="dial-row fx-custom-dial-row fx-pitch-row">
           <div className="dial-label-row">
             <label htmlFor="fx-dial-pitch" className="dial-label-text">
-              Pitch
+              Pitch <span className="muted">· {pitchScope}</span>
             </label>
-            <span className="dial-value">{formatSemitones(pitch)}</span>
+            <span className="dial-value">{pitch === 0 ? '0' : `${pitch > 0 ? '+' : '−'}${Math.abs(pitch)} st`}</span>
           </div>
           <input
             id="fx-dial-pitch"
             type="range"
             className="slider bipolar"
-            style={{ '--fill': `${(dialToSemitones(pitch) + 12) / 24}` } as React.CSSProperties}
+            style={{ '--fill': `${(pitch + 12) / 24}` } as React.CSSProperties}
             min={-12}
             max={12}
             step={1}
-            value={dialToSemitones(pitch)}
-            disabled={visiblePads.length === 0}
-            onChange={(event) => handleDialChange('pitch', semitonesToDial(Number(event.target.value)))}
+            value={pitch}
+            disabled={!pattern}
+            onChange={(event) => setPitch(Number(event.target.value))}
             aria-label={`${BANK_NAMES[bank.kind]} pitch in semitones`}
-            aria-valuetext={formatSemitones(pitch)}
+            aria-valuetext={`${pitch} semitones in ${pitchScope}`}
           />
-          {bank.kind !== 'drums' && dialToSemitones(pitch) % 12 !== 0 && (
+          {bank.kind !== 'drums' && pitch % 12 !== 0 && (
             <small className="fx-pitch-note">Out of the song's key — ±12 st moves a whole octave and stays in key.</small>
           )}
         </div>

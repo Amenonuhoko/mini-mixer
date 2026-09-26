@@ -167,6 +167,8 @@ export interface Pattern {
   /** Number of 16th-note cells in this pattern (starts at 16, can grow to 64). */
   stepCount: number
   /** Keyed by pad id; each cell holds the exact Sample id chosen when the step was placed, or null. */
+  /** Each bank's Pitch in this pattern, in semitones (±12) — so the Verse can sit higher than the Chorus. Missing = 0. */
+  pitch?: Partial<Record<BankKind, number>>
   steps: Record<string, Array<string | null>>
   /** A visual-only snapshot of prior placements. It never produces audio or enters a bounce. */
   traceSteps: Record<string, Array<string | null>> | null
