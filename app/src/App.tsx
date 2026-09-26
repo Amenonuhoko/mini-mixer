@@ -9,9 +9,8 @@ import type { PendingRecording } from './components/RecordingReview'
 import { Sequencer } from './components/Sequencer'
 import { SettingsOverlay } from './components/SettingsOverlay'
 import { SongArranger } from './components/SongArranger'
-import { StyleDock } from './components/StyleBrowser'
 import { TabBar } from './components/TabBar'
-import { TransportStrip } from './components/TransportStrip'
+import { TransportDock, TransportStrip } from './components/TransportStrip'
 import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
 import { useIsLandscapeLayout } from './hooks/useIsLandscapeLayout'
@@ -86,7 +85,7 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
 
 function Shell() {
   const { state, dispatch } = useAppState()
-  const { page, editingPadId, goBackFromEdit, goToPads, goToSequencer, stylesOpen } = useNavigation()
+  const { page, editingPadId, goBackFromEdit, goToPads, goToSequencer } = useNavigation()
   const engine = useEngine()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -182,8 +181,8 @@ function Shell() {
         <CurrentPage onBounced={setPendingRecording} />
       </main>
       <div className="bottom-stack" ref={bottomRef}>
-        {stylesOpen && <StyleDock />}
         <div className="bottom-row">
+          <TransportDock />
           <TabBar combinedView={combinedView} />
         </div>
       </div>

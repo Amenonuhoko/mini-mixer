@@ -2146,139 +2146,6 @@ button.list-item:hover .list-wave {
   text-overflow: ellipsis;
 }
 
-/* Styles: the preset library, docked where the beat is built. On phones the
-   drawer docks above the tab bar and the page shrinks to sit above it, so the
-   sequencer stays fully in view and playable while you browse. */
-:root {
-  --drawer-h: 46vh;
-}
-
-.style-drawer {
-  height: var(--drawer-h);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--s3);
-  background: linear-gradient(180deg, rgb(10 17 23 / 0.97), rgb(5 9 12 / 0.98));
-  border-top: 1px solid transparent;
-  border-image: linear-gradient(90deg, transparent, rgb(var(--cyan-rgb) / 0.5) 25%, rgb(var(--cyan-rgb) / 0.5) 75%, transparent) 1;
-  box-shadow: 0 -12px 32px rgb(0 0 0 / 0.5);
-}
-
-.style-browser {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-}
-
-.style-browser-head {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  min-width: 0;
-}
-
-.style-browser-chords {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--orange);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.style-browser-chords.muted {
-  color: var(--text-faint);
-}
-
-.mix-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.mix-row {
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) minmax(64px, 110px) auto auto;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 4px 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  opacity: 0.6;
-}
-
-.mix-row.live {
-  opacity: 1;
-  border-color: var(--line-strong);
-}
-
-.mix-row-bank {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.mix-row-style {
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--fs-sm);
-  color: var(--text);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.style-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 6px;
-}
-
-.style-card {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: var(--s2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: rgb(var(--cyan-rgb) / 0.02);
-}
-
-.style-card-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.style-card-name {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.style-card-bpm {
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-}
-
-.style-card-blurb {
-  font-size: var(--fs-xs);
-  color: var(--text-dim);
-}
-
-.style-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 2px;
-}
-
 .style-preview-row {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
@@ -2298,52 +2165,6 @@ button.list-item:hover .list-wave {
 .style-preview-cell.on {
   background: var(--cyan);
   box-shadow: 0 0 4px rgb(var(--cyan-rgb) / 0.5);
-}
-
-/* One tap per layer: drop this style's drums / bass / chords / melody into its bank. */
-.style-card-layers {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) 26px;
-  gap: 3px;
-  margin-top: 2px;
-}
-
-.layer-add {
-  height: 26px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  transition:
-    border-color var(--fast),
-    color var(--fast),
-    box-shadow var(--fast);
-}
-
-.layer-add:hover:not(:disabled) {
-  border-color: var(--cyan);
-  color: var(--text);
-}
-
-.layer-add.on {
-  border-color: var(--orange);
-  color: var(--orange);
-  background: rgb(var(--orange-rgb) / 0.1);
-  box-shadow: var(--glow-orange);
-}
-
-.layer-add.whole {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--cyan);
-}
-
-.layer-add:disabled {
-  opacity: 0.4;
 }
 
 .layer-intensity {
@@ -2372,14 +2193,28 @@ button.list-item:hover .list-wave {
 
 .song-arranger { min-width: 0; }
 .song-editor { display: flex; flex-direction: column; gap: 10px; }
-.song-templates { display: flex; flex-direction: column; gap: 6px; }
-.song-templates h3 { margin: 0; color: var(--cyan); font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; }
-.song-template-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
-.song-template { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .04); color: var(--text); text-align: left; }
-.song-template:hover { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / .1); }
-.song-template strong { color: var(--cyan); font-size: var(--fs-xs); }
-.song-template span { font-size: var(--fs-xs); line-height: 1.45; }
-.song-template small { color: var(--text-dim); font-size: var(--fs-xs); line-height: 1.4; }
+/* Song structure: the song's shape as coloured blocks; open it to pick another shape. */
+.song-structure { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .03); }
+.song-structure.open { border-color: var(--cyan); }
+.song-structure-chevron { flex: none; font-size: 12px; color: var(--text-dim); }
+.song-template-list { display: grid; gap: 6px; }
+.song-template { display: flex; min-width: 0; min-height: 44px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(var(--cyan-rgb) / .03); }
+.song-template:hover, .song-template:focus-visible { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / .1); }
+.structure-blocks { display: flex; flex: 1 1 auto; gap: 3px; min-width: 0; }
+.structure-block { --part: 186 60% 55%; flex: 1 1 0; display: grid; place-items: center; min-width: 0; height: 28px; border-radius: 5px; overflow: hidden;
+  background: hsl(var(--part) / .22); border: 1px solid hsl(var(--part) / .7); color: hsl(var(--part)); font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+.structure-block[data-part="intro"] { --part: 170 55% 55%; }
+.structure-block[data-part="verse"] { --part: 190 80% 60%; }
+.structure-block[data-part="chorus"] { --part: 28 95% 60%; }
+.structure-block[data-part="bridge"] { --part: 270 65% 70%; }
+.structure-block[data-part="outro"] { --part: 215 30% 62%; }
+.structure-block[data-part="build"] { --part: 50 90% 58%; }
+.structure-block[data-part="drop"] { --part: 340 85% 62%; }
+.structure-block[data-part="breakdown"] { --part: 140 55% 55%; }
+.structure-block[data-part="other"] { --part: 200 15% 65%; }
+/* Save song and Export WAV lead the page, big. */
+.song-export { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.song-export-btn { min-height: 52px; font-size: var(--fs-sm); }
 .song-preview-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .song-preview-bar span { color: var(--text-dim); font-size: var(--fs-xs); }
 .song-mode { display: flex; gap: 4px; }
@@ -3699,9 +3534,20 @@ button.list-item:hover .list-wave {
 .beat-starter { padding: 14px; display: grid; gap: 10px; flex-shrink: 0; }
 .beat-starter p { margin: 0; font-size: 12px; line-height: 1.5; }
 .beat-starter select { background: var(--deck-raised); color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px; }
-/* Make a beat: parts to generate, the settings, one Generate, and the Tweak row. */
-.beat-parts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.beat-parts .chip-btn { justify-content: center; min-height: 40px; }
+/* Make a beat: a row per part (pick · style · intensity · new take · clear), chords, settings, one Generate, and the Tweak row. */
+.beat-starter.folded { padding-block: 8px; }
+.beat-fold { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 0; color: inherit; }
+.beat-fold-chevron { font-size: 12px; color: var(--text-dim); }
+.beat-layers { display: grid; gap: 6px; }
+.beat-layer { display: grid; grid-template-columns: 68px minmax(0, 1fr) minmax(48px, 88px) 36px 36px; align-items: center; gap: 6px; }
+.beat-starter .module-head { flex-wrap: nowrap; }
+.beat-starter .beat-options-toggle { flex: none; margin-left: auto; }
+.beat-layer-pick { justify-content: center; min-height: 40px; padding: 0 4px; letter-spacing: .06em; }
+.beat-starter .beat-layer-style { min-width: 0; min-height: 40px; padding: 6px 8px; }
+.beat-layer .icon-btn-sm { width: 36px; height: 36px; }
+.beat-layer:not(.live) .beat-layer-intensity { opacity: .35; }
+.beat-chords { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.beat-chords-names { flex: 1 1 auto; min-width: 0; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .beat-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .beat-settings select:first-child { flex: 1 1 160px; min-width: 0; }
 .beat-settings .segmented { flex: 1 1 auto; }
@@ -3713,8 +3559,6 @@ button.list-item:hover .list-wave {
 .fx-preset-description { display: block; font-size: 10px; line-height: 1.3; font-weight: normal; color: var(--text-faint); margin-top: 3px; }
 .fx-preset-button.on { border-color: var(--cyan); background: rgb(var(--cyan-rgb) / .12); }
 .fx-floating-panel { width: min(360px, calc(100vw - 24px)); }
-.style-card-layers { flex-wrap: wrap; }
-.layer-add { min-height: 32px; }
 .layer-strip-controls .chip-btn { white-space: nowrap; }
 
 .song-link-note { grid-column: 2 / -1; margin: 0; }
@@ -3735,3 +3579,21 @@ button.list-item:hover .list-wave {
 .phrasing-editor input[type="range"] { display: block; width: 100%; margin-top: .6rem; }
 .phrasing-editor select { flex: 1 1 200px; min-width: 0; max-width: 100%; min-height: 40px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / 0.8); color: var(--text); font: inherit; }
 .phrasing-editor select:disabled { opacity: .5; }
+
+/* Metronome and master level on Play's left shoulder, panic on its right — tucked into the bottom bar. */
+.transport-dock {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px max(14px, calc((100% - 452px) / 2)) 0;
+  background: linear-gradient(0deg, rgb(6 11 15 / 0.8), rgb(4 8 11 / 0.9));
+  backdrop-filter: blur(10px);
+  border-top: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, rgb(var(--cyan-rgb) / 0.4) 30%, rgb(var(--cyan-rgb) / 0.4) 70%, transparent) 1;
+}
+.transport-dock + .tabbar { border-top: 0; }
+.transport-dock-side { display: flex; gap: 6px; }
+.popover-up { top: auto; bottom: calc(100% + 8px); left: 0; right: auto; }
+@media (min-aspect-ratio: 2/1) and (max-height: 500px) {
+  .transport-dock { padding: 0 8px; gap: 6px; border-top: 0; }
+}

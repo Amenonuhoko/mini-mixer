@@ -2190,3 +2190,18 @@ The Song card's Ending / transition button opened a placeholder. The user chose 
 
 ### Verification
 Unit tests for split / copy / replace / fold / availability / preview / handover range and project round-trip; a phone browser suite for the sheet (pick, replace, auto-stop, Keep, Hear, None, empty section, Undo). Existing suites still pass.
+
+## 2026-09-26 — Styles into Make a beat; controls regrouped top and bottom; Song leads with export
+
+### Context
+The user asked: Seq's pattern ⋯ beside the pattern name; Make a beat hideable; the bank-head style chip moved into Make a beat with the Styles menu folded in; the Song structure picker as a visual with as little text as possible; Save song / Export WAV at the top and bigger; the top-right buttons tucked at the bottom. Answers: only metronome, volume and stop-all go to the bottom, the rest into Settings (which stays at the top); Styles live only in Make a beat.
+
+### Decision(s)
+- Make a beat has one row per part: the pick chip, a style select, intensity, new take, clear; chords with New below. The Styles drawer (library grid, per-layer add buttons, whole-beat button) is removed — its functions are these rows plus Generate's style select, so nothing is duplicated.
+- Folding Make a beat is remembered in NavigationContext (it's remounted per pattern). Generate names the parts when not all are picked, replacing the header subtitle that no longer fit.
+- Top strip: beat LED, tempo, Settings. Loop / Once is a Settings row. Metronome, master volume (popover opens upward) and stop-all form a dock on Play's shoulders, directly above the tab bar.
+- Song: Save song / Export WAV lead the page; the structure is a coloured block bar (marks only) that opens block-picture templates.
+
+### Verification
+New phone suite for every item (placement, fold persistence, per-part style, chords, Loop setting, upward popover, export size, text-free structures, landscape, no sideways scroll), plus all existing suites updated for the moved controls and passing.
+

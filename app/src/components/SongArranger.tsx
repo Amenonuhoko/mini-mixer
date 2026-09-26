@@ -112,29 +112,23 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
   }
 
   const templates = (
-    <div className="song-templates">
-      <h3>Start with a structure</h3>
-      <p className="song-hint">
-        These are starting points, not rules. Each repeated section uses the same pattern until you change it.
-      </p>
-      <div className="song-template-list">
-        {SONG_TEMPLATES.map((template) => (
-          <button
-            type="button"
-            className="song-template"
-            key={template.id}
-            onClick={() => {
-              if (state.songSections.length === 1 && state.songSections[0]?.name === 'Verse' && state.patterns.length === 1)
-                applyTemplate(template.id)
-              else setPendingTemplateId(template.id)
-            }}
-          >
-            <strong>{template.name}</strong>
-            <span>{template.sections.join(' → ')}</span>
-            <small>{template.description}</small>
-          </button>
-        ))}
-      </div>
+    <div className="song-template-list" role="group" aria-label="Song structures">
+      {SONG_TEMPLATES.map((template) => (
+        <button
+          type="button"
+          className="song-template"
+          key={template.id}
+          aria-label={`${template.name}: ${template.sections.join(', ')}`}
+          title={template.name}
+          onClick={() => {
+            if (state.songSections.length === 1 && state.songSections[0]?.name === 'Verse' && state.patterns.length === 1)
+              applyTemplate(template.id)
+            else setPendingTemplateId(template.id)
+          }}
+        >
+          <StructureBlocks parts={template.sections.map((name) => ({ name, weight: 1 }))} />
+        </button>
+      ))}
     </div>
   )
 
@@ -147,8 +141,42 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
         </span>
       </header>
       <div className="song-editor">
-        <p className="song-hint">1. Choose a structure. 2. Make a starting beat in any section. 3. Create related parts, then edit each section while it loops.</p>
-        <button type="button" className="chip-btn" aria-expanded={showStructures} onClick={() => setShowStructures(!showStructures)}>Choose song structure</button>
+        <div className="song-export">
+          <button
+            type="button"
+            className="btn btn-primary song-export-btn"
+            onClick={() => void saveSong()}
+            disabled={!songHasSteps || bouncing || exporting}
+            title="Render the entire arrangement as one sample"
+          >
+            {bouncing ? 'Rendering…' : 'Save song'}
+          </button>
+          <button
+            type="button"
+            className="btn song-export-btn"
+            onClick={() => void exportSong()}
+            disabled={!songHasSteps || bouncing || exporting}
+            title="Download the entire arrangement as a WAV file"
+          >
+            {exporting ? 'Exporting…' : 'Export WAV'}
+          </button>
+        </div>
+        {bounceError && (
+          <p className="song-error" role="alert">
+            {bounceError}
+          </p>
+        )}
+        <button
+          type="button"
+          className={showStructures ? 'song-structure open' : 'song-structure'}
+          aria-expanded={showStructures}
+          aria-label="Song structure — choose another"
+          title="Choose a structure"
+          onClick={() => setShowStructures(!showStructures)}
+        >
+          <StructureBlocks parts={state.songSections.map((section) => ({ name: section.name, weight: section.repeats }))} />
+          <span className="song-structure-chevron" aria-hidden="true">{showStructures ? '▴' : '▾'}</span>
+        </button>
         {showStructures && templates}
         <div className="song-preview-bar">
           <button
@@ -322,30 +350,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           <button type="button" className="chip-btn song-add" onClick={() => dispatch({ type: 'ADD_SONG_SECTION' })}>
             + Add section
           </button>
-          <button
-            type="button"
-            className="chip-btn on"
-            onClick={() => void saveSong()}
-            disabled={!songHasSteps || bouncing || exporting}
-            title="Render the entire arrangement as one sample"
-          >
-            {bouncing ? 'Rendering…' : 'Save song'}
-          </button>
-          <button
-            type="button"
-            className="chip-btn"
-            onClick={() => void exportSong()}
-            disabled={!songHasSteps || bouncing || exporting}
-            title="Download the entire arrangement as a WAV file"
-          >
-            {exporting ? 'Exporting…' : 'Export WAV'}
-          </button>
         </div>
-        {bounceError && (
-          <p className="song-error" role="alert">
-            {bounceError}
-          </p>
-        )}
         {transitionFromId && (
           <TransitionSheet sectionId={transitionFromId} onClose={() => setTransitionFromId(null)} />
         )}
@@ -359,5 +364,25 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
         )}
       </div>
     </section>
+  )
+}
+
+/** Short marks for common part names; anything else shows its first letter. */
+const PART_MARKS: Record<string, string> = { intro: 'I', verse: 'V', chorus: 'C', bridge: 'Br', outro: 'O', build: 'Bu', drop: 'D', breakdown: 'Bd' }
+
+/** A song's shape as coloured blocks, one per part, sized by how long it plays. */
+function StructureBlocks({ parts }: { parts: { name: string; weight: number }[] }) {
+  return (
+    <span className="structure-blocks" aria-hidden="true">
+      {parts.map((part, index) => {
+        const key = part.name.toLowerCase().replace(/\s*\d+$/, '').replace(/ ending$/, '').trim()
+        const mark = PART_MARKS[key] ?? (part.name.trim()[0] ?? '·').toUpperCase()
+        return (
+          <span key={index} className="structure-block" data-part={key in PART_MARKS ? key : 'other'} style={{ flexGrow: part.weight }}>
+            {mark}
+          </span>
+        )
+      })}
+    </span>
   )
 }

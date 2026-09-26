@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
-import { styleById } from '../styles/library'
 import { BANK_NAMES, playablePads, visibleBankPads } from '../state/banks'
 import { MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
@@ -91,13 +90,13 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const [fillOpen, setFillOpen] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
   const [confirmCopy, setConfirmCopy] = useState(false)
-  const { selectedPadId, selectPad, setStylesOpen, beatStarts } = useNavigation()
+  const { selectedPadId, selectPad, beatStarts } = useNavigation()
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const paintRef = useRef<Painting | null>(null)
   const padsById = new Map(state.pads.map((pad) => [pad.id, pad]))
 
-  // Styles just wrote a whole new beat: fold every bank to the rows it uses (a kit has up to 32).
+  // Make a beat just wrote a whole new beat: fold every bank to the rows it uses (a kit has up to 32).
   const seenBeatStarts = useRef(beatStarts)
   useEffect(() => {
     if (beatStarts === seenBeatStarts.current) return
@@ -315,13 +314,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
   const selectedPad = selectedPadId ? visiblePads.find((pad) => pad.id === selectedPadId) : undefined
   const selectedBank = selectedPad ? state.banks.find((bank) => bank.padIds.includes(selectedPad.id)) : undefined
 
-  /** A bank head's preset chip: the layer's style and take, or an invitation. */
-  const layerLabel = (kind: Bank['kind']) => {
-    const layer = state.groove?.layers[kind]
-    const style = layer && styleById(layer.styleId)
-    return style ? `${style.name} · ${layer.take + 1}` : '+ Style'
-  }
-
   return (
     <div className="sequencer-column">
     <BeatStarter key={state.activePatternId} />
@@ -352,6 +344,16 @@ export function Sequencer({ onBounced }: SequencerProps) {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className={patternMenuOpen ? 'icon-btn on' : 'icon-btn'}
+          onClick={() => setPatternMenuOpen(true)}
+          aria-label="Pattern options"
+          aria-expanded={patternMenuOpen}
+          title="Rename, new, duplicate, save, load, hide or clear this pattern"
+        >
+          <MoreIcon />
+        </button>
         {editingSection && (
           <span className="module-sub">
             {state.transport.isPlaying ? 'Looping' : 'Loop ready'} {editingSection.name}
@@ -369,16 +371,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
             decrementTitle="Remove the last four steps"
             incrementTitle="Add four steps"
           />
-          <button
-            type="button"
-            className={patternMenuOpen ? 'icon-btn on' : 'icon-btn'}
-            onClick={() => setPatternMenuOpen(true)}
-            aria-label="Pattern options"
-            aria-expanded={patternMenuOpen}
-            title="Rename, new, duplicate, save, load, hide or clear this pattern"
-          >
-            <MoreIcon />
-          </button>
         </div>
       </header>
 
@@ -469,15 +461,6 @@ export function Sequencer({ onBounced }: SequencerProps) {
                 <div className="sequencer-bank-head">
                   <span className="sequencer-bank-name">{BANK_NAMES[bank.kind]}</span>
                   <button type="button" className="sequencer-bank-style" aria-label={`${BANK_NAMES[bank.kind]} phrasing`} onClick={() => { dispatch({ type: 'KEEP_VARIATION' }); setPhrasingBankId(bank.id) }}>Phrasing</button>
-                  <button
-                    type="button"
-                    className="sequencer-bank-style"
-                    onClick={() => setStylesOpen(true)}
-                    aria-label={`${BANK_NAMES[bank.kind]} style: ${layerLabel(bank.kind)} — open Styles`}
-                    title="Styles — pick this bank's preset layer"
-                  >
-                    {layerLabel(bank.kind)}
-                  </button>
                   <button
                     type="button"
                     className="sequencer-bank-toggle"

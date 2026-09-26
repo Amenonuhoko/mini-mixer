@@ -19,10 +19,10 @@ interface NavigationValue {
    */
   selectedPadId: string | null
   selectPad: (padId: string | null) => void
-  /** The Styles drawer: one drawer for the whole app, opened from the top bar on any page. */
-  stylesOpen: boolean
-  setStylesOpen: (open: boolean | ((open: boolean) => boolean)) => void
-  /** Bumped when Styles writes a whole new beat, so the sequencer can fold to the rows it uses. */
+  /** Make a beat, at the top of Seq, can be folded down to its title; this remembers it across pages and patterns. */
+  beatStarterOpen: boolean
+  setBeatStarterOpen: (open: boolean | ((open: boolean) => boolean)) => void
+  /** Bumped when Make a beat writes a whole new beat, so the sequencer can fold to the rows it uses. */
   beatStarts: number
   markBeatStarted: () => void
 }
@@ -41,7 +41,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<Page>('pads')
   const [editingPadId, setEditingPadId] = useState<string | null>(null)
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
-  const [stylesOpen, setStylesOpen] = useState(false)
+  const [beatStarterOpen, setBeatStarterOpen] = useState(true)
   const [beatStarts, setBeatStarts] = useState(0)
 
   const value: NavigationValue = {
@@ -55,8 +55,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     goBackFromEdit: () => setEditingPadId(null),
     selectedPadId,
     selectPad: setSelectedPadId,
-    stylesOpen,
-    setStylesOpen,
+    beatStarterOpen,
+    setBeatStarterOpen,
     beatStarts,
     markBeatStarted: () => setBeatStarts((count) => count + 1),
   }

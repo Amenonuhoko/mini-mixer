@@ -1,3 +1,4 @@
+import { LoopModeSetting } from './TransportStrip'
 import { useRef, useState } from 'react'
 import { clearAutosave } from '../state/autosave'
 import { deserializeProject, isSerializedProject, serializeProject } from '../engine/projectFile'
@@ -97,6 +98,8 @@ export function SettingsPanel() {
 
   return (
     <div className="settings">
+      <LoopModeSetting />
+
       <div className="settings-row">
         <div className="settings-row-text">
           <span className="label">Pad layout</span>

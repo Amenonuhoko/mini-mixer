@@ -3,14 +3,15 @@ import { bankHasSteps, useGroove } from '../hooks/useGroove'
 import { useAppState } from '../state/AppStateContext'
 import { useNavigation } from '../state/NavigationContext'
 import { useEngine } from '../state/EngineContext'
-import { BANK_KINDS, BANK_NAMES } from '../state/banks'
+import { BANK_KINDS, BANK_NAMES, getBank } from '../state/banks'
 import type { BankKind } from '../state/types'
-import { STYLES } from '../styles/library'
+import { progressionNames } from '../styles/generator'
+import { STYLES, styleById } from '../styles/library'
 import { newSeed } from '../styles/random'
 import type { StyleDef } from '../styles/types'
 import { VARIATIONS, varyPattern, type VariationKind } from '../styles/variations'
 import { ConfirmDialog } from './ConfirmDialog'
-import { DiceIcon } from './icons'
+import { CloseIcon, DiceIcon } from './icons'
 
 const LEVELS = [
   { name: 'Simple', value: 0.1 },
@@ -22,18 +23,20 @@ const LEVELS = [
 const SURPRISE = 'surprise'
 
 /**
- * Make a beat, at the top of the sequencer: pick the parts, press Generate.
- * Every part picked gets fresh, randomly generated material (from the chosen
- * style, or a random one) and every part left out stays exactly as it is —
- * all four on a beat is a whole new beat. Press again for another take. The
+ * Make a beat, at the top of the sequencer (and foldable down to its title):
+ * one row per part — pick it for Generate, and set its own style, sparse ↔
+ * busy intensity, a new take, or clear it — then the beat's chords (every
+ * style layer follows them). Generate gives every picked part fresh, randomly
+ * generated material (from the chosen style, or a random one); parts left out
+ * stay exactly as they are — all four on a beat is a whole new beat. The
  * Tweak row reshapes just the picked parts of what's there (sparser, busier,
- * a fill…), auditioned with Keep / Undo.
+ * a fill…), auditioned with Keep / Undo. This is the one home for styles.
  */
 export function BeatStarter() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const { goToSong } = useNavigation()
-  const { busy, error, startBeat, regenerateLayers, hearBeat } = useGroove()
+  const { goToSong, beatStarterOpen: open, setBeatStarterOpen, markBeatStarted } = useNavigation()
+  const { busy, error, startBeat, regenerateLayers, hearBeat, setLayerStyle, newTake, setIntensity: setLayerIntensity, clearLayer, newChords } = useGroove()
   const [styleId, setStyleId] = useState<string>(SURPRISE)
   const [intensity, setIntensity] = useState(0.5)
   const [bars, setBars] = useState<1 | 2 | 4>((state.groove?.bars as 1 | 2 | 4) ?? 2)
@@ -63,6 +66,7 @@ export function BeatStarter() {
       : await regenerateLayers(kinds, style, { intensity, newSounds })
     if (ok) {
       if (styleId === SURPRISE) setNotice(`Surprise: ${style.name}`)
+      if (whole) markBeatStarted()
       hearBeat()
     }
   }
@@ -85,7 +89,7 @@ export function BeatStarter() {
     setKinds((current) => (current.includes(kind) ? current.filter((item) => item !== kind) : BANK_KINDS.filter((item) => item === kind || current.includes(item))))
 
   return (
-    <section className="module beat-starter" aria-label="Make a beat">
+    <section className={open ? 'module beat-starter' : 'module beat-starter folded'} aria-label="Make a beat">
       {editingSection && (
         <div className="beat-edit-context">
           <strong>Editing {editingSection.name} · section loops</strong>
@@ -95,31 +99,83 @@ export function BeatStarter() {
         </div>
       )}
       <header className="module-head">
-        <h2 className="module-title">Make a beat</h2>
-        <span className="module-sub">{whole ? 'a whole new beat' : 'only the parts picked — the rest stays'}</span>
-        <button
-          type="button"
-          className={optionsOpen ? 'chip-btn on beat-options-toggle' : 'chip-btn beat-options-toggle'}
-          aria-expanded={optionsOpen}
-          onClick={() => setOptionsOpen((open) => !open)}
-        >
-          Options {optionsOpen ? '▴' : '▾'}
+        <button type="button" className="beat-fold" aria-expanded={open} onClick={() => setBeatStarterOpen((value) => !value)} aria-label={open ? 'Hide Make a beat' : 'Show Make a beat'}>
+          <h2 className="module-title">Make a beat</h2>
+          <span className="beat-fold-chevron" aria-hidden="true">{open ? '▴' : '▾'}</span>
         </button>
-      </header>
-      <div className="beat-parts" role="group" aria-label="Parts to generate">
-        {BANK_KINDS.map((kind) => (
+        {open && (
           <button
-            key={kind}
             type="button"
-            className={kinds.includes(kind) ? 'chip-btn on' : 'chip-btn'}
-            aria-pressed={kinds.includes(kind)}
-            onClick={() => toggleKind(kind)}
-            disabled={busy !== null}
+            className={optionsOpen ? 'chip-btn on beat-options-toggle' : 'chip-btn beat-options-toggle'}
+            aria-expanded={optionsOpen}
+            onClick={() => setOptionsOpen((value) => !value)}
           >
-            {BANK_NAMES[kind]}
+            Options {optionsOpen ? '▴' : '▾'}
           </button>
-        ))}
+        )}
+      </header>
+      {open && <>
+      <div className="beat-layers" role="group" aria-label="Parts">
+        {BANK_KINDS.map((kind) => {
+          const layer = state.groove?.layers[kind]
+          const live = !!layer && bankHasSteps(state, getBank(state, kind))
+          const layerIntensity = Math.round((layer?.intensity ?? 0.5) * 100)
+          return (
+            <div className={live ? 'beat-layer live' : 'beat-layer'} key={kind}>
+              <button
+                type="button"
+                className={kinds.includes(kind) ? 'chip-btn on beat-layer-pick' : 'chip-btn beat-layer-pick'}
+                aria-pressed={kinds.includes(kind)}
+                aria-label={`${BANK_NAMES[kind]}: ${kinds.includes(kind) ? 'picked for Generate' : 'left as it is'}`}
+                title="Pick this part for Generate and Tweak"
+                onClick={() => toggleKind(kind)}
+                disabled={busy !== null}
+              >
+                {BANK_NAMES[kind]}
+              </button>
+              <select
+                className="beat-layer-style"
+                value={live && layer ? layer.styleId : ''}
+                onChange={(event) => { const style = styleById(event.target.value); if (style) { engine.getContext(); void setLayerStyle(kind, style) } }}
+                disabled={busy !== null}
+                aria-label={`${BANK_NAMES[kind]} style`}
+                title={live && layer ? `Take ${layer.take + 1}` : `Put a style's ${BANK_NAMES[kind].toLowerCase()} in this part`}
+              >
+                <option value="" disabled>{busy?.startsWith(`${kind}:`) ? 'Building…' : 'Style…'}</option>
+                {STYLES.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+              </select>
+              <input
+                type="range"
+                className="slider beat-layer-intensity"
+                style={{ '--fill': `${layerIntensity / 100}` } as React.CSSProperties}
+                min="0"
+                max="100"
+                step="5"
+                value={layerIntensity}
+                disabled={!live || busy !== null}
+                onChange={(event) => setLayerIntensity(kind, Number(event.target.value) / 100)}
+                aria-label={`${BANK_NAMES[kind]} intensity, sparse to busy`}
+                title="Sparse ↔ busy"
+              />
+              <button type="button" className="icon-btn icon-btn-sm" onClick={() => newTake(kind)} disabled={!live || busy !== null} aria-label={`New take of the ${BANK_NAMES[kind]} layer`} title="New take">
+                <DiceIcon size={14} />
+              </button>
+              <button type="button" className="icon-btn icon-btn-sm" onClick={() => clearLayer(kind)} disabled={!live || busy !== null} aria-label={`Remove the ${BANK_NAMES[kind]} layer`} title="Remove this layer's steps">
+                <CloseIcon size={12} />
+              </button>
+            </div>
+          )
+        })}
       </div>
+      {state.groove && (
+        <div className="beat-chords">
+          <span className="label label-dim">Chords</span>
+          <span className="beat-chords-names">{progressionNames(state.key, state.groove.progression).join(' · ')}</span>
+          <button type="button" className="chip-btn" onClick={() => void newChords()} disabled={busy !== null} title="A new chord progression — every style layer is rewritten to follow it" aria-label="New chords">
+            <DiceIcon size={14} /> New
+          </button>
+        </div>
+      )}
       {optionsOpen && (
       <div className="beat-settings">
         <select value={styleId} onChange={(event) => setStyleId(event.target.value)} disabled={busy !== null} aria-label="Style">
@@ -176,7 +232,7 @@ export function BeatStarter() {
         onClick={() => (whole && hasSteps ? setConfirm(true) : void generate())}
       >
         <DiceIcon size={16} />
-        {busy?.startsWith('start:') || busy?.startsWith('layers:') ? 'Building…' : hasSteps ? 'Generate again' : 'Generate'}
+        {busy?.startsWith('start:') || busy?.startsWith('layers:') ? 'Building…' : !whole ? `Generate ${kinds.map((kind) => BANK_NAMES[kind]).join(' + ')}` : hasSteps ? 'Generate again' : 'Generate'}
       </button>
       {hasSteps && optionsOpen && (
         <div className="beat-tweaks" role="group" aria-label="Tweak the picked parts">
@@ -204,6 +260,7 @@ export function BeatStarter() {
           {error}
         </p>
       )}
+      </>}
       {confirm && (
         <ConfirmDialog
           message={`Replace everything in ${pattern?.name ?? 'this pattern'} with a new beat? Song parts using this pattern change too.${newSounds ? ' Instruments and key change across the song.' : ''}`}
