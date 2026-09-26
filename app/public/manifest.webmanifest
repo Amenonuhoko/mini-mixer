@@ -1,0 +1,15 @@
+{
+  "name": "Beat Maker",
+  "short_name": "Beat Maker",
+  "description": "Record sounds, drop them on pads, and sequence a beat — right from your phone.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#04070a",
+  "theme_color": "#030609",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
