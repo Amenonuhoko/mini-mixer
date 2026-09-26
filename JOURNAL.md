@@ -2176,3 +2176,17 @@ Removed: `PadActionBar.tsx` and `PadEffectsMenuButton.tsx` (with its floating-po
 - The engine-path suite now drags the fader instead of tapping it, since a tap opens the sheet.
 - The audio, sequencer, styles, tempo and bounce suites all pass, along with types, lint, 162 unit tests and the build.
 
+## 2026-09-26 — Ending / transition sheet
+
+### Context
+The Song card's Ending / transition button opened a placeholder. The user chose step moves (fill, build, cut out, bass drop), baked into the pattern rather than applied at playback, with a "hear the handover" audition.
+
+### Decision(s)
+- Bake into a pattern the ending owns: split the final repeat off as "<name> ending" when the section repeats, or point a single pass at a copy, so other repeats and sections sharing the pattern never change and the song length stays the same.
+- Record `ending: { move, basePatternId, of }` on that section so a different move is rewritten from the original (no stacking) and None can fold the repeat back and drop the unused pattern.
+- Preview each pick through the existing Keep / Undo, and audition only the handover: last two bars in, first bar of the next section.
+- The pause move is labelled "Cut out" so it can't be confused with the sheet's Stop button.
+- Replaces the unused `EDIT_SECTION_ENDING` action.
+
+### Verification
+Unit tests for split / copy / replace / fold / availability / preview / handover range and project round-trip; a phone browser suite for the sheet (pick, replace, auto-stop, Keep, Hear, None, empty section, Undo). Existing suites still pass.

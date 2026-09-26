@@ -11,6 +11,7 @@ import { BANK_NAMES } from '../state/banks'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Stepper } from './Stepper'
 import { TransitionSheet } from './TransitionSheet'
+import { endingCarrier, TRANSITION_MOVES } from '../state/sectionEnding'
 import type { PendingRecording } from './RecordingReview'
 
 /**
@@ -86,6 +87,12 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
     dispatch({ type: 'APPLY_SONG_TEMPLATE', sections: template.sections })
     setPendingTemplateId(null)
     setShowStructures(false)
+  }
+
+  const endingLabel = (sectionId: string) => {
+    const move = endingCarrier(state.songSections, sectionId)?.ending?.move
+    const label = TRANSITION_MOVES.find((item) => item.id === move)?.label
+    return label ? `Ending: ${label} →` : 'Ending / transition →'
   }
 
   const audition = (sectionId: string, scope: 'section' | 'rest') => {
@@ -266,7 +273,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                     onClick={() => setTransitionFromId(section.id)}
                     aria-label={`Ending and transition out of ${name}`}
                   >
-                    Ending / transition →
+                    {endingLabel(section.id)}
                   </button>
                 </div>
                 <p className="song-section-summary song-link-note">{linkedCount > 1 ? 'Shared by ' + linkedCount + ' sections — editing updates all of them.' : 'Independent pattern — edits affect only this section.'}</p>

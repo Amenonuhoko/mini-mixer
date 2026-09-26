@@ -6,7 +6,7 @@ import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
 import { playablePads } from '../state/banks'
-import { buildSongTimeline, sectionBankGain, songStepAt } from '../engine/songTimeline'
+import { buildSongTimeline, handoverRange, sectionBankGain, songStepAt } from '../engine/songTimeline'
 
 /**
  * Owns the single AudioEngine + Scheduler pair for the app's lifetime and keeps
@@ -76,7 +76,10 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             engine.triggerStep(pad, sample.buffer, time, level, plan.phrasing.get(pattern.id)?.get(pad.id)?.[patternStep])
           }
         }
-        const finalStep = auditionSpan && current.transport.auditionScope === 'section'
+        const handover = auditionSpan && current.transport.auditionScope === 'handover' ? handoverRange(song, auditionSpan.section.id) : null
+        const finalStep = handover
+          ? handover.end - 1
+          : auditionSpan && current.transport.auditionScope === 'section'
           ? auditionSpan.endStep - 1
           : song.length && current.transport.playMode === 'song'
           ? song[song.length - 1]!.endStep - 1
@@ -106,7 +109,9 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
     const end = song.length ? song[song.length - 1]!.endStep : pattern?.stepCount ?? 16
     const auditionSpan = song.find((span) => span.section.id === state.transport.auditionSectionId)
     schedulerRef.current?.setStepCount(end)
-    if (auditionSpan) {
+    const handover = auditionSpan && state.transport.auditionScope === 'handover' ? handoverRange(song, auditionSpan.section.id) : null
+    if (handover) schedulerRef.current?.setRange(handover.start, handover.end)
+    else if (auditionSpan) {
       schedulerRef.current?.setRange(
         auditionSpan.startStep,
         state.transport.auditionScope === 'rest' ? end : auditionSpan.endStep,

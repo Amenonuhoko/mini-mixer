@@ -101,6 +101,7 @@ describe('stateFromMeta', () => {
     state.songSections[0]!.name = 'Intro'
     state.songSections[0]!.bankVolumes = { drums: 45, melody: 80 }
     state.songSections[0]!.excludedBanks = ['chords']
+    state.songSections[0]!.ending = { move: 'build', basePatternId: state.patterns[0]!.id, of: 'section-before' }
     state.transport.playMode = 'song'
     const meta = JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta
     const loaded = stateFromMeta(meta, {})

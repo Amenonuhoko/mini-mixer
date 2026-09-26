@@ -42,3 +42,18 @@ export function songStepAt(
   const span = spans.find((item) => step >= item.startStep && step < item.endStep)
   return span ? { span, patternStep: (step - span.startStep) % span.pattern.stepCount } : null
 }
+
+/**
+ * Where a section's transition is heard: its last two bars (a lead-in, then
+ * the ending) and the first bar of the next section. End is exclusive.
+ */
+export function handoverRange(spans: SongSpan[], sectionId: string): { start: number; end: number } | null {
+  const index = spans.findIndex((span) => span.section.id === sectionId)
+  const span = spans[index]
+  if (!span) return null
+  const next = spans[index + 1]
+  return {
+    start: Math.max(span.startStep, span.endStep - 32),
+    end: next ? Math.min(next.endStep, next.startStep + Math.min(16, next.pattern.stepCount)) : span.endStep,
+  }
+}

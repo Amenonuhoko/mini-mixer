@@ -3,6 +3,7 @@ import { normalizePhrasing } from './phrasing'
 import { computePeaks } from '../utils/waveform'
 import { BANK_KINDS, createBank } from '../state/banks'
 import { createId, DEFAULT_PERFORM } from '../state/defaults'
+import { TRANSITION_MOVE_IDS } from '../state/sectionEnding'
 import { DEFAULT_KEY, DEFAULT_PAD_LABELS } from '../music/theory'
 import { DEFAULT_INTENSITY, pickProgression } from '../styles/generator'
 import { styleById } from '../styles/library'
@@ -337,6 +338,13 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
       } : {}),
       ...(section.excludedBanks ? {
         excludedBanks: BANK_KINDS.filter((kind) => section.excludedBanks?.includes(kind)),
+      } : {}),
+      ...(section.ending && TRANSITION_MOVE_IDS.includes(section.ending.move) && typeof section.ending.basePatternId === 'string' ? {
+        ending: {
+          move: section.ending.move,
+          basePatternId: section.ending.basePatternId,
+          ...(typeof section.ending.of === 'string' ? { of: section.ending.of } : {}),
+        },
       } : {}),
     })),
     transport: buildTransport(meta.transport),

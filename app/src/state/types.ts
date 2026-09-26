@@ -184,6 +184,21 @@ export interface SongSection {
   bankVolumes?: Partial<Record<BankKind, number>>
   /** Banks removed from this section's playback without deleting the shared pattern. */
   excludedBanks?: BankKind[]
+  /**
+   * Set when this section's pattern is a baked ending: a copy of `basePatternId`
+   * with `move` written into its last beat or bar. `of` is the section it ends
+   * when the ending was split off that section's final repeat.
+   */
+  ending?: SectionEnding
+}
+
+/** How a section hands over to the next one, written into the pattern's steps. */
+export type TransitionMove = 'fill' | 'build' | 'pause' | 'bass-drop'
+
+export interface SectionEnding {
+  move: TransitionMove
+  basePatternId: string
+  of?: string
 }
 
 export type LoopMode = 'once' | 'continuous'
@@ -197,7 +212,7 @@ export interface Transport {
   currentSongSectionId: string | null
   /** The selected song range; a loop remains selected while playback is paused. */
   auditionSectionId: string | null
-  auditionScope: 'section' | 'rest' | 'loop'
+  auditionScope: 'section' | 'rest' | 'loop' | 'handover'
   playbackRunId: number
   loopMode: LoopMode
   metronomeEnabled: boolean

@@ -1,6 +1,7 @@
 import { varyPattern, developSection, type VariationKind } from '../styles/variations'
 import { tonicMidi } from '../music/theory'
 import { normalizePhrasing } from '../engine/phrasing'
+import { endingCarrier, withSectionEnding } from './sectionEnding'
 import {
   BPM_MIN,
   BPM_MAX,
@@ -20,6 +21,7 @@ import { createId, createInitialState, createNeutralEffects, createPad } from '.
 import { resolveSequenceTraceCell } from '../utils/sequenceTraceLoad'
 import type {
   AppState,
+  TransitionMove,
   Bank,
   BankKind,
   BankBuild,
@@ -111,13 +113,14 @@ export type Action =
   | { type: 'UPDATE_SONG_SECTION'; sectionId: string; name?: string; patternId?: string; repeats?: number }
   | { type: 'SET_SONG_SECTION_BANK_VOLUME'; sectionId: string; bank: BankKind; level: number }
   | { type: 'SET_SONG_SECTION_BANK_INCLUDED'; sectionId: string; bank: BankKind; included: boolean }
-  | { type: 'EDIT_SECTION_ENDING'; sectionId: string }
+  /** Previews a transition written into the end of a section (null takes it out), then plays the handover. */
+  | { type: 'PREVIEW_SECTION_ENDING'; sectionId: string; move: TransitionMove | null; ids: { section: string; pattern: string } }
   | { type: 'MAKE_SECTION_UNIQUE'; sectionId: string }
   | { type: 'DUPLICATE_SONG_SECTION'; sectionId: string }
   | { type: 'MOVE_SONG_SECTION'; sectionId: string; direction: -1 | 1 }
   | { type: 'REMOVE_SONG_SECTION'; sectionId: string }
   | { type: 'SET_PLAY_MODE'; mode: 'pattern' | 'song' }
-  | { type: 'AUDITION_SONG_SECTION'; sectionId: string; scope: 'section' | 'rest' | 'loop' }
+  | { type: 'AUDITION_SONG_SECTION'; sectionId: string; scope: 'section' | 'rest' | 'loop' | 'handover' }
   | { type: 'APPLY_SONG_TEMPLATE'; sections: readonly string[] }
   | { type: 'SET_CURRENT_SONG_SECTION'; sectionId: string | null }
   /** Resizes one bank's showing pads (the active bank unless bankId is given). */
@@ -388,7 +391,7 @@ export function reducer(state: AppState, action: Action): AppState {
   // Audition/navigation may continue. A subsequent musical edit accepts the draft,
   // so Undo can never silently discard newer notes, sound assignments or deleted samples.
   const auditionActions = ['PREVIEW_VARIATION', 'PREVIEW_RELATED_SONG', 'SET_VARIATION_LOCKS', 'KEEP_VARIATION', 'UNDO_VARIATION', 'SET_ACTIVE_PATTERN', 'SET_ACTIVE_BANK', 'SET_PLAY_MODE', 'AUDITION_SONG_SECTION', 'SET_CURRENT_SONG_SECTION', 'SET_TRANSPORT_PLAYING', 'SET_LOOP_MODE', 'SET_METRONOME_ENABLED', 'SET_CURRENT_STEP']
-  if (state.variationPreview && action.type !== 'PREVIEW_PATTERN_PHRASING' && !auditionActions.includes(action.type)) state = { ...state, variationPreview: undefined }
+  if (state.variationPreview && action.type !== 'PREVIEW_PATTERN_PHRASING' && action.type !== 'PREVIEW_SECTION_ENDING' && !auditionActions.includes(action.type)) state = { ...state, variationPreview: undefined }
 
   switch (action.type) {
     case 'PREVIEW_PATTERN_PHRASING':
@@ -1096,16 +1099,21 @@ export function reducer(state: AppState, action: Action): AppState {
         variationPreview: state.variationPreview ?? { label: 'Related song parts', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId, transport: state.transport } }
     }
 
-    case 'EDIT_SECTION_ENDING': {
-      const section = state.songSections.find((item) => item.id === action.sectionId)
-      const source = state.patterns.find((item) => item.id === section?.patternId)
-      if (!section || !source) return state
-      const pattern: Pattern = { ...source, id: createId('pattern'), name: section.name + ' ending',
-        steps: Object.fromEntries(Object.entries(source.steps).map(([id, row]) => [id, [...row]])) }
-      const ending = { ...section, id: createId('section'), name: section.name + ' ending', patternId: pattern.id, repeats: 1 }
-      const songSections = state.songSections.flatMap((item) => item.id !== section.id ? [item] : section.repeats > 1 ? [{ ...section, repeats: section.repeats - 1 }, ending] : [ending])
-      return { ...state, patterns: [...state.patterns, pattern], songSections, activePatternId: pattern.id, groove: pattern.groove ?? null,
-        transport: { ...state.transport, isPlaying: true, playMode: 'song', auditionSectionId: ending.id, auditionScope: 'loop', currentSongSectionId: null } }
+    case 'PREVIEW_SECTION_ENDING': {
+      // Trying another move starts again from before the first one; any other
+      // preview still waiting on Keep / Undo is kept.
+      const before = state.variationPreview?.label === 'Ending' ? state.variationPreview : undefined
+      const base: AppState = before
+        ? { ...state, patterns: before.patterns, songSections: before.songSections, activePatternId: before.activePatternId }
+        : { ...state, variationPreview: undefined }
+      const next = withSectionEnding(base, action.sectionId, action.move, action.ids)
+      if (!next) return before ? { ...base, variationPreview: undefined, transport: { ...before.transport, isPlaying: false } } : state
+      const target = endingCarrier(next.songSections, action.sectionId) ?? next.songSections.find((section) => section.id === action.sectionId)
+      return { ...base, ...next,
+        groove: next.patterns.find((pattern) => pattern.id === next.activePatternId)?.groove ?? null,
+        variationPreview: before ?? { label: 'Ending', patterns: state.patterns, songSections: state.songSections, activePatternId: state.activePatternId, transport: state.transport },
+        transport: { ...state.transport, playMode: 'song', isPlaying: true, auditionSectionId: target?.id ?? null, auditionScope: 'handover',
+          currentSongSectionId: null, playbackRunId: state.transport.playbackRunId + 1 } }
     }
 
     case 'MAKE_SECTION_UNIQUE': {

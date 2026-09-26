@@ -4,7 +4,7 @@ import { createRng, mixSeed } from './random'
 import type { AppState, BankKind, Pattern } from '../state/types'
 import { DRUM_KITS } from '../engine/drumSynth'
 
-export type VariationKind = 'sparser' | 'busier' | 'syncopated' | 'fill' | 'crash' | 'pause' | 'bass-drop' | 'new-take'
+export type VariationKind = 'sparser' | 'busier' | 'syncopated' | 'fill' | 'build' | 'crash' | 'pause' | 'bass-drop' | 'new-take'
 export const VARIATIONS: { id: VariationKind; label: string }[] = [
   { id: 'sparser', label: 'Sparser' }, { id: 'busier', label: 'Busier' },
   { id: 'syncopated', label: 'More syncopated' }, { id: 'new-take', label: 'New take' },
@@ -79,17 +79,26 @@ export function varyPattern(state: AppState, source: Pattern, kind: VariationKin
         }
       }
     }
-    if (bank.kind !== 'drums' || (kind !== 'fill' && kind !== 'crash')) continue
+    if (bank.kind !== 'drums' || (kind !== 'fill' && kind !== 'crash' && kind !== 'build')) continue
     const candidates = bank.padIds.flatMap((id, index) => {
       const voice = kit?.voices[index]
       const pad = state.pads.find((item) => item.id === id)
       const sample = source.steps[id]?.find(Boolean) ?? pad?.sampleId
-      const suitable = kind === 'crash' ? voice?.kind === 'crash' : voice && ['snare', 'tom', 'clap', 'conga', 'bongo'].includes(voice.kind)
+      const suitable = kind === 'crash' ? voice?.kind === 'crash'
+        : kind === 'build' ? voice && ['snare', 'clap'].includes(voice.kind)
+        : voice && ['snare', 'tom', 'clap', 'conga', 'bongo'].includes(voice.kind)
       return suitable && sample && state.samples[sample] ? [{ id, sample }] : []
     })
     if (kind === 'crash') {
       const hit = candidates[0]
       if (hit) (steps[hit.id] ??= new Array<string | null>(end).fill(null))[0] = hit.sample
+    } else if (kind === 'build') {
+      // A snare roll over the last bar that speeds up: quarters, then 8ths, then 16ths.
+      const hit = candidates[0]
+      const bar = Math.max(0, end - 16)
+      if (hit) for (const offset of [0, 4, 8, 10, 12, 13, 14, 15]) {
+        if (bar + offset < end) (steps[hit.id] ??= new Array<string | null>(end).fill(null))[bar + offset] = hit.sample
+      }
     } else if (candidates.length) {
       for (let i = Math.max(0, end - 4); i < end; i++) {
         const hit = candidates[(i + seed) % candidates.length]!
