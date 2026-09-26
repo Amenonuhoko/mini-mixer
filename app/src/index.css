@@ -2623,6 +2623,34 @@ button.list-item:hover .list-wave {
    Whole-bank effects (the Mix sheet's ALL scope — see BankEffectsPanel)
    -------------------------------------------------------------------------- */
 
+/* The presets fold behind one row naming the one in use (bank panel and pad sheet). */
+.fx-presets-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: left;
+}
+.fx-presets-toggle.open { border-color: var(--cyan); }
+.fx-presets-current {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.fx-presets-chevron { flex: none; font-size: 12px; color: var(--text-dim); }
+.edit-section-sub .fx-presets-toggle { flex: 1 1 auto; width: auto; }
+
 .fx-quick-presets {
   display: grid;
   grid-template-columns: 1fr 1fr;

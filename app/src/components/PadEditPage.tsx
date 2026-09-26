@@ -46,6 +46,8 @@ const EFFECT_DESCRIPTIONS: Record<EffectId, string> = {
 const EFFECT_ANCHORS: number[] = []
 for (let v = EFFECT_MIN; v <= EFFECT_MAX; v += EFFECT_STEP) EFFECT_ANCHORS.push(v)
 
+const CHARACTER_IDS = ['filter', 'grit', 'echo', 'reverb'] as const
+
 function formatValue(value: number): string {
   if (value === 0) return '0'
   return value > 0 ? `+${value}` : String(value)
@@ -96,6 +98,12 @@ export function PadEditPage() {
     if (pad.muted && !looping) return
     engine.toggleLoop(pad, sample.buffer)
   }
+
+  // The presets fold away behind one row naming the one in use.
+  const [presetsOpen, setPresetsOpen] = useState(false)
+  const characterValue = (id: (typeof CHARACTER_IDS)[number]) => pad?.effects.find((effect) => effect.id === id)?.value ?? 0
+  const currentPreset = EFFECT_PRESETS.find((preset) => CHARACTER_IDS.every((id) => characterValue(id) === preset[id]))
+  const anyCharacter = CHARACTER_IDS.some((id) => characterValue(id) !== 0)
 
   const handleToggleEffects = () => {
     const bypassed = !pad?.effectsBypassed
@@ -222,21 +230,31 @@ export function PadEditPage() {
           <EffectsSwitch bypassed={pad.effectsBypassed} onToggle={handleToggleEffects} />
         </header>
         <div className="edit-section-sub">
-          <span className="label label-dim">Presets</span>
+          <button
+            type="button"
+            className={presetsOpen ? 'fx-presets-toggle open' : 'fx-presets-toggle'}
+            aria-expanded={presetsOpen}
+            onClick={() => setPresetsOpen((open) => !open)}
+          >
+            <span className="label label-dim">Presets</span>
+            <span className="fx-presets-current">{currentPreset?.name ?? (anyCharacter ? 'Custom' : 'None')}</span>
+            <span className="fx-presets-chevron" aria-hidden="true">{presetsOpen ? '▴' : '▾'}</span>
+          </button>
           <InfoTip label="About presets">
             Quick-start combos across Filter, Grit, Echo, and Reverb — the character dials.
             Applying one only changes those four; Pitch, Speed, Volume, and Pan are left as they
             are.
           </InfoTip>
         </div>
+        {presetsOpen && (
         <div className="chip-row">
           {EFFECT_PRESETS.map((preset) => (
             <button
               key={preset.name}
               type="button"
-              className="chip-btn"
+              className={preset === currentPreset ? 'chip-btn on' : 'chip-btn'}
               onClick={() => {
-                for (const effectId of ['filter', 'grit', 'echo', 'reverb'] as const) {
+                for (const effectId of CHARACTER_IDS) {
                   const value = preset[effectId]
                   dispatch({ type: 'SET_PAD_EFFECT', padId: pad.id, effectId, value })
                   if (looping) engine.updateLoopingPadEffect(pad.id, effectId, value)
@@ -247,6 +265,7 @@ export function PadEditPage() {
             </button>
           ))}
         </div>
+        )}
         <div className={pad.effectsBypassed ? 'dials bypassed' : 'dials'}>
           {EFFECT_IDS.map((effectId) => {
             const setting = pad.effects.find((effect) => effect.id === effectId)

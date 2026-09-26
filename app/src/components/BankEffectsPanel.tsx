@@ -57,6 +57,12 @@ export function BankEffectsPanel() {
   const visiblePads = visibleBankPads(state, bank)
   const allPresets = [...EFFECT_PRESETS, ...customPresets]
   const anyBypassed = visiblePads.some((pad) => pad.effectsBypassed)
+  // The presets fold away behind one row that names the one in use.
+  const [presetsOpen, setPresetsOpen] = useState(false)
+  const matches = (preset: EffectPreset) =>
+    visiblePads.length > 0 && visiblePads.every((pad) => CHARACTER_EFFECT_IDS.every((id) => (pad.effects.find((effect) => effect.id === id)?.value ?? 0) === preset[id]))
+  const currentPreset = allPresets.find(matches)
+  const anyCharacter = visiblePads.some((pad) => CHARACTER_EFFECT_IDS.some((id) => (pad.effects.find((effect) => effect.id === id)?.value ?? 0) !== 0))
 
   useEffect(() => {
     localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(customPresets))
@@ -126,14 +132,26 @@ export function BankEffectsPanel() {
         </h3>
         <EffectsSwitch bypassed={anyBypassed} onToggle={toggleBypassAll} />
       </header>
+      <button
+        type="button"
+        className={presetsOpen ? 'fx-presets-toggle open' : 'fx-presets-toggle'}
+        aria-expanded={presetsOpen}
+        onClick={() => setPresetsOpen((open) => !open)}
+      >
+        <span className="label">Presets</span>
+        <span className="fx-presets-current">{currentPreset?.name ?? (anyCharacter ? 'Custom' : 'None')}</span>
+        <span className="fx-presets-chevron" aria-hidden="true">{presetsOpen ? '▴' : '▾'}</span>
+      </button>
+      {presetsOpen && (
       <div className="fx-quick-presets">
         {allPresets.map((preset) => (
-          <button key={preset.name} type="button" className={visiblePads.length > 0 && visiblePads.every((pad) => CHARACTER_EFFECT_IDS.every((id) => (pad.effects.find((effect) => effect.id === id)?.value ?? 0) === preset[id])) ? 'fx-preset-button on' : 'fx-preset-button'} onClick={() => applyPreset(preset)}>
+          <button key={preset.name} type="button" className={preset === currentPreset ? 'fx-preset-button on' : 'fx-preset-button'} onClick={() => applyPreset(preset)}>
             <EffectPreview preset={preset} />
             <span>{preset.name}{preset.description && <small className="fx-preset-description">{preset.description}</small>}</span>
           </button>
         ))}
       </div>
+      )}
       <div className="fx-custom-dials">
         <div className="dial-row fx-custom-dial-row fx-pitch-row">
           <div className="dial-label-row">
