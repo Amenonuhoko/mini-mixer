@@ -36,7 +36,7 @@ export function BeatStarter() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { goToSong, beatStarterOpen: open, setBeatStarterOpen, markBeatStarted } = useNavigation()
-  const { busy, error, startBeat, regenerateLayers, hearBeat, setLayerStyle, newTake, setIntensity: setLayerIntensity, clearLayer, newChords } = useGroove()
+  const { busy, error, startBeat, regenerateLayers, hearBeat, setLayerStyle, newTake, setIntensity: setLayerIntensity, setRange: setLayerRange, clearLayer, newChords } = useGroove()
   const [styleId, setStyleId] = useState<string>(SURPRISE)
   const [intensity, setIntensity] = useState(0.5)
   const [bars, setBars] = useState<1 | 2 | 4>((state.groove?.bars as 1 | 2 | 4) ?? 2)
@@ -120,6 +120,7 @@ export function BeatStarter() {
           const layer = state.groove?.layers[kind]
           const live = !!layer && bankHasSteps(state, getBank(state, kind))
           const layerIntensity = Math.round((layer?.intensity ?? 0.5) * 100)
+          const layerRange = Math.round((layer?.range ?? 0) * 100)
           return (
             <div className={live ? 'beat-layer live' : 'beat-layer'} key={kind}>
               <button
@@ -144,25 +145,44 @@ export function BeatStarter() {
                 <option value="" disabled>{busy?.startsWith(`${kind}:`) ? 'Building…' : 'Style…'}</option>
                 {STYLES.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
               </select>
-              <input
-                type="range"
-                className="slider beat-layer-intensity"
-                style={{ '--fill': `${layerIntensity / 100}` } as React.CSSProperties}
-                min="0"
-                max="100"
-                step="5"
-                value={layerIntensity}
-                disabled={!live || busy !== null}
-                onChange={(event) => setLayerIntensity(kind, Number(event.target.value) / 100)}
-                aria-label={`${BANK_NAMES[kind]} intensity, sparse to busy`}
-                title="Sparse ↔ busy"
-              />
               <button type="button" className="icon-btn icon-btn-sm" onClick={() => newTake(kind)} disabled={!live || busy !== null} aria-label={`New take of the ${BANK_NAMES[kind]} layer`} title="New take">
                 <DiceIcon size={14} />
               </button>
               <button type="button" className="icon-btn icon-btn-sm" onClick={() => clearLayer(kind)} disabled={!live || busy !== null} aria-label={`Remove the ${BANK_NAMES[kind]} layer`} title="Remove this layer's steps">
                 <CloseIcon size={12} />
               </button>
+              <div className="beat-layer-sliders">
+                <label className="beat-layer-slider" title="Sparse ↔ busy">
+                  <span className="label label-dim">Busy</span>
+                  <input
+                    type="range"
+                    className="slider beat-layer-intensity"
+                    style={{ '--fill': `${layerIntensity / 100}` } as React.CSSProperties}
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={layerIntensity}
+                    disabled={!live || busy !== null}
+                    onChange={(event) => setLayerIntensity(kind, Number(event.target.value) / 100)}
+                    aria-label={`${BANK_NAMES[kind]} intensity, sparse to busy`}
+                  />
+                </label>
+                <label className="beat-layer-slider" title={kind === 'drums' ? "The style's drums ↔ the whole kit" : "The style's keys ↔ all the keys"}>
+                  <span className="label label-dim">{kind === 'drums' ? 'Kit' : 'Keys'}</span>
+                  <input
+                    type="range"
+                    className="slider beat-layer-range"
+                    style={{ '--fill': `${layerRange / 100}` } as React.CSSProperties}
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={layerRange}
+                    disabled={!live || busy !== null}
+                    onChange={(event) => setLayerRange(kind, Number(event.target.value) / 100)}
+                    aria-label={kind === 'drums' ? 'Drums range, the style\'s drums to the whole kit' : `${BANK_NAMES[kind]} range, some keys to all keys`}
+                  />
+                </label>
+              </div>
             </div>
           )
         })}

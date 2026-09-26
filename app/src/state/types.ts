@@ -272,6 +272,8 @@ export interface GrooveLayer {
   styleId: string
   take: number
   intensity: number
+  /** 0 = the keys / drums the style uses … 1 = every pad of the bank. Missing = 0. */
+  range?: number
 }
 
 /**

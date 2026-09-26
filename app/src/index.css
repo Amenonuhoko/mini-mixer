@@ -3539,14 +3539,18 @@ button.list-item:hover .list-wave {
 .beat-starter.folded { padding-block: 8px; }
 .beat-fold { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 0; color: inherit; }
 .beat-fold-chevron { font-size: 12px; color: var(--text-dim); }
-.beat-layers { display: grid; gap: 6px; }
-.beat-layer { display: grid; grid-template-columns: 68px minmax(0, 1fr) minmax(48px, 88px) 36px 36px; align-items: center; gap: 6px; }
+.beat-layers { display: grid; gap: 10px; }
+.beat-layer { display: grid; grid-template-columns: 68px minmax(0, 1fr) 36px 36px; align-items: center; gap: 4px 6px; }
+.beat-layer-sliders { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 2px; }
+.beat-layer-slider { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.beat-layer-slider .label { flex: none; width: 34px; }
+.beat-layer-slider .slider { flex: 1 1 auto; min-width: 0; height: 36px; }
 .beat-starter .module-head { flex-wrap: nowrap; }
 .beat-starter .beat-options-toggle { flex: none; margin-left: auto; }
 .beat-layer-pick { justify-content: center; min-height: 40px; padding: 0 4px; letter-spacing: .06em; }
 .beat-starter .beat-layer-style { min-width: 0; min-height: 40px; padding: 6px 8px; }
 .beat-layer .icon-btn-sm { width: 36px; height: 36px; }
-.beat-layer:not(.live) .beat-layer-intensity { opacity: .35; }
+.beat-layer:not(.live) .beat-layer-slider { opacity: .35; }
 .beat-chords { display: flex; align-items: center; gap: 8px; min-height: 36px; }
 .beat-chords-names { flex: 1 1 auto; min-width: 0; font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .beat-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

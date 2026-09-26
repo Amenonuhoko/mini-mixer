@@ -14,8 +14,9 @@ export interface LayerTarget {
 /**
  * One layer to write. The beat owns the key, seed, length and chord
  * progression, so layers in different styles still fit; the layer owns its
- * style, its take (reroll count) and its intensity (0 sparse … 0.5 as the
- * style is written … 1 busy).
+ * style, its take (reroll count), its intensity (0 sparse … 0.5 as the
+ * style is written … 1 busy) and its range (0 the keys or drums the style
+ * itself uses … 1 all of the bank's keys or drums).
  */
 export interface LayerContext {
   style: StyleDef
@@ -25,6 +26,8 @@ export interface LayerContext {
   bars: number
   progression: number[]
   intensity: number
+  /** 0 = the style's own keys / drums … 1 = spread across every pad of the bank. Missing = 0. */
+  range?: number
 }
 
 /** Pad index → the steps it plays. */
@@ -172,16 +175,70 @@ export function padForRole(role: DrumRole, pads: LayerTarget['pads']): number {
   return -1
 }
 
+/** The role a kit voice plays when range brings it in beyond what the style uses. */
+function roleForVoice(voice: { name: string; kind: DrumVoiceKind }): DrumRole {
+  if (/open/i.test(voice.name) || voice.kind === 'tambourine') return 'openHat'
+  if (/ghost/i.test(voice.name)) return 'ghost'
+  switch (voice.kind) {
+    case 'hihat': return 'hat'
+    case 'china': return 'crash'
+    case 'conga': case 'bongo': case 'cowbell': case 'claves': return 'perc'
+    default: return voice.kind
+  }
+}
+
+/**
+ * Lines for drums the style leaves out, so a wider range adds parts that
+ * still sit in a groove: pickups, ghost notes, off-beat percussion, a crash
+ * on the one and tom runs into the next bar. Built for the whole pattern
+ * (a line as long as the pattern spells every bar out).
+ */
+function extraLine(role: DrumRole, bars: number): Pulse {
+  const bar = (line: string) => line.repeat(bars)
+  const lastBarOnly = (line: string) => '.'.repeat((bars - 1) * 16) + line
+  switch (role) {
+    case 'kick': return bar('........-.....-.')
+    case 'snare': return bar('.......-.......-')
+    case 'ghost': return bar('..-..-....-..-..')
+    case 'clap': return bar('....-.......-...')
+    case 'rim': return bar('...-.....-...-..')
+    case 'hat': case 'shaker': return bar('-.-.-.-.-.-.-.-.')
+    case 'openHat': return bar('......-.......o.')
+    case 'ride': return bar('o.-.o.-.o.-.o.-.')
+    case 'crash': return 'x' + '.'.repeat(bars * 16 - 1)
+    case 'tom': return lastBarOnly('..........-.o-oo')
+    case 'perc': return bar('..-..-.-..-..-.-')
+  }
+}
+
 function generateDrums(ctx: LayerContext, target: LayerTarget): LayerSteps {
   const { style } = ctx
   const steps: LayerSteps = {}
+  const add = (pad: number, hits: number[]) => {
+    // Two roles can land on one pad on a small kit — merge rather than overwrite.
+    steps[pad] = [...new Set([...(steps[pad] ?? []), ...hits])].sort((a, b) => a - b)
+  }
+  const used = new Set<number>()
   for (const [role, lines] of Object.entries(style.drums.lines) as Array<[DrumRole, Pulse[]]>) {
     const pad = padForRole(role, target.pads)
     if (pad < 0 || lines.length === 0) continue
+    used.add(pad)
     const line = pick(stream(ctx, 'drums', role, 'line'), lines)
-    const rolled = rollLine(line, ctx.bars, stream(ctx, 'drums', role, 'roll'), style.drums.fills?.[role], ctx.intensity, FILLABLE_ROLES.has(role))
-    // Two roles can land on one pad on a small kit — merge rather than overwrite.
-    steps[pad] = [...new Set([...(steps[pad] ?? []), ...rolled])].sort((a, b) => a - b)
+    add(pad, rollLine(line, ctx.bars, stream(ctx, 'drums', role, 'roll'), style.drums.fills?.[role], ctx.intensity, FILLABLE_ROLES.has(role)))
+  }
+  // Range brings in the kit's other drums, in an order fixed by the beat, so
+  // sliding up only ever adds drums and sliding back takes the same ones out.
+  const range = Math.max(0, Math.min(1, ctx.range ?? 0))
+  if (range > 0) {
+    const order = stream(ctx, 'drums', 'range', 'order')
+    const others = target.pads
+      .flatMap((pad, index) => (pad.voice && !used.has(index) ? [{ index, voice: pad.voice, rank: order() }] : []))
+      .sort((a, b) => a.rank - b.rank)
+    for (const { index, voice } of others.slice(0, Math.round(range * others.length))) {
+      const role = roleForVoice(voice)
+      const hits = rollLine(extraLine(role, ctx.bars), ctx.bars, stream(ctx, 'drums', 'range', index), undefined, ctx.intensity, FILLABLE_ROLES.has(role))
+      if (hits.length) add(index, hits)
+    }
   }
   return steps
 }
@@ -206,6 +263,26 @@ function lowestPadWithPc(pads: Array<{ index: number; midi: number }>, pc: numbe
   return pads.reduce((best, pad) => (Math.abs(pad.midi - target) < Math.abs(best.midi - target) ? pad : best))
 }
 
+/**
+ * Range for a pitched line: the same note an octave (or two) away, another
+ * tone of the chord anywhere on the keys, or a passing note beside it — so
+ * the line keeps its shape and harmony while reaching across all the keys.
+ */
+function spreadNote(pads: Array<{ index: number; midi: number }>, note: { index: number; midi: number }, pcs: number[], range: number, rng: () => number, played: Set<number>) {
+  const roll = rng()
+  if (roll >= range * 0.9) return note
+  const at = pads.indexOf(note)
+  // Keys not played yet come first, so the top of the range reaches all of them.
+  const pick = (pool: typeof pads) => {
+    const fresh = pool.filter((pad) => !played.has(pad.index))
+    const from = fresh.length ? fresh : pool
+    return from.length ? from[Math.floor(rng() * from.length)]! : note
+  }
+  if (roll < range * 0.4) return pick(pads.filter((pad) => pad !== note && pitchClass(pad.midi) === pitchClass(note.midi)))
+  if (roll < range * 0.7) return pick(pads.filter((pad) => pad !== note && pcs.includes(pitchClass(pad.midi))))
+  return pick([pads[at - 1], pads[at + 1]].filter((pad): pad is (typeof pads)[number] => !!pad))
+}
+
 function generateBass(ctx: LayerContext, target: LayerTarget): LayerSteps {
   const { style } = ctx
   const pads = notePads(target)
@@ -214,6 +291,8 @@ function generateBass(ctx: LayerContext, target: LayerTarget): LayerSteps {
   const line = pick(stream(ctx, 'bass', 'line'), style.bass.rhythms)
   const hits = rollLine(line, ctx.bars, stream(ctx, 'bass', 'roll'), undefined, ctx.intensity, true)
   const hitSet = new Set(hits)
+  const range = Math.max(0, Math.min(1, ctx.range ?? 0))
+  const played = new Set<number>()
   const steps: LayerSteps = {}
   for (const step of hits) {
     // Each step decides its own note, so adding or removing other hits never changes it.
@@ -234,7 +313,9 @@ function generateBass(ctx: LayerContext, target: LayerTarget): LayerSteps {
       const choice = weighted(rng, style.bass.notes)
       if (choice === 'fifth') pad = lowestPadWithPc(pads, chord.pcs[2] ?? chord.pcs[0]!, root.midi)
       if (choice === 'octave') pad = lowestPadWithPc(pads, chord.pcs[0]!, root.midi)
+      if (range > 0) pad = spreadNote(pads, pad, chord.pcs, range, stream(ctx, 'bass', 'range', step), played)
     }
+    played.add(pad.index)
     ;(steps[pad.index] ??= []).push(step)
   }
   return steps
@@ -259,8 +340,24 @@ function generateChords(ctx: LayerContext, target: LayerTarget): LayerSteps {
   // Every chord change always sounds, so the progression is heard at any intensity.
   const changes = progression.map((_, i) => Math.round((i * stepCount) / progression.length))
   const steps: LayerSteps = {}
-  for (const step of [...new Set([...hits, ...changes])].sort((a, b) => a - b)) {
-    const pad = padFor(chordAt(ctx, step).degree)
+  const range = Math.max(0, Math.min(1, ctx.range ?? 0))
+  const changeSet = new Set(changes)
+  // Range: a passing chord an eighth before a change leads into it, even in a sparse style.
+  const passing = range > 0
+    ? changes.filter((step) => step >= 2 && stream(ctx, 'chords', 'range', 'lead', step)() < range * 0.7).map((step) => step - 2)
+    : []
+  for (const step of [...new Set([...hits, ...changes, ...passing])].sort((a, b) => a - b)) {
+    let pad = padFor(chordAt(ctx, step).degree)
+    // Range: between the changes, other chords of the key pass through — first
+    // the close relatives (two notes shared), then, near the top, any of them.
+    const spread = stream(ctx, 'chords', 'range', step)
+    if (pad && range > 0 && !changeSet.has(step) && spread() < range * 0.6) {
+      const home = new Set(pad.midis.map(pitchClass))
+      const others = chordPads.filter((item) => item.index !== pad!.index)
+      const related = others.filter((item) => item.midis.filter((midi) => home.has(pitchClass(midi))).length >= 2)
+      const pool = related.length && spread() > range * 0.5 ? related : others
+      if (pool.length) pad = pool[Math.floor(spread() * pool.length)]!
+    }
     if (pad) (steps[pad.index] ??= []).push(step)
   }
   return steps
@@ -278,6 +375,8 @@ function generateMelody(ctx: LayerContext, target: LayerTarget): LayerSteps {
   // One bar's contour (a motif) for all 16 positions, reused every bar so the
   // melody has a shape to remember; strong-beat notes snap to the chord.
   const rng = stream(ctx, 'melody', 'motif')
+  const range = Math.max(0, Math.min(1, ctx.range ?? 0))
+  const played = new Set<number>()
   const motif: number[] = []
   let at = start + Math.floor(rng() * third)
   for (let i = 0; i < 16; i++) {
@@ -307,7 +406,9 @@ function generateMelody(ctx: LayerContext, target: LayerTarget): LayerSteps {
         }
       }
     }
-    ;(steps[pads[index]!.index] ??= []).push(step)
+    const note = range > 0 && step % 16 !== 0 ? spreadNote(pads, pads[index]!, chordAt(ctx, step).pcs, range, stream(ctx, 'melody', 'range', step), played) : pads[index]!
+    played.add(note.index)
+    ;(steps[note.index] ??= []).push(step)
   }
   return steps
 }

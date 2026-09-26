@@ -206,3 +206,52 @@ it('offers substantially sparser simple beats and repeatable variations across t
     expect(takes.size, style.name).toBeGreaterThan(2)
   }
 })
+
+describe('range: the style\'s keys … all the keys', () => {
+  const pads = (steps: Record<number, number[]>) => Object.keys(steps).filter((pad) => steps[Number(pad)]!.length > 0).length
+  const average = (fn: (seed: number) => number) => Array.from({ length: 12 }, (_, seed) => fn(seed)).reduce((sum, n) => sum + n, 0) / 12
+
+  it('changes nothing at 0, so existing beats stay as they are', () => {
+    for (const style of STYLES) {
+      for (const target of [kitTarget('acoustic-drums'), melodicTarget('bass'), melodicTarget('chords'), melodicTarget('melody')]) {
+        const ctx = ctxFor(style, { seed: 9 })
+        expect(generateLayer({ ...ctx, range: 0 }, target)).toEqual(generateLayer(ctx, target))
+      }
+    }
+  })
+
+  it('brings in the rest of the kit as it rises, and only ever adds drums', () => {
+    const style = STYLES.find((item) => item.id === 'boom-bap')!
+    const target = kitTarget('acoustic-drums')
+    const voiced = target.pads.length
+    const used = [0, 0.25, 0.5, 0.75, 1].map((range) => Object.keys(generateLayer(ctxFor(style, { seed: 5, range, intensity: 0.7 }), target)).map(Number))
+    for (let i = 1; i < used.length; i++) expect(used[i]!).toEqual(expect.arrayContaining(used[i - 1]!))
+    expect(used[4]!.length).toBeGreaterThan(used[0]!.length + 4)
+    expect(used[4]!.length).toBeGreaterThanOrEqual(Math.floor(voiced * 0.8))
+  })
+
+  for (const kind of ['bass', 'chords', 'melody'] as const) {
+    it(`spreads ${kind} across more keys at 1 than at 0`, () => {
+      const style = STYLES.find((item) => item.id === 'house')!
+      const target = melodicTarget(kind)
+      const at = (range: number) => average((seed) => pads(generateLayer(ctxFor(style, { seed, range, intensity: 0.7 }), target)))
+      expect(at(1)).toBeGreaterThan(at(0) * 1.3)
+    })
+  }
+
+  it('keeps the bass on the root every downbeat and every chord change heard, at any range', () => {
+    const style = STYLES.find((item) => item.id === 'funk')!
+    const seed = 21
+    const progression = pickProgression(style, seed)
+    const stepCount = styleStepCount(style)
+    const bass = melodicTarget('bass')
+    const steps = generateLayer(ctxFor(style, { seed, range: 1 }), bass)
+    for (const [pad, list] of Object.entries(steps)) for (const step of list.filter((item) => item % 16 === 0)) {
+      const degree = progression[Math.floor((step * progression.length) / stepCount)]!
+      expect(pitchClass(bass.pads[Number(pad)]!.music!.midis[0]!)).toBe(chordPcs(C_MAJOR, degree)[0])
+    }
+    const chords = melodicTarget('chords')
+    const heard = new Set(Object.keys(generateLayer(ctxFor(style, { seed, range: 1 }), chords)).map((pad) => pitchClass(chords.pads[Number(pad)]!.music!.midis[0]!)))
+    for (const degree of progression) expect(heard.has(chordPcs(C_MAJOR, degree)[0]!)).toBe(true)
+  })
+})

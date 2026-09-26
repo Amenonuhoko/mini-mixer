@@ -66,7 +66,7 @@ function writeLayer(
   if (!pattern || !style) return
   const length = groove.bars * 16
   const steps = generateLayer(
-    { style, key: state.key, seed: groove.seed, take: layer.take, bars: groove.bars, progression: groove.progression, intensity: layer.intensity },
+    { style, key: state.key, seed: groove.seed, take: layer.take, bars: groove.bars, progression: groove.progression, intensity: layer.intensity, range: layer.range ?? 0 },
     layerTarget(bank, sound, pads),
   )
   dispatch({
@@ -146,13 +146,17 @@ export function useGroove() {
       if (builds.length) dispatch({ type: 'APPLY_BANK_BUILDS', builds, remap: 'index', key, mood })
       dispatch({ type: 'SET_BPM', bpm: beatBpm(style, groove.seed) })
       dispatch({ type: 'START_PATTERN', patternId: pattern.id, stepCount: groove.bars * 16 })
-      const layer: GrooveLayer = { styleId: style.id, take: 0, intensity: options.intensity ?? DEFAULT_INTENSITY }
+      // A new beat keeps each part's range; everything else starts over.
+      const layerFor = (kind: BankKind): GrooveLayer => {
+        const range = state.groove?.layers[kind]?.range
+        return { styleId: style.id, take: 0, intensity: options.intensity ?? DEFAULT_INTENSITY, ...(range ? { range } : {}) }
+      }
       const fresh = { ...state, key, patterns: state.patterns.map((item) => (item.id === pattern.id ? { ...item, stepCount: groove.bars * 16 } : item)) }
       for (const bank of state.banks) {
         const build = builds.find((item) => item.bankId === bank.id)
-        if (kinds.includes(bank.kind)) writeLayer(fresh, dispatch, groove, bank, layer, build?.sound ?? bank.sound, build?.pads ?? visibleBankPads(state, bank))
+        if (kinds.includes(bank.kind)) writeLayer(fresh, dispatch, groove, bank, layerFor(bank.kind), build?.sound ?? bank.sound, build?.pads ?? visibleBankPads(state, bank))
       }
-      dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers: Object.fromEntries(kinds.map((kind) => [kind, layer])) } })
+      dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers: Object.fromEntries(kinds.map((kind) => [kind, layerFor(kind)])) } })
     })
 
   const setLayerStyle = (kind: BankKind, style: StyleDef) =>
@@ -163,6 +167,7 @@ export function useGroove() {
         styleId: style.id,
         take: current?.styleId === style.id ? current.take + 1 : 0,
         intensity: current?.intensity ?? DEFAULT_INTENSITY,
+        ...(current?.range ? { range: current.range } : {}),
       }
       const bank = getBank(state, kind)
       let sound = bank.sound
@@ -202,7 +207,7 @@ export function useGroove() {
           dispatch({ type: 'APPLY_BANK_BUILDS', builds: [build], remap: 'index' })
           pads = build.pads
         }
-        const layer: GrooveLayer = { styleId: style.id, take: current?.styleId === style.id ? current.take + 1 : 0, intensity: options.intensity }
+        const layer: GrooveLayer = { styleId: style.id, take: current?.styleId === style.id ? current.take + 1 : 0, intensity: options.intensity, ...(current?.range ? { range: current.range } : {}) }
         layers[kind] = layer
         writeLayer(state, dispatch, groove, bank, layer, sound, pads)
       }
@@ -226,6 +231,9 @@ export function useGroove() {
   }
 
   const setIntensity = (kind: BankKind, intensity: number) => rewrite(kind, { intensity: Math.max(0, Math.min(1, intensity)) })
+
+  /** How many of the bank's keys (or drums) the layer spreads across: 0 the style's own … 1 all of them. */
+  const setRange = (kind: BankKind, range: number) => rewrite(kind, { range: Math.max(0, Math.min(1, range)) })
 
   const clearLayer = (kind: BankKind) => {
     const groove = state.groove
@@ -284,5 +292,5 @@ export function useGroove() {
     hearBeat()
   })
 
-  return { busy, error, hearBeat, varyBeat, startBeat, regenerateLayers, setLayerStyle, newTake, setIntensity, clearLayer, newChords }
+  return { busy, error, hearBeat, varyBeat, startBeat, regenerateLayers, setLayerStyle, newTake, setIntensity, setRange, clearLayer, newChords }
 }

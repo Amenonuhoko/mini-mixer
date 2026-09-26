@@ -2209,3 +2209,18 @@ New phone suite for every item (placement, fold persistence, per-part style, cho
 
 The separate row above the tabs looked bolted on. Metronome, master volume and stop-all now share one pill with Play inside the tab bar (`TransportCluster`): a 1fr · Play · 1fr grid keeps Play dead centre (two buttons left, stop-all alone on the right, set apart as the panic control), and the side buttons are 32 px wide so the four tabs keep readable labels down to 360 px. The volume popover opens upward. Verified on phone portrait (390, 360), landscape and desktop: Play centred, no clipped labels, no sideways scroll; all suites pass.
 
+## 2026-09-26 — Keys / Kit range per part in Make a beat
+
+### Context
+Many styles use only a few of a bank's pads (a boom-bap kit plays kick, snare and hat out of 32 drums; a bass sits on roots and fifths). The user wanted each part to vary from some of the keys to all of them, drums included, next to the sparse ↔ busy slider.
+
+### Decision(s)
+- A per-layer `range` (0–1, optional so older beats are unchanged; range 0 generates exactly what it did before, tested across every style).
+- Drums: the kit's unused voices join in a seeded order (monotonic — raising only adds drums), each with a role from its voice and a purpose-written extra line, rolled at the layer's intensity.
+- Bass / melody: `spreadNote` — the same note in another octave, another chord tone anywhere, or a neighbour — with unplayed keys preferred; downbeats keep the root. Tried wider melodic leaps first: they bounced off the keyboard's edges and used *fewer* keys, so dropped.
+- Chords: substitutions between changes and a passing chord an eighth before a change; every progression chord still sounds.
+- UI: each part row is two lines — pick · style · new take · clear, then Busy and Keys (Kit) sliders, 36 px tall.
+
+### Verification
+Unit tests (range 0 unchanged for all styles; drums monotonic and ≥80% of the kit at 1; bass/chords/melody use ≥30% more keys at 1; roots and chord changes kept) and a phone browser suite (boom-bap drums 4 → 28 with Kit up and back to 4; melody 7 → 11 keys, bass 5 → 10 with Busy up). Existing suites pass.
+
