@@ -18,6 +18,7 @@ import {
 } from './constants'
 import { bankOfPad, getActiveBank, getSamplerBank, soundKey } from './banks'
 import { createId, createInitialState, createNeutralEffects, createPad } from './defaults'
+import { SONG_TEMPLATES } from '../engine/songTemplates'
 import { resolveSequenceTraceCell } from '../utils/sequenceTraceLoad'
 import type {
   AppState,
@@ -146,6 +147,17 @@ export type Action =
 
 const CHARACTER_IDS = ['filter', 'grit', 'echo', 'reverb'] as const
 const NEUTRAL_CHARACTER: CharacterPreset = { filter: 0, grit: 0, echo: 0, reverb: 0 }
+
+/**
+ * Where a new project starts: the full pop song structure (Intro, Verse,
+ * Chorus, … Outro), one empty pattern per part, with the Intro in the grid —
+ * so the first beat you make is the song's opening. Used on first launch and
+ * by Clear all.
+ */
+export function createStartingState(padCount?: number): AppState {
+  const structure = SONG_TEMPLATES.find((template) => template.id === 'full-pop')!
+  return reducer(createInitialState(padCount), { type: 'APPLY_SONG_TEMPLATE', sections: structure.sections })
+}
 
 /** "Verse" → "Verse 2", "Verse 2" → "Verse 3" — the next number not already taken by `names`. */
 export function nextNumberedName(name: string, names: string[]): string {
@@ -1246,7 +1258,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, transport: { ...state.transport, playthroughRecordingEnabled: action.enabled } }
 
     case 'CLEAR_ALL':
-      return createInitialState(getSamplerBank(state).visibleCount)
+      return createStartingState(getSamplerBank(state).visibleCount)
 
     case 'LOAD_PROJECT':
       // Autosaves from before global-volume / trigger-mode controls lack these

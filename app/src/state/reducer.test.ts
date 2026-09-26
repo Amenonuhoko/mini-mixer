@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BPM_MAX, BPM_MIN, EFFECT_MAX, EFFECT_MIN, MIN_TRIM_GAP } from './constants'
 import { createInitialState } from './defaults'
-import { reducer } from './reducer'
+import { createStartingState, reducer } from './reducer'
 import { getBank, visibleBankPads } from './banks'
 import { patternPitchCents } from '../engine/songTimeline'
 import type { AppState, BankBuild, BankKind, PadMusic, Sample } from './types'
@@ -846,5 +846,26 @@ describe('pattern pitch', () => {
     const copy = state.patterns.find((pattern) => pattern.id === state.songSections[1]!.patternId)!
     expect(copy.id).not.toBe(id)
     expect(copy.pitch).toEqual({ melody: -5 })
+  })
+})
+
+describe('starting point', () => {
+  it('opens on the full pop song structure with the Intro in the grid', () => {
+    const state = createStartingState()
+    expect(state.songSections.map((section) => section.name)).toEqual(['Intro', 'Verse', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Chorus', 'Outro'])
+    const intro = state.songSections[0]!
+    expect(state.activePatternId).toBe(intro.patternId)
+    expect(state.patterns.find((pattern) => pattern.id === state.activePatternId)!.name).toBe('Intro')
+    // One pattern per part; repeated parts share theirs.
+    expect(new Set(state.songSections.map((section) => section.patternId)).size).toBe(5)
+    expect(state.patterns).toHaveLength(5)
+  })
+
+  it('Clear all goes back to the same starting point', () => {
+    let state = createStartingState()
+    state = reducer(state, { type: 'ADD_SONG_SECTION' })
+    state = reducer(state, { type: 'CLEAR_ALL' })
+    expect(state.songSections.map((section) => section.name)[0]).toBe('Intro')
+    expect(state.songSections).toHaveLength(8)
   })
 })

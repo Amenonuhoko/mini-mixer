@@ -121,7 +121,8 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           aria-label={`${template.name}: ${template.sections.join(', ')}`}
           title={template.name}
           onClick={() => {
-            if (state.songSections.length === 1 && state.songSections[0]?.name === 'Verse' && state.patterns.length === 1)
+            // Nothing written yet means nothing to lose: switch straight away.
+              if (!state.patterns.some((pattern) => Object.values(pattern.steps).some((row) => row.some(Boolean))))
               applyTemplate(template.id)
             else setPendingTemplateId(template.id)
           }}
@@ -200,7 +201,9 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
               .slice(spanIndex)
               .some((span) => Object.values(span.pattern.steps).some((row) => row.some(Boolean)))
             const playing = songMode && state.transport.isPlaying && state.transport.currentSongSectionId === section.id
-            const name = section.name || `Section ${index + 1}`
+            // How this section's controls are named — a part that appears more than once (Verse, Chorus) says which one.
+            const baseName = section.name || `Section ${index + 1}`
+            const name = state.songSections.filter((item) => item.name === section.name).length > 1 ? `${baseName} (part ${index + 1})` : baseName
             const linkedCount = state.songSections.filter((item) => item.patternId === section.patternId).length
             return (
               <li key={section.id} className={playing ? 'song-section playing' : 'song-section'}>
@@ -323,7 +326,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                   >
                     ▶ Play from here
                   </button>
-                  {linkedCount > 1 && <button type="button" className="chip-btn" onClick={() => dispatch({ type: 'MAKE_SECTION_UNIQUE', sectionId: section.id })}>Make this section unique</button>}
+                  {linkedCount > 1 && <button type="button" className="chip-btn" onClick={() => dispatch({ type: 'MAKE_SECTION_UNIQUE', sectionId: section.id })} aria-label={`Make ${name} unique`}>Make this section unique</button>}
                   <button
                     type="button"
                     className="chip-btn"

@@ -1,6 +1,5 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from 'react'
-import { createInitialState } from './defaults'
-import { reducer, type Action } from './reducer'
+import { createStartingState, reducer, type Action } from './reducer'
 import type { AppState } from './types'
 
 interface AppStateContextValue {
@@ -11,7 +10,7 @@ interface AppStateContextValue {
 const AppStateContext = createContext<AppStateContextValue | null>(null)
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, () => createInitialState())
+  const [state, dispatch] = useReducer(reducer, undefined, () => createStartingState())
 
   return <AppStateContext value={{ state, dispatch }}>{children}</AppStateContext>
 }
