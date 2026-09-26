@@ -10,7 +10,7 @@ import { Sequencer } from './components/Sequencer'
 import { SettingsOverlay } from './components/SettingsOverlay'
 import { SongArranger } from './components/SongArranger'
 import { TabBar } from './components/TabBar'
-import { TransportDock, TransportStrip } from './components/TransportStrip'
+import { TransportStrip } from './components/TransportStrip'
 import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
 import { useIsLandscapeLayout } from './hooks/useIsLandscapeLayout'
@@ -182,7 +182,6 @@ function Shell() {
       </main>
       <div className="bottom-stack" ref={bottomRef}>
         <div className="bottom-row">
-          <TransportDock />
           <TabBar combinedView={combinedView} />
         </div>
       </div>

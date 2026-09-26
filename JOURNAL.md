@@ -2205,3 +2205,7 @@ The user asked: Seq's pattern ⋯ beside the pattern name; Make a beat hideable;
 ### Verification
 New phone suite for every item (placement, fold persistence, per-part style, chords, Loop setting, upward popover, export size, text-free structures, landscape, no sideways scroll), plus all existing suites updated for the moved controls and passing.
 
+## 2026-09-26 — Transport controls folded into the tab bar
+
+The separate row above the tabs looked bolted on. Metronome, master volume and stop-all now share one pill with Play inside the tab bar (`TransportCluster`): a 1fr · Play · 1fr grid keeps Play dead centre (two buttons left, stop-all alone on the right, set apart as the panic control), and the side buttons are 32 px wide so the four tabs keep readable labels down to 360 px. The volume popover opens upward. Verified on phone portrait (390, 360), landscape and desktop: Play centred, no clipped labels, no sideways scroll; all suites pass.
+

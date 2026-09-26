@@ -1,6 +1,7 @@
 import { useNavigation } from '../state/NavigationContext'
 import { LibraryIcon, PadsIcon, SeqIcon, SongIcon } from './icons'
 import { PlayButton } from './PlayButton'
+import { TransportCluster } from './TransportStrip'
 
 interface TabBarProps {
   /** True when Pads and Sequencer are shown together (wide or landscape layout) — both tabs then light up for either page. */
@@ -9,8 +10,9 @@ interface TabBarProps {
 
 /**
  * Bottom bar, in the thumb zone: the four destinations with Play raised
- * dead center — the button pressed most, right under the thumb. (Recording
- * lives on the Pads page, next to the sounds it makes.)
+ * dead center — the button pressed most, right under the thumb — in a pill
+ * with the metronome, master level and panic. (Recording lives on the Pads
+ * page, next to the sounds it makes.)
  */
 export function TabBar({ combinedView }: TabBarProps) {
   const { page, goToPads, goToSequencer, goToSong, goToLibrary } = useNavigation()
@@ -28,9 +30,9 @@ export function TabBar({ combinedView }: TabBarProps) {
         <SeqIcon />
         <span className="tab-label">Seq</span>
       </button>
-      <div className="tab-center">
+      <TransportCluster>
         <PlayButton />
-      </div>
+      </TransportCluster>
       <button type="button" className={page === 'song' ? 'tab on' : 'tab'} onClick={goToSong} aria-current={page === 'song' ? 'page' : undefined}>
         <SongIcon />
         <span className="tab-label">Song</span>

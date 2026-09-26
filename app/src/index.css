@@ -1025,7 +1025,8 @@ button:disabled {
 .tabbar {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 92px));
+  grid-template-columns: repeat(2, minmax(0, 92px)) auto repeat(2, minmax(0, 92px));
+  column-gap: 2px;
   justify-content: center;
   align-items: center;
   height: calc(var(--tabbar-h) + var(--safe-bottom));
@@ -1115,12 +1116,7 @@ button:disabled {
   border-width: 1px;
 }
 
-/* Play / stop, raised in the middle of the tab bar. */
-.tab-center {
-  display: flex;
-  justify-content: center;
-}
-
+/* Play / stop, raised in the middle of the tab bar (inside .transport-cluster). */
 .play-btn {
   display: flex;
   flex-direction: column;
@@ -2795,10 +2791,15 @@ button.list-item:hover .list-wave {
     gap: 6px;
   }
 
-  .play-btn {
+  .play-btn,
+  .transport-cluster .play-btn {
     width: 40px;
     height: 40px;
     margin-top: 0;
+  }
+
+  .transport-cluster {
+    height: 40px;
   }
 
   .play-btn-caption {
@@ -3580,20 +3581,36 @@ button.list-item:hover .list-wave {
 .phrasing-editor select { flex: 1 1 200px; min-width: 0; max-width: 100%; min-height: 40px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / 0.8); color: var(--text); font: inherit; }
 .phrasing-editor select:disabled { opacity: .5; }
 
-/* Metronome and master level on Play's left shoulder, panic on its right — tucked into the bottom bar. */
-.transport-dock {
-  display: flex;
-  justify-content: space-between;
+/* Play's cluster: metronome and master level on its left, panic on its right, one pill in the tab bar. */
+.transport-cluster {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 6px max(14px, calc((100% - 452px) / 2)) 0;
-  background: linear-gradient(0deg, rgb(6 11 15 / 0.8), rgb(4 8 11 / 0.9));
-  backdrop-filter: blur(10px);
-  border-top: 1px solid transparent;
-  border-image: linear-gradient(90deg, transparent, rgb(var(--cyan-rgb) / 0.4) 30%, rgb(var(--cyan-rgb) / 0.4) 70%, transparent) 1;
+  justify-self: center;
+  height: 44px;
+  padding: 0 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgb(var(--cyan-rgb) / 0.04);
 }
-.transport-dock + .tabbar { border-top: 0; }
-.transport-dock-side { display: flex; gap: 6px; }
-.popover-up { top: auto; bottom: calc(100% + 8px); left: 0; right: auto; }
-@media (min-aspect-ratio: 2/1) and (max-height: 500px) {
-  .transport-dock { padding: 0 8px; gap: 6px; border-top: 0; }
+.transport-cluster .play-btn { margin: -18px 3px 0; }
+.transport-cluster-side { display: flex; justify-content: center; min-width: 64px; }
+.cluster-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 36px;
+  border-radius: 18px;
+  color: var(--text-dim);
+  transition: color var(--fast), background var(--fast), box-shadow var(--fast), transform var(--fast);
+}
+.cluster-btn:active { transform: scale(0.92); }
+.cluster-btn.on { color: var(--cyan); background: rgb(var(--cyan-rgb) / 0.12); box-shadow: var(--glow-cyan); }
+.cluster-btn.danger { color: rgb(255 81 69 / 0.75); }
+.cluster-btn.danger:active { color: var(--danger); background: rgb(255 81 69 / 0.12); }
+.popover-up { top: auto; bottom: calc(100% + 14px); left: -40px; right: auto; }
+@media (max-width: 420px) {
+  .tabbar .tab-label { letter-spacing: 0.06em; }
 }

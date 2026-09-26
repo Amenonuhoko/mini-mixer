@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { useDismiss } from '../hooks/useDismiss'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
@@ -13,8 +13,8 @@ interface TransportStripProps {
 /**
  * The always-visible top strip: the beat light, tempo and settings (where
  * loop-once vs. continuous also lives). The controls pressed while playing —
- * metronome, master level and panic — sit at the bottom by Play (see
- * TransportDock), under the thumb.
+ * metronome, master level and panic — sit around Play in the tab bar (see
+ * TransportCluster), under the thumb.
  */
 export function TransportStrip({ onOpenSettings }: TransportStripProps) {
   const { state, dispatch } = useAppState()
@@ -34,10 +34,11 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
 }
 
 /**
- * Metronome and master level on Play's left shoulder, panic on its right:
- * the transport controls you reach for mid-beat, tucked into the bottom bar.
+ * Play's cluster in the middle of the tab bar: metronome and master level
+ * on its left, panic on its right — the transport controls reached for
+ * mid-beat, in one pill under the thumb.
  */
-export function TransportDock() {
+export function TransportCluster({ children }: { children: ReactNode }) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { metronomeEnabled, masterVolume } = state.transport
@@ -51,62 +52,63 @@ export function TransportDock() {
   }
 
   return (
-    <div className="transport-dock" role="toolbar" aria-label="Transport">
-      <div className="transport-dock-side">
+    <div className="transport-cluster" role="group" aria-label="Transport">
+      <div className="transport-cluster-side">
+      <button
+        type="button"
+        className={metronomeEnabled ? 'cluster-btn on' : 'cluster-btn'}
+        onClick={() => dispatch({ type: 'SET_METRONOME_ENABLED', enabled: !metronomeEnabled })}
+        aria-pressed={metronomeEnabled}
+        aria-label="Metronome"
+        title={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+      >
+        <MetronomeIcon size={18} />
+      </button>
+      <div className="popover-anchor" ref={volumeRef}>
         <button
           type="button"
-          className={metronomeEnabled ? 'icon-btn on' : 'icon-btn'}
-          onClick={() => dispatch({ type: 'SET_METRONOME_ENABLED', enabled: !metronomeEnabled })}
-          aria-pressed={metronomeEnabled}
-          aria-label="Metronome"
-          title={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+          className={volumeOpen ? 'cluster-btn on' : 'cluster-btn'}
+          onClick={() => setVolumeOpen((open) => !open)}
+          aria-expanded={volumeOpen}
+          aria-label={`Master volume ${masterVolume}%`}
+          title={`Master volume ${masterVolume}%`}
         >
-          <MetronomeIcon />
+          <VolumeIcon size={18} muted={masterVolume === 0} />
         </button>
-        <div className="popover-anchor" ref={volumeRef}>
-          <button
-            type="button"
-            className={volumeOpen ? 'icon-btn on' : 'icon-btn'}
-            onClick={() => setVolumeOpen((open) => !open)}
-            aria-expanded={volumeOpen}
-            aria-label={`Master volume ${masterVolume}%`}
-            title={`Master volume ${masterVolume}%`}
-          >
-            <VolumeIcon muted={masterVolume === 0} />
-          </button>
-          {volumeOpen && (
-            <div className="popover popover-up volume-popover" role="dialog" aria-label="Master volume">
-              <div className="field-row">
-                <span className="label">Master</span>
-                <span className="readout">{masterVolume}%</span>
-              </div>
-              <input
-                type="range"
-                className="slider"
-                style={{ '--fill': `${masterVolume / 100}` } as React.CSSProperties}
-                min="0"
-                max="100"
-                step="1"
-                value={masterVolume}
-                onChange={(event) => dispatch({ type: 'SET_MASTER_VOLUME', level: Number(event.target.value) })}
-                aria-label="Master volume"
-                aria-valuetext={`${masterVolume}%`}
-                autoFocus
-              />
+        {volumeOpen && (
+          <div className="popover popover-up volume-popover" role="dialog" aria-label="Master volume">
+            <div className="field-row">
+              <span className="label">Master</span>
+              <span className="readout">{masterVolume}%</span>
             </div>
-          )}
-        </div>
+            <input
+              type="range"
+              className="slider"
+              style={{ '--fill': `${masterVolume / 100}` } as React.CSSProperties}
+              min="0"
+              max="100"
+              step="1"
+              value={masterVolume}
+              onChange={(event) => dispatch({ type: 'SET_MASTER_VOLUME', level: Number(event.target.value) })}
+              aria-label="Master volume"
+              aria-valuetext={`${masterVolume}%`}
+              autoFocus
+            />
+          </div>
+        )}
       </div>
-      <div className="transport-dock-side">
-        <button
-          type="button"
-          className="icon-btn danger"
-          onClick={handlePanic}
-          aria-label="Stop all sounds"
-          title="Panic — stop every sound, loop and the sequencer"
-        >
-          <PanicIcon />
-        </button>
+      </div>
+      {children}
+      <div className="transport-cluster-side">
+      <button
+        type="button"
+        className="cluster-btn danger"
+        onClick={handlePanic}
+        aria-label="Stop all sounds"
+        title="Panic — stop every sound, loop and the sequencer"
+      >
+        <PanicIcon size={18} />
+      </button>
       </div>
     </div>
   )
