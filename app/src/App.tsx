@@ -57,8 +57,9 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
     if (isLandscape) {
       return (
         <div className="landscape-stack">
-          <Sequencer onBounced={onBounced} />
+          <Sequencer onBounced={onBounced} withBeatStarter={false} />
           <PadsPage onRecorded={onBounced} />
+          <PatternBeatStarter />
         </div>
       )
     }

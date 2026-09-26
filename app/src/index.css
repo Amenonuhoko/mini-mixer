@@ -2757,12 +2757,35 @@ button.list-item:hover .list-wave {
   }
 }
 
-/* A landscape phone or ultra-wide/short window stacks Sequencer over Pads at full width (see useIsLandscapeLayout). */
-.landscape-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s3);
+/* A big monitor (ultra-wide included) gives the desktop layout more room, without stretching it edge to edge. */
+@media (min-width: 1800px) {
+  .app-shell {
+    max-width: 1760px;
+  }
+
+  .wide-split {
+    grid-template-columns: minmax(340px, 520px) minmax(0, 1fr);
+  }
 }
+
+/*
+ * A landscape phone or a short, very wide window (see useIsLandscapeLayout): the
+ * same arrangement as desktop — the sequencer across the top, the pads and
+ * Make a beat side by side beneath it — with the pads taking the extra width.
+ */
+.landscape-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr);
+  grid-template-areas:
+    'seq seq'
+    'pads beat';
+  gap: var(--s3);
+  align-items: start;
+}
+
+.landscape-stack > .sequencer-column { grid-area: seq; }
+.landscape-stack > .pads-page { grid-area: pads; min-width: 0; }
+.landscape-stack > .beat-starter { grid-area: beat; min-width: 0; }
 
 @media (min-aspect-ratio: 2/1) {
   .app-shell.app-shell-landscape {
