@@ -292,3 +292,9 @@ export function BeatStarter() {
     </section>
   )
 }
+
+/** Make a beat for the pattern in the grid — starting fresh (its options, notice) whenever the pattern changes. */
+export function PatternBeatStarter() {
+  const { state } = useAppState()
+  return <BeatStarter key={state.activePatternId} />
+}

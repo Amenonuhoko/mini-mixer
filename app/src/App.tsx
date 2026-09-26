@@ -7,6 +7,7 @@ import { PadsPage } from './components/PadsPage'
 import { RecordingReviewOverlay } from './components/RecordingReviewOverlay'
 import type { PendingRecording } from './components/RecordingReview'
 import { Sequencer } from './components/Sequencer'
+import { PatternBeatStarter } from './components/BeatStarter'
 import { SettingsOverlay } from './components/SettingsOverlay'
 import { SongArranger } from './components/SongArranger'
 import { TabBar } from './components/TabBar'
@@ -64,8 +65,9 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
     if (isWide) {
       return (
         <div className="wide-split">
+          <Sequencer onBounced={onBounced} withBeatStarter={false} />
           <PadsPage onRecorded={onBounced} />
-          <Sequencer onBounced={onBounced} />
+          <PatternBeatStarter />
         </div>
       )
     }

@@ -2720,12 +2720,20 @@ button.list-item:hover .list-wave {
     max-width: 1100px;
   }
 
+  /* Desktop: the sequencer across the top; the pads and Make a beat side by side beneath it. */
   .wide-split {
     display: grid;
     grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+    grid-template-areas:
+      'seq seq'
+      'pads beat';
     gap: var(--s3);
     align-items: start;
   }
+
+  .wide-split > .sequencer-column { grid-area: seq; }
+  .wide-split > .pads-page { grid-area: pads; }
+  .wide-split > .beat-starter { grid-area: beat; }
 
   .sequencer {
     --step: 30px;

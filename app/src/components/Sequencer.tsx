@@ -17,7 +17,7 @@ import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
 import { StepsMenu } from './StepsMenu'
 import { Stepper } from './Stepper'
-import { BeatStarter } from './BeatStarter'
+import { PatternBeatStarter } from './BeatStarter'
 import { PhrasingEditor } from './PhrasingEditor'
 
 const GROUP_SIZE = 4
@@ -69,9 +69,11 @@ function chunk<T>(items: T[], size: number): T[][] {
  */
 interface SequencerProps {
   onBounced: (recording: PendingRecording) => void
+  /** Make a beat sits above the grid, unless the layout places it elsewhere (desktop: beside the pads). */
+  withBeatStarter?: boolean
 }
 
-export function Sequencer({ onBounced }: SequencerProps) {
+export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const pattern = state.patterns.find((p) => p.id === state.activePatternId)
@@ -316,7 +318,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
 
   return (
     <div className="sequencer-column">
-    <BeatStarter key={state.activePatternId} />
+    {withBeatStarter && <PatternBeatStarter />}
     <section
       className={pattern.stepCount <= 16 ? 'module sequencer sequencer-fits-desktop' : 'module sequencer'}
       aria-label="Sequencer"
@@ -418,7 +420,7 @@ export function Sequencer({ onBounced }: SequencerProps) {
 
       {!patternHasSteps && (
         <p className="sequencer-empty">
-          <span className="sequencer-empty-text">Blank canvas? Tap ✨ at the top to start from a style.</span>
+          <span className="sequencer-empty-text">Blank canvas? Tap steps, or pick parts and a style in Make a beat and press Generate.</span>
         </p>
       )}
 
