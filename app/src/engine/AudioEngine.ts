@@ -66,6 +66,7 @@ interface LiveVoice extends Voice {
   original: AudioBuffer
   /** When it starts sounding, on the audio clock. */
   startedAt: number
+  endsAt: number
   /** Fades the note out, from `at` (default: now). */
   release(fadeSeconds?: number, at?: number): void
 }
@@ -492,6 +493,7 @@ export class AudioEngine {
       pad,
       original: buffer,
       startedAt: start,
+      endsAt: loop ? Infinity : start + duration,
       release: (fadeSeconds = RELEASE_SECONDS, at = ctx.currentTime) => {
         const from = Math.max(at, ctx.currentTime)
         if (releasedAt !== null && from >= releasedAt) return
@@ -532,10 +534,10 @@ export class AudioEngine {
 
   /** Voice limits: fades out the oldest one-shot note of this pad (and of the whole app) when they're full. */
   private makeRoom(padId: string, at: number): void {
-    const oneShots = this.voices.filter((voice) => !voice.loop && !voice.released)
+    const oneShots = this.voices.filter((voice) => !voice.loop && !voice.released && voice.endsAt > at)
     const ofPad = oneShots.filter((voice) => voice.padId === padId)
     if (ofPad.length >= MAX_VOICES_PER_PAD) ofPad[0]!.release(RELEASE_SECONDS, at)
-    const live = this.voices.filter((voice) => !voice.released)
+    const live = this.voices.filter((voice) => !voice.released && voice.endsAt > at)
     if (live.length >= MAX_VOICES) (oneShots[0] ?? live[0])!.release(RELEASE_SECONDS, at)
   }
 

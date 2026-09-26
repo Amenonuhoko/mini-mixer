@@ -1,0 +1,47 @@
+<!doctype html><title>Phrasing audio check</title>
+<button id="run">Run audio checks</button><pre id="result">Ready</pre>
+<script type="module">
+import { shapeEnvelope, holdEnvelope } from '/src/engine/channel.ts';
+import { renderPresetNotes, INSTRUMENT_PRESETS } from '/src/engine/synth.ts';
+import { buildDrumKitKeys, DRUM_KITS } from '/src/engine/drumSynth.ts';
+import { createInitialState } from '/src/state/defaults.ts';
+import { renderPatternToBuffer } from '/src/engine/bouncePattern.ts';
+const result=document.querySelector('#result');
+document.querySelector('#run').onclick=async()=>{
+ try {
+  result.textContent='Rendering envelope and dense-mix checks…';
+  const edges=[];
+  for(const releaseAt of [.035,.5,.85]) {
+   const ctx=new OfflineAudioContext(1,44100,44100);
+   const source=ctx.createBufferSource(); const buffer=ctx.createBuffer(1,44100,44100); buffer.getChannelData(0).fill(.5); source.buffer=buffer;
+   const envelope=ctx.createGain(); envelope.gain.value=0; source.connect(envelope); envelope.connect(ctx.destination);
+   const at=shapeEnvelope(envelope.gain,0,.8,{fadeIn:true,end:1,attackSeconds:.1,releaseSeconds:.2});
+   const fallback={cancelScheduledValues:envelope.gain.cancelScheduledValues.bind(envelope.gain),linearRampToValueAtTime:envelope.gain.linearRampToValueAtTime.bind(envelope.gain),setValueAtTime:envelope.gain.setValueAtTime.bind(envelope.gain)};
+   holdEnvelope(fallback,releaseAt,at); envelope.gain.setTargetAtTime(0,releaseAt,.005); source.start(); source.stop(releaseAt+.05);
+   const rendered=await ctx.startRendering(); const data=rendered.getChannelData(0); const sample=Math.floor(releaseAt*44100);
+   let jump=0; for(let i=sample-2;i<sample+3;i++) jump=Math.max(jump,Math.abs(data[i]-data[i-1]));
+   if(jump>.003) throw Error('Release discontinuity '+jump);
+   edges.push({releaseAt,jump});
+  }
+  const state=createInitialState(16); const pattern=state.patterns[0]; pattern.stepCount=32;
+  const drums=await buildDrumKitKeys(DRUM_KITS[0].id);
+  for(let group=0;group<4;group++) {
+   const bank=state.banks[group]; bank.padIds=state.pads.slice(group*4,group*4+4).map(p=>p.id); bank.visibleCount=4;
+   const name=['','Bass','Organ','Clarinet'][group]; bank.sound=group===0?{type:'kit',kitId:DRUM_KITS[0].id}:{type:'preset',name};
+   const notes=group===1?[36,40,43,48]:[60,64,67,72]; const buffers=group===0?drums:notes.map(m=>(m));
+   const rendered=group===0?null:await renderPresetNotes(INSTRUMENT_PRESETS.find(p=>p.name===name),notes);
+   for(let i=0;i<4;i++) {
+    const pad=state.pads[group*4+i]; const id='sample-'+group+'-'+i; const buffer=group===0?buffers[i]:rendered.get(notes[i]);
+    pad.sampleId=id; pad.effects=[{id:'reverb',value:35},{id:'echo',value:12}];
+    state.samples[id]={id,label:id,buffer,recordedAt:0,kind:'note',peaks:[]};
+    pattern.steps[pad.id]=Array.from({length:32},(_,step)=>group===0?(step%(i+1)===0?id:null):(step%4===i?id:null));
+   }
+  }
+  pattern.phrasing={chords:{articulation:'connected',lengthSteps:2,dynamics:35}};
+  const started=performance.now(); const mix=await renderPatternToBuffer(state,pattern.id);
+  let peak=0,energy=0,finite=true; for(let ch=0;ch<mix.numberOfChannels;ch++)for(const x of mix.getChannelData(ch)){peak=Math.max(peak,Math.abs(x));energy+=x*x;finite&&=Number.isFinite(x);}
+  if(!finite||peak>=.95||peak<.01)throw Error('Bad mix signal '+peak);
+  result.textContent=JSON.stringify({passed:true,envelopeEdges:edges,denseMix:{peak,rms:Math.sqrt(energy/(mix.length*mix.numberOfChannels)),duration:mix.duration,renderMs:performance.now()-started},note:'Offline signal check, not a measurement of phone underruns.'},null,2);
+ }catch(error){result.textContent='FAILED: '+error.stack;}
+};
+</script>

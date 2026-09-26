@@ -4,8 +4,11 @@ export const WIND_INSTRUMENTS = new Set(['Flute', 'Clarinet', 'Trumpet', 'Alto S
 export function isWind(bank: Bank): boolean { return bank.sound?.type === 'preset' && WIND_INSTRUMENTS.has(bank.sound.name) }
 
 export function bankPhrasing(pattern: Pattern, bank: Bank): Phrasing {
+  const instrument = bank.sound?.type === 'preset' ? bank.sound.name : ''
+  const detached = isWind(bank) || bank.kind === 'bass' || ['Bass', 'Sub Bass'].includes(instrument)
+  const sustained = ['Organ', 'Pad', 'Lead', 'Velvet Strings'].includes(instrument)
   return pattern.phrasing?.[bank.kind] ?? {
-    articulation: isWind(bank) || bank.kind === 'bass' ? 'detached' : 'natural',
+    articulation: detached ? 'detached' : sustained ? 'connected' : 'natural',
     lengthSteps: 0,
     dynamics: isWind(bank) ? 45 : 0,
   }

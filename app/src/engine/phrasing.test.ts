@@ -48,6 +48,7 @@ describe('musical phrasing', () => {
     pads[1]!.muted = true
     expect(planPhrasing(pattern, [bank], pads, 120).get(pads[0]!.id)![0]!.durationSeconds).toBeCloseTo(.82)
     expect(bankPhrasing(pattern, { ...bank, kind: 'drums', sound: null }).articulation).toBe('natural')
+    expect(bankPhrasing(pattern, { ...bank, kind: 'chords', sound: { type: 'preset', name: 'Organ' } }).articulation).toBe('connected')
   })
   it('bounds settings loaded from a malformed project', () => {
     expect(normalizePhrasing({ melody: { articulation: 'connected', lengthSteps: -9, dynamics: 900 }, bass: { articulation: 'invalid' } })).toEqual({ melody: { articulation: 'connected', lengthSteps: 0, dynamics: 100 } })
