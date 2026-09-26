@@ -13,6 +13,21 @@ export function dialToDetuneCents(value: number): number {
   return (value / 100) * 1200
 }
 
+/** Pitch controls step in whole semitones (±12 = an octave), stored on the -100..100 dial. */
+export function dialToSemitones(value: number): number {
+  return Math.round((value / 100) * 12)
+}
+
+export function semitonesToDial(semitones: number): number {
+  return (Math.max(-12, Math.min(12, Math.round(semitones))) / 12) * 100
+}
+
+/** How a pitch dial reads: "0", "+7 st", "−12 st". */
+export function formatSemitones(value: number): string {
+  const st = dialToSemitones(value)
+  return st === 0 ? '0' : `${st > 0 ? '+' : '−'}${Math.abs(st)} st`
+}
+
 /**
  * Speed is mapped to `AudioBufferSourceNode.playbackRate`.
  * Range: 0.5x (dial -100) to 2x (dial +100), 1x (unchanged) at dial 0.

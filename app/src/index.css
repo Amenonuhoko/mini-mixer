@@ -3618,3 +3618,5 @@ button.list-item:hover .list-wave {
 @media (max-width: 420px) {
   .tabbar .tab-label { letter-spacing: 0.06em; }
 }
+
+.fx-pitch-note { display: block; margin-top: 4px; color: var(--orange); font-size: var(--fs-xs); line-height: 1.4; }

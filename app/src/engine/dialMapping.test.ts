@@ -3,6 +3,9 @@ import {
   buildGritCurve,
   buildReverbImpulse,
   dialToDetuneCents,
+  dialToSemitones,
+  formatSemitones,
+  semitonesToDial,
   dialToEchoParams,
   dialToFilterParams,
   dialToGain,
@@ -179,5 +182,22 @@ describe('buildReverbImpulse', () => {
     const early = data.slice(0, 100).reduce((sum, v) => sum + Math.abs(v), 0)
     const late = data.slice(-100).reduce((sum, v) => sum + Math.abs(v), 0)
     expect(late).toBeLessThan(early)
+  })
+})
+
+describe('pitch in semitones', () => {
+  it('maps ±12 semitones onto the full dial and back, one octave either way', () => {
+    expect(semitonesToDial(12)).toBe(100)
+    expect(semitonesToDial(-12)).toBe(-100)
+    expect(dialToDetuneCents(semitonesToDial(7))).toBeCloseTo(700)
+    for (let st = -12; st <= 12; st++) expect(dialToSemitones(semitonesToDial(st))).toBe(st)
+    expect(semitonesToDial(20)).toBe(100)
+  })
+
+  it('reads old 25-step dial values as whole semitones', () => {
+    expect(dialToSemitones(25)).toBe(3)
+    expect(formatSemitones(-50)).toBe('−6 st')
+    expect(formatSemitones(0)).toBe('0')
+    expect(formatSemitones(semitonesToDial(5))).toBe('+5 st')
   })
 })

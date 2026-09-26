@@ -12,6 +12,7 @@ import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import type { EffectId } from '../state/types'
 import { EffectsSwitch } from './EffectsSwitch'
+import { dialToSemitones, formatSemitones, semitonesToDial } from '../engine/dialMapping'
 import { BANK_NAMES, getActiveBank, visibleBankPads } from '../state/banks'
 
 const CUSTOM_PRESETS_KEY = 'mini-mixer.custom-effect-presets'
@@ -46,7 +47,8 @@ function readCustomPresets(): EffectPreset[] {
  * Effects for every pad of the active bank at once — the "All" scope of the
  * Mix sheet (see PadEditOverlay): on/off for the whole bank, one-tap presets
  * (with a preview of their Filter/Grit/Echo/Reverb balance, plus any you've
- * saved), the four character dials, save-as-preset and reset.
+ * saved), Pitch in semitones (presets leave it alone), the four character
+ * dials, save-as-preset and reset.
  */
 export function BankEffectsPanel() {
   const { state, dispatch } = useAppState()
@@ -85,6 +87,8 @@ export function BankEffectsPanel() {
   // every write path here sets the whole bank identically, so any pad would do.
   const currentCharacterValue = (effectId: (typeof CHARACTER_EFFECT_IDS)[number]): number =>
     visiblePads[0]?.effects.find((effect) => effect.id === effectId)?.value ?? 0
+
+  const pitch = visiblePads[0]?.effects.find((effect) => effect.id === 'pitch')?.value ?? 0
 
   const handleDialChange = (effectId: EffectId, value: number) => {
     dispatch({ type: 'SET_ALL_PADS_EFFECT', effectId, value })
@@ -126,6 +130,31 @@ export function BankEffectsPanel() {
         ))}
       </div>
       <div className="fx-custom-dials">
+        <div className="dial-row fx-custom-dial-row fx-pitch-row">
+          <div className="dial-label-row">
+            <label htmlFor="fx-dial-pitch" className="dial-label-text">
+              Pitch
+            </label>
+            <span className="dial-value">{formatSemitones(pitch)}</span>
+          </div>
+          <input
+            id="fx-dial-pitch"
+            type="range"
+            className="slider bipolar"
+            style={{ '--fill': `${(dialToSemitones(pitch) + 12) / 24}` } as React.CSSProperties}
+            min={-12}
+            max={12}
+            step={1}
+            value={dialToSemitones(pitch)}
+            disabled={visiblePads.length === 0}
+            onChange={(event) => handleDialChange('pitch', semitonesToDial(Number(event.target.value)))}
+            aria-label={`${BANK_NAMES[bank.kind]} pitch in semitones`}
+            aria-valuetext={formatSemitones(pitch)}
+          />
+          {bank.kind !== 'drums' && dialToSemitones(pitch) % 12 !== 0 && (
+            <small className="fx-pitch-note">Out of the song's key — ±12 st moves a whole octave and stays in key.</small>
+          )}
+        </div>
         {CHARACTER_EFFECT_IDS.map((effectId) => {
           const value = currentCharacterValue(effectId)
           return (

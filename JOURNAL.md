@@ -2224,3 +2224,7 @@ Many styles use only a few of a bank's pads (a boom-bap kit plays kick, snare an
 ### Verification
 Unit tests (range 0 unchanged for all styles; drums monotonic and ≥80% of the kit at 1; bass/chords/melody use ≥30% more keys at 1; roots and chord changes kept) and a phone browser suite (boom-bap drums 4 → 28 with Kit up and back to 4; melody 7 → 11 keys, bass 5 → 10 with Busy up). Existing suites pass.
 
+## 2026-09-26 — Pitch in the bank effects (Melody and every bank)
+
+The bank effects in Mix had only Filter / Grit / Echo / Reverb; pitch existed per pad only, on a dial snapping to 25 (= 3 semitones). Added a Pitch control to the bank panel that sets every showing pad of the bank, in whole semitones (−12…+12), and made the per-pad Pitch dial semitone-stepped too. The slider works in semitones directly — a fractional 100/12 step never reached +12 because of floating-point clamping — and converts to the stored −100…100 dial value (`semitonesToDial` / `dialToSemitones`), so nothing about saving, playback or bounce changes. On melodic banks a non-octave amount shows a note that it takes the part out of the song's key. Verified: unit tests for the mapping; a phone test sets Melody to +12 st, sees every pad at +12 st, and captures the sequencer's notes playing at +1200 cents.
+

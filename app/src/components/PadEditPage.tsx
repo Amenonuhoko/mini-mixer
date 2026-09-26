@@ -10,6 +10,7 @@ import { EffectsSwitch } from './EffectsSwitch'
 import { ConfirmDialog } from './ConfirmDialog'
 import { LoopIcon, MuteIcon, SwapIcon, TrashIcon } from './icons'
 import { InfoTip } from './InfoTip'
+import { dialToSemitones, formatSemitones, semitonesToDial } from '../engine/dialMapping'
 import { PadLibraryPicker } from './PadLibraryPicker'
 import { WaveformTrimEditor } from './WaveformTrimEditor'
 import { bankOfPad } from '../state/banks'
@@ -250,6 +251,8 @@ export function PadEditPage() {
           {EFFECT_IDS.map((effectId) => {
             const setting = pad.effects.find((effect) => effect.id === effectId)
             const value = setting?.value ?? 0
+            // Pitch counts whole semitones (±12 = an octave); the other dials snap to their anchors.
+            const pitchDial = effectId === 'pitch'
             return (
               <div className="dial-row" key={effectId}>
                 <div className="dial-label-row">
@@ -259,20 +262,20 @@ export function PadEditPage() {
                   <InfoTip label={`About ${EFFECT_LABELS[effectId]}`}>
                     {EFFECT_DESCRIPTIONS[effectId]}
                   </InfoTip>
-                  <span className={value === 0 ? 'dial-value' : 'dial-value active'}>{formatValue(value)}</span>
+                  <span className={value === 0 ? 'dial-value' : 'dial-value active'}>{pitchDial ? formatSemitones(value) : formatValue(value)}</span>
                 </div>
                 <input
                   id={`dial-${effectId}`}
                   type="range"
                   className="slider bipolar"
                   style={{ '--fill': `${(value - EFFECT_MIN) / (EFFECT_MAX - EFFECT_MIN)}` } as React.CSSProperties}
-                  min={EFFECT_MIN}
-                  max={EFFECT_MAX}
-                  step={EFFECT_STEP}
-                  list={`dial-${effectId}-anchors`}
-                  value={value}
+                  min={pitchDial ? -12 : EFFECT_MIN}
+                  max={pitchDial ? 12 : EFFECT_MAX}
+                  step={pitchDial ? 1 : EFFECT_STEP}
+                  list={pitchDial ? undefined : `dial-${effectId}-anchors`}
+                  value={pitchDial ? dialToSemitones(value) : value}
                   onChange={(event) => {
-                    const nextValue = Number(event.target.value)
+                    const nextValue = pitchDial ? semitonesToDial(Number(event.target.value)) : Number(event.target.value)
                     dispatch({ type: 'SET_PAD_EFFECT', padId: pad.id, effectId, value: nextValue })
                     if (looping) {
                       engine.updateLoopingPadEffect(pad.id, effectId, nextValue)
