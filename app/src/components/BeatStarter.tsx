@@ -11,73 +11,97 @@ import { newSeed } from '../styles/random'
 import type { StyleDef } from '../styles/types'
 import { VARIATIONS, varyPattern, type VariationKind } from '../styles/variations'
 import { ConfirmDialog } from './ConfirmDialog'
-import { CloseIcon, DiceIcon } from './icons'
+import { CloseIcon, DiceIcon, LockIcon, MoreIcon } from './icons'
 
-const LEVELS = [
-  { name: 'Simple', value: 0.1 },
-  { name: 'Balanced', value: 0.5 },
-  { name: 'Complex', value: 0.9 },
-]
-
-/** The style list's first choice: a different random style on every press. */
+/** The style menu's action: a different random style on every pick. */
 const SURPRISE = 'surprise'
+/** Any style, at random — Surprise me. */
+function randomStyle(): StyleDef {
+  return STYLES[Math.floor(Math.random() * STYLES.length)]!
+}
+
+/** Vary reshapes the notes already there; endings live in Song → Ending / transition. */
+const VARY = VARIATIONS.filter((item) => item.id === 'sparser' || item.id === 'busier' || item.id === 'syncopated')
 
 /**
- * Make a beat, at the top of the sequencer (and foldable down to its title):
- * one row per part — pick it for Generate, and set its own style, sparse ↔
- * busy intensity, a new take, or clear it — then the beat's chords (every
- * style layer follows them). Generate gives every picked part fresh, randomly
- * generated material (from the chosen style, or a random one); parts left out
- * stay exactly as they are — all four on a beat is a whole new beat. The
- * Tweak row reshapes just the picked parts of what's there (sparser, busier,
- * a fill…), auditioned with Keep / Undo. This is the one home for styles.
+ * Make a beat, at the top of the sequencer (foldable down to its title).
+ *
+ * - The style menu at the top sets every unlocked part at once (🎲 Surprise
+ *   me picks one at random) — with nothing locked, that's a whole new beat.
+ * - One compact row per part: its own style (overrides just that part), a
+ *   lock, and 🎲 for a new take; › opens its Busy and Keys/Kit sliders and
+ *   Clear, one part at a time.
+ * - Generate gives every unlocked part a new take in its own style; on an
+ *   empty pattern it makes a whole beat in a random style. Bars and New
+ *   sounds sit behind ⋯.
+ * - Vary (Sparser / Busier / More syncopated) reshapes the unlocked parts'
+ *   notes, auditioned with Keep / Undo.
+ *
+ * Locks belong to the pattern (Pattern.variationLocks), so they're kept with it.
  */
 export function BeatStarter() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { goToSong, beatStarterOpen: open, setBeatStarterOpen, markBeatStarted } = useNavigation()
-  const { busy, error, startBeat, regenerateLayers, hearBeat, setLayerStyle, newTake, setIntensity: setLayerIntensity, setRange: setLayerRange, clearLayer, newChords } = useGroove()
-  const [styleId, setStyleId] = useState<string>(SURPRISE)
-  const [intensity, setIntensity] = useState(0.5)
+  const { busy, error, startBeat, regenerateLayers, hearBeat, setLayerStyle, newTake, setIntensity, setRange, clearLayer, newChords } = useGroove()
   const [bars, setBars] = useState<1 | 2 | 4>((state.groove?.bars as 1 | 2 | 4) ?? 2)
-  const [kinds, setKinds] = useState<BankKind[]>([...BANK_KINDS])
   const [newSounds, setNewSounds] = useState(false)
-  const [confirm, setConfirm] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [expanded, setExpanded] = useState<BankKind | null>(null)
+  const [pendingStyle, setPendingStyle] = useState<{ style: StyleDef; surprise: boolean } | null>(null)
   const [notice, setNotice] = useState('')
-  // Style, busyness, length and tweaks fold away once there's a beat; parts and Generate always show.
-  const [optionsOpen, setOptionsOpen] = useState(() => !state.banks.some((bank) => bankHasSteps(state, bank)))
-  const hasSteps = state.banks.some((bank) => bankHasSteps(state, bank))
   const pattern = state.patterns.find((item) => item.id === state.activePatternId)
-  const whole = kinds.length === BANK_KINDS.length || !hasSteps
+  const locked = pattern?.variationLocks ?? []
+  const unlocked = BANK_KINDS.filter((kind) => !locked.includes(kind))
+  const hasSteps = state.banks.some((bank) => bankHasSteps(state, bank))
+  const live = (kind: BankKind) => !!state.groove?.layers[kind] && bankHasSteps(state, getBank(state, kind))
+  const liveStyles = [...new Set(BANK_KINDS.filter(live).map((kind) => state.groove!.layers[kind]!.styleId))]
+  const sharedStyle = liveStyles.length === 1 ? liveStyles[0]! : ''
   const editingSection =
     state.transport.auditionScope === 'loop' ? state.songSections.find((section) => section.id === state.transport.auditionSectionId) : undefined
 
-  const pickStyle = (): StyleDef =>
-    styleId === SURPRISE ? STYLES[Math.floor(Math.random() * STYLES.length)]! : (STYLES.find((item) => item.id === styleId) ?? STYLES[0]!)
+  const toggleLock = (kind: BankKind) =>
+    dispatch({ type: 'SET_VARIATION_LOCKS', locked: locked.includes(kind) ? locked.filter((item) => item !== kind) : BANK_KINDS.filter((item) => item === kind || locked.includes(item)) })
 
-  const generate = async () => {
-    setConfirm(false)
+  /** A whole new beat in `style` (tempo, chords, sounds) when nothing is locked; otherwise just the unlocked parts. */
+  const applyStyle = async (style: StyleDef, surprise: boolean) => {
+    setPendingStyle(null)
     setNotice('')
-    // Unlock audio on the gesture, before asynchronous instrument rendering.
-    engine.getContext()
-    const style = pickStyle()
+    engine.getContext() // unlock audio on the gesture, before the instruments render
+    const whole = unlocked.length === BANK_KINDS.length
     const ok = whole
-      ? await startBeat(style, { intensity, bars, kinds, keepSounds: !newSounds })
-      : await regenerateLayers(kinds, style, { intensity, newSounds })
-    if (ok) {
-      if (styleId === SURPRISE) setNotice(`Surprise: ${style.name}`)
-      if (whole) markBeatStarted()
-      hearBeat()
-    }
+      ? await startBeat(style, { bars, kinds: unlocked, keepSounds: !newSounds })
+      : await regenerateLayers(unlocked, () => style, { newSounds })
+    if (!ok) return
+    if (surprise) setNotice(`Surprise: ${style.name}`)
+    if (whole) markBeatStarted()
+    hearBeat()
+  }
+  const pickStyle = (value: string) => {
+    const surprise = value === SURPRISE
+    const style = surprise ? randomStyle() : styleById(value)
+    if (!style || unlocked.length === 0) return
+    // Replacing a whole beat that's already there asks first.
+    if (unlocked.length === BANK_KINDS.length && hasSteps) setPendingStyle({ style, surprise })
+    else void applyStyle(style, surprise)
   }
 
-  const tweak = (kind: VariationKind) => {
+  /** New takes of the unlocked parts, each in its own style — or, on an empty pattern, a whole beat in a random style. */
+  const generate = async () => {
+    if (!hasSteps || !state.groove) return pickStyle(SURPRISE)
+    setNotice('')
+    engine.getContext()
+    const fallback = styleById(sharedStyle) ?? randomStyle()
+    const ok = await regenerateLayers(unlocked, (kind) => styleById(state.groove?.layers[kind]?.styleId ?? '') ?? fallback, { newSounds })
+    if (ok) hearBeat()
+  }
+
+  const vary = (kind: VariationKind) => {
     if (!pattern) return
-    const locked = BANK_KINDS.filter((item) => !kinds.includes(item))
     const seed = newSeed()
     const proposed = varyPattern(state, pattern, kind, locked, seed)
     if (JSON.stringify(proposed.steps) === JSON.stringify(pattern.steps)) {
-      setNotice('Nothing to change there with these parts — for a fill or crash, the drums need a kit with those sounds.')
+      setNotice('Nothing to change there in the unlocked parts.')
       return
     }
     setNotice('')
@@ -85,8 +109,16 @@ export function BeatStarter() {
     hearBeat()
   }
 
-  const toggleKind = (kind: BankKind) =>
-    setKinds((current) => (current.includes(kind) ? current.filter((item) => item !== kind) : BANK_KINDS.filter((item) => item === kind || current.includes(item))))
+  const building = busy?.startsWith('start:') || busy?.startsWith('layers:')
+  const generateLabel = building
+    ? 'Building…'
+    : unlocked.length === 0
+    ? 'All parts locked'
+    : !hasSteps
+    ? 'Generate'
+    : unlocked.length === BANK_KINDS.length
+    ? 'Generate again'
+    : `Generate ${unlocked.map((kind) => BANK_NAMES[kind]).join(' + ')}`
 
   return (
     <section className={open ? 'module beat-starter' : 'module beat-starter folded'} aria-label="Make a beat">
@@ -104,85 +136,106 @@ export function BeatStarter() {
           <span className="beat-fold-chevron" aria-hidden="true">{open ? '▴' : '▾'}</span>
         </button>
         {open && (
-          <button
-            type="button"
-            className={optionsOpen ? 'chip-btn on beat-options-toggle' : 'chip-btn beat-options-toggle'}
-            aria-expanded={optionsOpen}
-            onClick={() => setOptionsOpen((value) => !value)}
+          <select
+            className="beat-style-all"
+            value={sharedStyle}
+            onChange={(event) => pickStyle(event.target.value)}
+            disabled={busy !== null || unlocked.length === 0}
+            aria-label="Style for every unlocked part"
+            title="Set every unlocked part to one style — with nothing locked, a whole new beat"
           >
-            Options {optionsOpen ? '▴' : '▾'}
-          </button>
+            <option value="" disabled>{liveStyles.length > 1 ? 'Mixed styles' : 'Style…'}</option>
+            <option value={SURPRISE}>🎲 Surprise me</option>
+            {STYLES.map((item) => (
+              <option value={item.id} key={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
         )}
       </header>
       {open && <>
       <div className="beat-layers" role="group" aria-label="Parts">
         {BANK_KINDS.map((kind) => {
           const layer = state.groove?.layers[kind]
-          const live = !!layer && bankHasSteps(state, getBank(state, kind))
+          const isLive = live(kind)
+          const isLocked = locked.includes(kind)
+          const isOpen = expanded === kind
           const layerIntensity = Math.round((layer?.intensity ?? 0.5) * 100)
           const layerRange = Math.round((layer?.range ?? 0) * 100)
           return (
-            <div className={live ? 'beat-layer live' : 'beat-layer'} key={kind}>
-              <button
-                type="button"
-                className={kinds.includes(kind) ? 'chip-btn on beat-layer-pick' : 'chip-btn beat-layer-pick'}
-                aria-pressed={kinds.includes(kind)}
-                aria-label={`${BANK_NAMES[kind]}: ${kinds.includes(kind) ? 'picked for Generate' : 'left as it is'}`}
-                title="Pick this part for Generate and Tweak"
-                onClick={() => toggleKind(kind)}
-                disabled={busy !== null}
-              >
-                {BANK_NAMES[kind]}
-              </button>
+            <div className={['beat-layer', isLive ? 'live' : '', isLocked ? 'locked' : '', isOpen ? 'open' : ''].filter(Boolean).join(' ')} key={kind}>
+              <span className="beat-layer-name">{BANK_NAMES[kind]}</span>
               <select
                 className="beat-layer-style"
-                value={live && layer ? layer.styleId : ''}
+                value={isLive && layer ? layer.styleId : ''}
                 onChange={(event) => { const style = styleById(event.target.value); if (style) { engine.getContext(); void setLayerStyle(kind, style) } }}
                 disabled={busy !== null}
                 aria-label={`${BANK_NAMES[kind]} style`}
-                title={live && layer ? `Take ${layer.take + 1}` : `Put a style's ${BANK_NAMES[kind].toLowerCase()} in this part`}
+                title={isLive && layer ? `Take ${layer.take + 1}` : `Put a style's ${BANK_NAMES[kind].toLowerCase()} in this part`}
               >
                 <option value="" disabled>{busy?.startsWith(`${kind}:`) ? 'Building…' : 'Style…'}</option>
                 {STYLES.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
               </select>
-              <button type="button" className="icon-btn icon-btn-sm" onClick={() => newTake(kind)} disabled={!live || busy !== null} aria-label={`New take of the ${BANK_NAMES[kind]} layer`} title="New take">
+              <button
+                type="button"
+                className={isLocked ? 'icon-btn icon-btn-sm beat-lock on' : 'icon-btn icon-btn-sm beat-lock'}
+                aria-pressed={isLocked}
+                aria-label={`Lock ${BANK_NAMES[kind]}`}
+                title={isLocked ? `${BANK_NAMES[kind]} is locked — Generate, the style menu and Vary leave it alone` : `Lock ${BANK_NAMES[kind]} so Generate leaves it alone`}
+                onClick={() => toggleLock(kind)}
+              >
+                <LockIcon size={15} open={!isLocked} />
+              </button>
+              <button type="button" className="icon-btn icon-btn-sm" onClick={() => newTake(kind)} disabled={!isLive || busy !== null} aria-label={`New take of the ${BANK_NAMES[kind]} layer`} title="New take">
                 <DiceIcon size={14} />
               </button>
-              <button type="button" className="icon-btn icon-btn-sm" onClick={() => clearLayer(kind)} disabled={!live || busy !== null} aria-label={`Remove the ${BANK_NAMES[kind]} layer`} title="Remove this layer's steps">
-                <CloseIcon size={12} />
+              <button
+                type="button"
+                className="icon-btn icon-btn-sm beat-layer-more"
+                aria-expanded={isOpen}
+                aria-label={`${BANK_NAMES[kind]} settings`}
+                onClick={() => setExpanded(isOpen ? null : kind)}
+              >
+                <span aria-hidden="true">{isOpen ? '⌄' : '›'}</span>
               </button>
-              <div className="beat-layer-sliders">
-                <label className="beat-layer-slider" title="Sparse ↔ busy">
-                  <span className="label label-dim">Busy</span>
-                  <input
-                    type="range"
-                    className="slider beat-layer-intensity"
-                    style={{ '--fill': `${layerIntensity / 100}` } as React.CSSProperties}
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={layerIntensity}
-                    disabled={!live || busy !== null}
-                    onChange={(event) => setLayerIntensity(kind, Number(event.target.value) / 100)}
-                    aria-label={`${BANK_NAMES[kind]} intensity, sparse to busy`}
-                  />
-                </label>
-                <label className="beat-layer-slider" title={kind === 'drums' ? "The style's drums ↔ the whole kit" : "The style's keys ↔ all the keys"}>
-                  <span className="label label-dim">{kind === 'drums' ? 'Kit' : 'Keys'}</span>
-                  <input
-                    type="range"
-                    className="slider beat-layer-range"
-                    style={{ '--fill': `${layerRange / 100}` } as React.CSSProperties}
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={layerRange}
-                    disabled={!live || busy !== null}
-                    onChange={(event) => setLayerRange(kind, Number(event.target.value) / 100)}
-                    aria-label={kind === 'drums' ? 'Drums range, the style\'s drums to the whole kit' : `${BANK_NAMES[kind]} range, some keys to all keys`}
-                  />
-                </label>
-              </div>
+              {isOpen && (
+                <div className="beat-layer-sliders">
+                  <label className="beat-layer-slider" title="Sparse ↔ busy">
+                    <span className="label label-dim">Busy</span>
+                    <input
+                      type="range"
+                      className="slider beat-layer-intensity"
+                      style={{ '--fill': `${layerIntensity / 100}` } as React.CSSProperties}
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={layerIntensity}
+                      disabled={!isLive || busy !== null}
+                      onChange={(event) => setIntensity(kind, Number(event.target.value) / 100)}
+                      aria-label={`${BANK_NAMES[kind]} intensity, sparse to busy`}
+                    />
+                  </label>
+                  <label className="beat-layer-slider" title={kind === 'drums' ? "The style's drums ↔ the whole kit" : "The style's keys ↔ all the keys"}>
+                    <span className="label label-dim">{kind === 'drums' ? 'Kit' : 'Keys'}</span>
+                    <input
+                      type="range"
+                      className="slider beat-layer-range"
+                      style={{ '--fill': `${layerRange / 100}` } as React.CSSProperties}
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={layerRange}
+                      disabled={!isLive || busy !== null}
+                      onChange={(event) => setRange(kind, Number(event.target.value) / 100)}
+                      aria-label={kind === 'drums' ? "Drums range, the style's drums to the whole kit" : `${BANK_NAMES[kind]} range, some keys to all keys`}
+                    />
+                  </label>
+                  <button type="button" className="chip-btn beat-layer-clear" onClick={() => clearLayer(kind)} disabled={!isLive || busy !== null} aria-label={`Remove the ${BANK_NAMES[kind]} layer`}>
+                    <CloseIcon size={12} /> Clear {BANK_NAMES[kind]}
+                  </button>
+                </div>
+              )}
             </div>
           )
         })}
@@ -196,74 +249,62 @@ export function BeatStarter() {
           </button>
         </div>
       )}
-      {optionsOpen && (
-      <div className="beat-settings">
-        <select value={styleId} onChange={(event) => setStyleId(event.target.value)} disabled={busy !== null} aria-label="Style">
-          <option value={SURPRISE}>🎲 Surprise me</option>
-          {STYLES.map((item) => (
-            <option value={item.id} key={item.id}>
-              {item.name} · {item.bpm[0]}–{item.bpm[1]}
-            </option>
-          ))}
-        </select>
-        <div className="segmented segmented-sm" role="group" aria-label="How busy">
-          {LEVELS.map((level) => (
-            <button
-              type="button"
-              key={level.name}
-              className={intensity === level.value ? 'segment on' : 'segment'}
-              aria-pressed={intensity === level.value}
-              onClick={() => setIntensity(level.value)}
-              disabled={busy !== null}
-            >
-              {level.name}
-            </button>
-          ))}
-        </div>
-        <select
-          aria-label="Beat length"
-          value={bars}
-          onChange={(event) => setBars(Number(event.target.value) as 1 | 2 | 4)}
-          disabled={busy !== null || !whole}
-          title={whole ? 'Length of the new beat' : 'Parts are generated across the pattern as it is'}
-        >
-          {[1, 2, 4].map((length) => (
-            <option key={length} value={length}>
-              {length} {length === 1 ? 'bar' : 'bars'}
-            </option>
-          ))}
-        </select>
+      <div className="beat-generate-row">
+        <button type="button" className="btn btn-primary beat-generate" disabled={busy !== null || unlocked.length === 0} onClick={() => void generate()}>
+          <DiceIcon size={16} />
+          {generateLabel}
+        </button>
         <button
           type="button"
-          className={newSounds ? 'chip-btn on' : 'chip-btn'}
-          aria-pressed={newSounds}
-          onClick={() => setNewSounds((value) => !value)}
-          disabled={busy !== null}
-          title={newSounds ? "The picked parts get the style's instruments" : 'Your instruments and key stay'}
+          className={moreOpen ? 'icon-btn on beat-more' : 'icon-btn beat-more'}
+          aria-expanded={moreOpen}
+          aria-label="More beat settings"
+          title="Beat length and new sounds"
+          onClick={() => setMoreOpen((value) => !value)}
         >
-          New sounds
+          <MoreIcon />
         </button>
       </div>
+      {moreOpen && (
+        <div className="beat-settings">
+          <label className="beat-setting">
+            <span className="label label-dim">Length</span>
+            <select
+              aria-label="Beat length"
+              value={bars}
+              onChange={(event) => setBars(Number(event.target.value) as 1 | 2 | 4)}
+              disabled={busy !== null}
+              title="Length of a whole new beat"
+            >
+              {[1, 2, 4].map((length) => (
+                <option key={length} value={length}>
+                  {length} {length === 1 ? 'bar' : 'bars'}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className={newSounds ? 'chip-btn on' : 'chip-btn'}
+            aria-pressed={newSounds}
+            onClick={() => setNewSounds((value) => !value)}
+            disabled={busy !== null}
+            title={newSounds ? "Parts get their style's instruments" : 'Your instruments and key stay'}
+          >
+            New sounds
+          </button>
+        </div>
       )}
-      <button
-        type="button"
-        className="btn btn-primary beat-generate"
-        disabled={busy !== null || kinds.length === 0}
-        onClick={() => (whole && hasSteps ? setConfirm(true) : void generate())}
-      >
-        <DiceIcon size={16} />
-        {busy?.startsWith('start:') || busy?.startsWith('layers:') ? 'Building…' : !whole ? `Generate ${kinds.map((kind) => BANK_NAMES[kind]).join(' + ')}` : hasSteps ? 'Generate again' : 'Generate'}
-      </button>
-      {hasSteps && optionsOpen && (
-        <div className="beat-tweaks" role="group" aria-label="Tweak the picked parts">
-          <span className="label label-dim">Tweak</span>
-          {VARIATIONS.map((item) => (
+      {hasSteps && (
+        <div className="beat-tweaks" role="group" aria-label="Vary the unlocked parts">
+          <span className="label label-dim">Vary</span>
+          {VARY.map((item) => (
             <button
               type="button"
               className="chip-btn"
               key={item.id}
-              disabled={busy !== null || kinds.length === 0 || !!state.variationPreview}
-              onClick={() => tweak(item.id)}
+              disabled={busy !== null || unlocked.length === 0 || !!state.variationPreview}
+              onClick={() => vary(item.id)}
             >
               {item.label}
             </button>
@@ -281,12 +322,12 @@ export function BeatStarter() {
         </p>
       )}
       </>}
-      {confirm && (
+      {pendingStyle && (
         <ConfirmDialog
-          message={`Replace everything in ${pattern?.name ?? 'this pattern'} with a new beat? Song parts using this pattern change too.${newSounds ? ' Instruments and key change across the song.' : ''}`}
-          confirmLabel="Generate"
-          onConfirm={() => void generate()}
-          onCancel={() => setConfirm(false)}
+          message={`Start a whole new ${pendingStyle.style.name} beat in ${pattern?.name ?? 'this pattern'}? It replaces every part, the chords and the tempo — lock a part to keep it. Song parts using this pattern change too.`}
+          confirmLabel="Start"
+          onConfirm={() => void applyStyle(pendingStyle.style, pendingStyle.surprise)}
+          onCancel={() => setPendingStyle(null)}
         />
       )}
     </section>

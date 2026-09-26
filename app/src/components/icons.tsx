@@ -273,3 +273,11 @@ export const RecordDotIcon = (p: IconProps) => (
     <circle cx="12" cy="12" r="6" fill="currentColor" stroke="none" />
   </Svg>
 )
+
+/** Locked: a closed shackle. Unlocked: the shackle swung open. */
+export const LockIcon = ({ open = false, ...p }: IconProps & { open?: boolean }) => (
+  <Svg {...p}>
+    <rect x="5" y="11" width="14" height="9" rx="2" />
+    <path d={open ? 'M8 11V8a4 4 0 0 1 7.5-1.9' : 'M8 11V8a4 4 0 0 1 8 0v3'} />
+  </Svg>
+)

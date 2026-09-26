@@ -184,18 +184,19 @@ export function useGroove() {
     })
 
   /**
-   * Fresh material for some parts only — each written from `style` (a new
-   * take when it's already that style) at the given busyness — leaving every
-   * other part exactly as it is. One pass and one groove update, so several
-   * parts can change at once. `newSounds` also swaps in the style's sounds
-   * for those parts; otherwise a part keeps its sound (one is built only if
-   * it has none).
+   * Fresh material for some parts only, leaving every other part exactly as
+   * it is: each part is written in `styleFor(part)` — a new take when it's
+   * already that style — keeping its own busyness and range. One pass and one
+   * groove update, so several parts can change at once. `newSounds` also
+   * swaps in each style's sounds for those parts; otherwise a part keeps its
+   * sound (one is built only if it has none).
    */
-  const regenerateLayers = (kinds: BankKind[], style: StyleDef, options: { intensity: number; newSounds?: boolean }) =>
-    run(`layers:${style.id}`, async () => {
-      const groove = state.groove ?? newGroove(style)
+  const regenerateLayers = (kinds: BankKind[], styleFor: (kind: BankKind) => StyleDef, options: { newSounds?: boolean } = {}) =>
+    run(`layers:${kinds.join('+')}`, async () => {
+      const groove = state.groove ?? newGroove(styleFor(kinds[0]!))
       const layers = { ...groove.layers }
       for (const kind of kinds) {
+        const style = styleFor(kind)
         const bank = getBank(state, kind)
         const current = layers[kind]
         let sound = bank.sound
@@ -207,7 +208,12 @@ export function useGroove() {
           dispatch({ type: 'APPLY_BANK_BUILDS', builds: [build], remap: 'index' })
           pads = build.pads
         }
-        const layer: GrooveLayer = { styleId: style.id, take: current?.styleId === style.id ? current.take + 1 : 0, intensity: options.intensity, ...(current?.range ? { range: current.range } : {}) }
+        const layer: GrooveLayer = {
+          styleId: style.id,
+          take: current?.styleId === style.id ? current.take + 1 : 0,
+          intensity: current?.intensity ?? DEFAULT_INTENSITY,
+          ...(current?.range ? { range: current.range } : {}),
+        }
         layers[kind] = layer
         writeLayer(state, dispatch, groove, bank, layer, sound, pads)
       }

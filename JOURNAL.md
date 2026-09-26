@@ -2234,3 +2234,18 @@ The user: pitching the verse shouldn't change the chorus. The bank Pitch had wri
 
 Verified: reducer tests (Verse vs another pattern, clamp, duplicate carries it), project round-trip, and a phone test — Verse at +12, Verse 2 still 0, whole-song playback plays Verse notes at +1200 cents and Verse 2's at 0.
 
+## 2026-09-26 — Make a beat, streamlined
+
+### Context
+Make a beat had grown to ~700 px on a phone with overlapping controls: two style pickers (Options' Surprise vs each part's), two busyness controls (Simple/Balanced/Complex vs Busy sliders), three ways to get a new take, fills/pauses duplicated by the Song's Ending sheet, and part chips whose meaning (what Generate touches) was hidden. The user approved a plan to fold these into one of each.
+
+### Decision(s)
+- One style menu in the header sets all unlocked parts (Surprise is an option); per-part menus override. Generate = new takes in each part's own style, keeping each part's Busy/Keys — `regenerateLayers` now takes a style per part and no longer overwrites intensity.
+- Locks replace the pick chips and reuse `Pattern.variationLocks`, so they're per pattern and saved; Vary honours the same locks.
+- Busy and Keys/Kit sliders and Clear open under a part (›), one at a time; Length and New sounds behind ⋯.
+- Vary keeps only the reshaping moves; the ending moves live in the Ending / transition sheet. Opening crash is dropped for now.
+- A whole new beat over an existing one still asks first; everything else is immediate.
+
+### Verification
+New phone suite (no removed controls; lock keeps a part byte-identical through Generate, the style menu and Vary; Mixed label; locks per pattern; one part open at a time; ⋯ contents; confirm before replacing; height 452 px with a beat vs ~700 before) plus every existing suite updated and passing.
+
