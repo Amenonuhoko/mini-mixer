@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { DRUM_KITS } from '../engine/drumSynth'
 import { soundName } from '../engine/bankBuilder'
 import { performSummary, performVoice, Performer } from '../engine/performer'
@@ -10,6 +10,7 @@ import { useNavigation } from '../state/NavigationContext'
 import { BANK_NAMES, bankColumns, getActiveBank, visibleBankPads } from '../state/banks'
 import { useEngine } from '../state/EngineContext'
 import { drumVoiceIcon, instrumentIconForName } from '../utils/instrumentIcon'
+import { keysOwnedElsewhere, padIndexForCode, padKeyAt } from '../utils/keyboard'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
 import { BankSoundPicker } from './BankSoundPicker'
@@ -46,6 +47,12 @@ function padFace(state: AppState, bank: Bank, pad: Pad, index: number): PadFace 
     return { label: null, icon: voice ? drumVoiceIcon(voice.kind) : null, home: false }
   }
   return { label: null, icon: null, home: false }
+}
+
+/** How a pad is played from the keyboard: the same press and release a pointer makes, keyed by an input id of the key's own. */
+interface PadKeyTarget {
+  press: (inputId: number) => void
+  release: (inputId: number) => void
 }
 
 /** One-tap starting sounds for an empty melodic bank; everything else is in the sound picker. */
@@ -120,6 +127,56 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
   const columns = bankColumns(bank)
   const moodLabel = state.mood ? moodById(state.mood).name : 'Custom'
 
+  // The computer keyboard plays the pads (see utils/keyboard for the map):
+  // each pad button registers its press/release here, and one window
+  // listener routes keys to them. A key is its own input, released on keyup
+  // — or on losing the window, so a note can't be left held behind Alt-Tab.
+  const keyTargets = useRef(new Map<number, PadKeyTarget>())
+  const padCount = visiblePads.length
+  useEffect(() => {
+    if (mixerModeEnabled) return
+    const held = new Map<string, number>()
+    const inputIds = new Map<string, number>()
+    const inputIdFor = (code: string) => {
+      let id = inputIds.get(code)
+      if (id === undefined) {
+        // Negative, so a key can never collide with a pointer id.
+        id = -(1 + inputIds.size)
+        inputIds.set(code, id)
+      }
+      return id
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return
+      const index = padIndexForCode(event.code, columns, padCount)
+      if (index === null || keysOwnedElsewhere(event.target)) return
+      event.preventDefault()
+      const target = keyTargets.current.get(index)
+      if (!target) return
+      held.set(event.code, index)
+      target.press(inputIdFor(event.code))
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const index = held.get(event.code)
+      if (index === undefined) return
+      held.delete(event.code)
+      keyTargets.current.get(index)?.release(inputIdFor(event.code))
+    }
+    const releaseAll = () => {
+      for (const [code, index] of held) keyTargets.current.get(index)?.release(inputIdFor(code))
+      held.clear()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', releaseAll)
+    return () => {
+      releaseAll()
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', releaseAll)
+    }
+  }, [columns, padCount, mixerModeEnabled])
+
   return (
     <section className={`module pad-grid bank-${bank.kind}`} aria-label="Pads">
       <header className="module-head">
@@ -173,6 +230,8 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
                 playbackMode={playbackMode}
                 sequencerRecordEnabled={sequencerRecordEnabled}
                 face={face}
+                keyHint={padKeyAt(index, columns, padCount)?.label ?? null}
+                keyTargets={keyTargets}
                 onSelect={onSelectPad}
               />
             )
@@ -306,6 +365,10 @@ interface PadButtonProps {
   /** When armed, pad hits add their sound to the current sequencer step during playback. */
   sequencerRecordEnabled: boolean
   face: PadFace
+  /** The keyboard key that plays this pad, printed on it for mouse-and-keyboard screens; null when it has none. */
+  keyHint: string | null
+  /** Where this pad registers how the keyboard plays it (see PadGrid). */
+  keyTargets: RefObject<Map<number, PadKeyTarget>>
   onSelect: (padId: string) => void
 }
 
@@ -331,12 +394,15 @@ function PadButton({
   playbackMode,
   sequencerRecordEnabled,
   face,
+  keyHint,
+  keyTargets,
   onSelect,
 }: PadButtonProps) {
   const { state, dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
   const filled = pad.sampleId !== null
   const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // A physical input is independently tracked by pointer id. A Map (rather
   // than one source ref) is what lets multiple fingers hold separate pads—or
@@ -382,29 +448,24 @@ function PadButton({
     activeSourcesRef.current.delete(pointerId)
   }
 
-  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    onSelect(pad.id)
-    if (!pad.sampleId) return
-    // Capture so a finger drifting off this small tile mid-press still
-    // reports its release here, not to whichever pad it ends up over —
-    // pads sit right next to each other, unlike the isolated record FAB.
-    // Set for a muted pad too: in loop mode, releasing still needs to be
-    // able to stop an already-looping pad even while it's muted.
-    event.currentTarget.setPointerCapture(event.pointerId)
-
-    if (loopModeEnabled || pad.muted) return
-    // Both Gate and One-shot begin from Pointer Events. Touch browsers only
-    // guarantee a synthetic click for the primary finger, whereas pointerdown
-    // is delivered independently to every simultaneous finger.
+  /**
+   * A press begins, from one physical input — a pointer or a key, told apart
+   * by an id the release will carry too. In loop mode a press does nothing
+   * yet (the release toggles the loop); otherwise it's a Gate or One-shot
+   * hit, unless the performer takes it (repeat / arp / strum).
+   */
+  const startHit = (inputId: number) => {
+    if (!pad.sampleId || loopModeEnabled || pad.muted) return
     const sample = state.samples[pad.sampleId]
     if (!sample) return
-    if (tryPerform(event.pointerId, playbackMode === 'gate')) return
+    if (tryPerform(inputId, playbackMode === 'gate')) return
     recordCurrentStep()
     const source = engine.triggerPad(pad, sample.buffer)
-    if (playbackMode === 'gate') activeSourcesRef.current.set(event.pointerId, source)
+    if (playbackMode === 'gate') activeSourcesRef.current.set(inputId, source)
   }
 
-  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+  /** The matching release: toggles the loop in loop mode, otherwise lets the performer or the gate go. */
+  const endHit = (inputId: number) => {
     if (loopModeEnabled) {
       if (!pad.sampleId) return
       // Muted blocks starting a new loop, same as a plain tap would, but
@@ -417,8 +478,54 @@ function PadButton({
       return
     }
 
-    if (releasePerform(event.pointerId)) return
-    if (playbackMode === 'gate') stopActiveSource(event.pointerId)
+    if (releasePerform(inputId)) return
+    if (playbackMode === 'gate') stopActiveSource(inputId)
+  }
+
+  // The keyboard plays this pad exactly as a pointer does. The handlers
+  // close over the current state, so the registered target reads the latest
+  // pair through a ref rather than being re-registered every render; the
+  // held look is a data attribute React doesn't manage, so a re-render
+  // mid-press (selecting the pad is one) can't wipe it.
+  const hitHandlers = useRef({ startHit, endHit })
+  useEffect(() => {
+    hitHandlers.current = { startHit, endHit }
+  })
+  useEffect(() => {
+    const targets = keyTargets.current
+    targets.set(index, {
+      press: (inputId) => {
+        buttonRef.current?.setAttribute('data-held', '')
+        onSelect(pad.id)
+        hitHandlers.current.startHit(inputId)
+      },
+      release: (inputId) => {
+        buttonRef.current?.removeAttribute('data-held')
+        hitHandlers.current.endHit(inputId)
+      },
+    })
+    return () => {
+      targets.delete(index)
+    }
+  }, [index, keyTargets, onSelect, pad.id])
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    onSelect(pad.id)
+    if (!pad.sampleId) return
+    // Capture so a finger drifting off this small tile mid-press still
+    // reports its release here, not to whichever pad it ends up over —
+    // pads sit right next to each other, unlike the isolated record FAB.
+    // Set for a muted pad too: in loop mode, releasing still needs to be
+    // able to stop an already-looping pad even while it's muted.
+    event.currentTarget.setPointerCapture(event.pointerId)
+    // Both Gate and One-shot begin from Pointer Events. Touch browsers only
+    // guarantee a synthetic click for the primary finger, whereas pointerdown
+    // is delivered independently to every simultaneous finger.
+    startHit(event.pointerId)
+  }
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    endHit(event.pointerId)
   }
 
   const handlePointerCancel = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -456,6 +563,7 @@ function PadButton({
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       className={[
         'pad',
@@ -487,6 +595,7 @@ function PadButton({
         </span>
       )}
       <PadFaceContent pad={pad} index={index} face={face} sampleLabel={sample?.label} />
+      {keyHint && filled && <span className="pad-hint" aria-hidden="true">{keyHint}</span>}
     </button>
   )
 }

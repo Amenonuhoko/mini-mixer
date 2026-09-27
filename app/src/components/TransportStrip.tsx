@@ -31,6 +31,13 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
 
       <TempoControl bpm={state.transport.bpm} onChange={(next) => dispatch({ type: 'SET_BPM', bpm: next })} />
 
+      {/* The keyboard, for mouse-and-keyboard screens: the pads print their own keys. */}
+      <span className="key-legend" aria-hidden="true">
+        <span className="key-legend-item"><kbd>Space</kbd> play</span>
+        <span className="key-legend-item"><kbd>←</kbd><kbd>→</kbd> bank</span>
+        <span className="key-legend-item"><kbd>Q</kbd><kbd>A</kbd><kbd>Z</kbd> rows pads</span>
+      </span>
+
       <div className="transport-tools">
         <button type="button" className="icon-btn" onClick={onOpenSettings} aria-label="Settings" title="Settings">
           <GearIcon />

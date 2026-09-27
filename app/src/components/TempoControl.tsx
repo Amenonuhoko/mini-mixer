@@ -115,6 +115,18 @@ export function TempoControl({ bpm, onChange }: TempoControlProps) {
     }
   }
 
+  // The mouse wheel over the readout nudges the tempo: a wheel click per BPM
+  // (ten with Shift), accumulated so a trackpad's stream of small deltas doesn't race.
+  const wheelRef = useRef(0)
+  const handleWheel = (event: React.WheelEvent<HTMLOutputElement>) => {
+    const notch = 100
+    wheelRef.current += event.deltaY
+    const notches = Math.trunc(wheelRef.current / notch)
+    if (notches === 0) return
+    wheelRef.current -= notches * notch
+    set(bpmRef.current - notches * (event.shiftKey ? 10 : 1))
+  }
+
   // --- Tap tempo -----------------------------------------------------------
   const tapsRef = useRef<number[]>([])
   const [tapping, setTapping] = useState(false)
@@ -142,8 +154,9 @@ export function TempoControl({ bpm, onChange }: TempoControlProps) {
         aria-valuemax={BPM_MAX}
         aria-valuenow={bpm}
         aria-expanded={open}
-        title="Drag to change tempo · tap for more"
+        title="Drag or scroll to change tempo · tap for more"
         onPointerDown={handlePointerDown}
+        onWheel={handleWheel}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={() => (scrubRef.current = null)}

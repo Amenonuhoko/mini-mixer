@@ -1010,6 +1010,48 @@ button:disabled {
   color: var(--text-faint);
 }
 
+/* What the keyboard does, in the strip's spare middle — only where there's a mouse and keyboard. */
+.key-legend {
+  display: none;
+  align-items: center;
+  gap: 14px;
+  margin-left: var(--s3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.key-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.key-legend kbd {
+  display: inline-block;
+  min-width: 18px;
+  margin-right: 3px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .key-legend {
+    display: inline-flex;
+  }
+}
+
 .transport-tools {
   display: flex;
   align-items: center;
@@ -1558,6 +1600,50 @@ button:disabled {
 /* Loop mode hint: filled pads pick up an orange edge so the grid reads as "tap to loop". */
 .loop-mode .pad.filled:not(.looping) {
   border-color: rgb(var(--orange-rgb) / 0.35);
+}
+
+/* A pad held from the keyboard presses in like a finger would (see PadGrid). */
+.pad[data-held] {
+  transform: scale(0.955);
+  transition-duration: 45ms, var(--fast);
+}
+
+/* The key that plays the pad — printed only where there is a keyboard to play it from. */
+.pad-hint {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  display: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgb(var(--bank-rgb) / 0.55);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pad-hint {
+    display: block;
+  }
+
+  /* The name leaves the corner to the key. */
+  .pad.filled:not(.labeled) .pad-name {
+    right: 24px;
+  }
+
+  .pad.filled:hover {
+    border-color: rgb(var(--bank-rgb) / 0.6);
+    box-shadow:
+      0 0 16px rgb(var(--bank-rgb) / 0.14),
+      inset 0 1px 0 rgb(var(--bank-rgb) / 0.22),
+      inset 0 0 22px rgb(var(--bank-rgb) / 0.06);
+  }
+
+  .pad.empty:hover {
+    border-color: rgb(var(--cyan-rgb) / 0.4);
+    color: var(--text-dim);
+  }
 }
 
 /* Mix: the bank's volume and effects above the grid; each pad a tile that opens its own sheet. */
@@ -2880,6 +2966,64 @@ button.list-item:hover .list-wave {
   .wide-split > .sequencer-column { grid-area: seq; }
   .wide-split > .pads-page { grid-area: pads; }
   .wide-split > .beat-starter { grid-area: beat; }
+
+  /* A workstation, not a long page: the split fills the window. The sequencer
+     scrolls in its own pane and takes whatever the dock beneath it leaves; the
+     dock — the pads and Make a beat — holds at most three fifths of the height,
+     each side scrolling within itself past that (the pads' play controls stay
+     pinned, as on a phone), so nothing here is ever below the fold. */
+  .app-shell > .wide-split {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+    grid-template-rows: minmax(240px, 1fr) minmax(0, 62%);
+  }
+
+  .wide-split > .pads-page,
+  .wide-split > .beat-starter {
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px;
+    margin: -2px;
+  }
+
+  /* Docked under the sequencer, a square pad grid would take the window: desktop pads are a little wider than tall, like a drum rack's cells. */
+  .wide-split .pad-grid-cells:not(.dense) .pad {
+    aspect-ratio: 1.3;
+    max-height: 78px;
+  }
+
+  .wide-split > .sequencer-column {
+    align-self: stretch;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    /* Room for the module's edge light, which the scroll box would otherwise clip. */
+    padding: 2px;
+    margin: -2px;
+  }
+
+  /* The tab bar becomes a console dock in the middle of the window, the room lit either side of it. */
+  .bottom-stack {
+    align-items: center;
+  }
+
+  .bottom-row {
+    width: min(100%, 760px);
+  }
+
+  .tabbar {
+    border: 1px solid rgb(var(--cyan-rgb) / 0.16);
+    border-bottom: 0;
+    border-image: none;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    box-shadow:
+      0 -10px 36px rgb(0 0 0 / 0.5),
+      inset 0 1px 0 rgb(var(--cyan-rgb) / 0.14);
+  }
 
   .sequencer {
     --step: 30px;

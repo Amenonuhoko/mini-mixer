@@ -16,6 +16,7 @@ import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
 import { useIsLandscapeLayout } from './hooks/useIsLandscapeLayout'
 import { useIsWideScreen } from './hooks/useIsWideScreen'
+import { useTransportKeys } from './hooks/useTransportKeys'
 import { AppStateProvider, useAppState } from './state/AppStateContext'
 import { EngineProvider, useEngine } from './state/EngineContext'
 import { NavigationProvider, useNavigation } from './state/NavigationContext'
@@ -96,6 +97,7 @@ function Shell() {
   const shellRef = useRef<HTMLElement>(null)
   const swipeStart = useRef<{ x: number; y: number; identifier: number; startedAt: number } | null>(null)
   useAutosave(state, dispatch, engine)
+  useTransportKeys()
 
   const isWide = useIsWideScreen()
   const isLandscape = useIsLandscapeLayout()
