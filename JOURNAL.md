@@ -2249,3 +2249,7 @@ Make a beat had grown to ~700 px on a phone with overlapping controls: two style
 ### Verification
 New phone suite (no removed controls; lock keeps a part byte-identical through Generate, the style menu and Vary; Mixed label; locks per pattern; one part open at a time; ⋯ contents; confirm before replacing; height 452 px with a beat vs ~700 before) plus every existing suite updated and passing.
 
+## 2026-09-27 — Make a beat, simpler still
+
+The user found the compact-rows version still too busy. Chosen direction: style menu + Generate, four part chips that lock, a small Vary row; each part's own style / take / Busy / Keys / Clear moves to its bank header in Seq (a "House ⋯" button beside Phrasing opening `PartSheet`) — where you're already looking at that part. Generate's rule is one line: unlocked parts in the chosen style (same style → new takes with your instruments; new style → its instruments; nothing locked + new style → whole beat, confirmed over an existing one). Length and New sounds were dropped (the style's length; sounds follow the style change); New chords joins Vary. Height with a beat: 224 px (was ~700, then 452). On an empty project only Drums has a bank in Seq, so the other parts' sheets appear once a beat exists — Make a beat is the way in.
+

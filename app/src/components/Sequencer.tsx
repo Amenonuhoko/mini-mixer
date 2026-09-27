@@ -18,7 +18,9 @@ import type { PendingRecording } from './RecordingReview'
 import { StepsMenu } from './StepsMenu'
 import { Stepper } from './Stepper'
 import { PatternBeatStarter } from './BeatStarter'
+import { styleById } from '../styles/library'
 import { PhrasingEditor } from './PhrasingEditor'
+import { PartSheet } from './PartSheet'
 
 const GROUP_SIZE = 4
 /** Painting near the scroll area's edge scrolls it: how close (px), and how fast (px per frame). */
@@ -83,6 +85,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const [confirmClear, setConfirmClear] = useState(false)
   const [deletingBankId, setDeletingBankId] = useState<string | null>(null)
   const [phrasingBankId, setPhrasingBankId] = useState<string | null>(null)
+  const [partKind, setPartKind] = useState<Bank['kind'] | null>(null)
   const [sequencerGateMode, setSequencerGateMode] = useState(false)
   const [previewOnClick, setPreviewOnClick] = useState(true)
   const [loadPickerOpen, setLoadPickerOpen] = useState(false)
@@ -316,6 +319,12 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const selectedPad = selectedPadId ? visiblePads.find((pad) => pad.id === selectedPadId) : undefined
   const selectedBank = selectedPad ? state.banks.find((bank) => bank.padIds.includes(selectedPad.id)) : undefined
 
+  /** A bank header's part button: the style its generated layer is in, or an invitation. */
+  const partLabel = (kind: Bank['kind'], live: boolean) => {
+    const layer = state.groove?.layers[kind]
+    return (live && layer ? styleById(layer.styleId)?.name : undefined) ?? 'Style'
+  }
+
   return (
     <div className="sequencer-column">
     {withBeatStarter && <PatternBeatStarter />}
@@ -465,6 +474,15 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                   <button type="button" className="sequencer-bank-style" aria-label={`${BANK_NAMES[bank.kind]} phrasing`} onClick={() => { dispatch({ type: 'KEEP_VARIATION' }); setPhrasingBankId(bank.id) }}>Phrasing</button>
                   <button
                     type="button"
+                    className="sequencer-bank-style sequencer-bank-part"
+                    aria-label={`${BANK_NAMES[bank.kind]} style and feel`}
+                    title="This part's style, a new take, Busy and Keys / Kit"
+                    onClick={() => { dispatch({ type: 'KEEP_VARIATION' }); setPartKind(bank.kind) }}
+                  >
+                    {partLabel(bank.kind, bankHasSteps)} ⋯
+                  </button>
+                  <button
+                    type="button"
                     className="sequencer-bank-toggle"
                     onClick={() => setExpandedOverride((current) => ({ ...current, [bank.id]: !expanded }))}
                     aria-expanded={expanded}
@@ -524,6 +542,9 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
       )}
       {phrasingBankId && state.banks.find((bank) => bank.id === phrasingBankId) && (
         <PhrasingEditor bank={state.banks.find((bank) => bank.id === phrasingBankId)!} pattern={pattern} onClose={() => setPhrasingBankId(null)} />
+      )}
+      {partKind && (
+        <PartSheet kind={partKind} onClose={() => setPartKind(null)} />
       )}
       {patternMenuOpen && (
         <Overlay onClose={() => setPatternMenuOpen(false)} title="Pattern" subtitle="Everything about the pattern in the grid.">
