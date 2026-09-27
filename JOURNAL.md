@@ -2280,3 +2280,16 @@ The user asked for an upgrade to the desktop experience. On a desktop window the
 
 ### Verification
 Types, lint (the same three pre-existing warnings), 226 unit tests (six new for the key map and the focus guard) and the build pass. Driven headless in Chromium at 1440×900 with a generated beat: Space flips the transport and stops it; holding Z presses the bottom-left pad (Cowbell) and lights its glow to 0.32, release clears it; → and ← move Drums → Bass → Drums; with a select focused, Space and Z do nothing; one wheel click takes 147 to 148 BPM; the docked layout numbers above. At 390×844 the legend and hints are hidden, the tab bar is full width, pads are square and nothing scrolls sideways. No console errors from the app.
+
+## 2026-09-27 — Pads alone, Seq alone, or Both: the studio's three views on a wide screen
+
+### Context
+On a wide screen the Pads and Seq tabs both lit the docked split; there was no way to give one of them the whole window. The user asked to switch from only pads to only sequencer.
+
+### Decision(s)
+- A `StudioView` in NavigationContext — `'both' | 'pads' | 'sequencer'` — remembered in localStorage. On a screen that can show both (the wide split or the landscape stack), the Pads tab shows the pads alone and the Seq tab the sequencer alone; a **Both** tab between them, present only there, restores the split. From Song or Library, Both lands in the split; Pads and Seq lit together mean the split, one lit means it has the window. A phone never sees the Both tab and behaves as before.
+- Pads alone are a performance surface: square again (the split's drum-rack cells apply only inside `.wide-split`), centred at up to 720 px wide — 168 px pads at 1440 — rather than stretched across the window. The sequencer alone brings Make a beat with it, as on a phone, and the shell scrolls as a page again; the docked panes belong to Both.
+- The tab bar is now two mirrored groups either side of Play (`1fr auto 1fr`, the left group justified to its end, the right to its start), so Play stays dead centre whether the left group holds two tabs or three. On a phone the groups shrink exactly as the old flat grid did (34 px tabs at 360 px — the "Library" label overflowing there by 8 px is pre-existing and unchanged).
+
+### Verification
+Types, lint (the same three warnings), 226 tests and the build pass. Driven headless at 1440×900: Pads → pads only, 168 px squares, Play centred, no shell scroll; Seq → sequencer and Make a beat only; the choice survives a reload; Both → the split with all three studio tabs lit; Song then Both → the split. At 360×780 the tabs are Pads · Seq · Song · Library, Play is centred, no sideways scroll. A faint rectangle seen behind the solo pads turned out, by pixel comparison with the light field hidden, to be the module's own glow over the hex mesh — not an element, nothing to fix.
