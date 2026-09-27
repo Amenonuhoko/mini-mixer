@@ -3674,3 +3674,43 @@ button.list-item:hover .list-wave {
 }
 
 .fx-pitch-note { display: block; margin-top: 4px; color: var(--orange); font-size: var(--fs-xs); line-height: 1.4; }
+
+/* Seq's whole-song grid: every section side by side, each a run of its own pattern's steps. */
+.seq-segment {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  padding-left: 8px;
+  border-left: 2px solid rgb(var(--cyan-rgb) / 0.22);
+}
+.seq-segment-groups {
+  display: flex;
+  gap: 8px;
+}
+.seq-segment-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 0;
+  min-width: 100%;
+  height: 34px;
+  overflow: hidden;
+}
+.seq-segment-name {
+  flex: 0 1 auto;
+  margin-right: 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.seq-segment-head .icon-btn-sm { flex: none; width: 30px; height: 30px; font-size: 11px; }
+.sequencer-song-heads { align-items: flex-end; }
+.seq-segment.heard .seq-segment-name { color: var(--orange); text-shadow: var(--text-glow-orange); }
+.sequencer-song-title { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-dim); letter-spacing: 0.06em; }
+.sequencer-song-toggle { margin-left: auto; }

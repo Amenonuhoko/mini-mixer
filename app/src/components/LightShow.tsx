@@ -121,7 +121,10 @@ export function LightShow() {
       const step = engine.getPlayheadStep()
       if (step !== playhead) {
         for (const cell of playheadCells) cell.removeAttribute('data-playhead')
-        playheadCells = step === null ? [] : [...document.querySelectorAll<HTMLElement>(`.sequencer-grid [data-step-index="${step}"]`)]
+        // The whole-song grid shows every section: mark the step only in the section being heard.
+        const section = document.querySelector<HTMLElement>('.sequencer-grid[data-current-section]')?.dataset.currentSection
+        const scope = section ? `[data-section="${section}"]` : ''
+        playheadCells = step === null ? [] : [...document.querySelectorAll<HTMLElement>(`.sequencer-grid ${scope}[data-step-index="${step}"]`)]
         for (const cell of playheadCells) cell.setAttribute('data-playhead', '')
         playhead = step
       }

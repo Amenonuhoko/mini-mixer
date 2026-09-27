@@ -11,7 +11,7 @@ import { computePeaks } from '../utils/waveform'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { Bank, Pad, Sample, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { BrushIcon, EyeIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon } from './icons'
+import { BrushIcon, EyeIcon, LoopIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon } from './icons'
 import { Overlay } from './Overlay'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
@@ -32,6 +32,8 @@ interface PaintCell {
   padId: string
   step: number
   on: boolean
+  /** In the whole-song grid, the section the cell belongs to (its pattern takes the edit). */
+  section?: string | undefined
 }
 
 /** A drag across step cells: draws, or erases if it started on a lit cell. */
@@ -93,6 +95,8 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const [confirmRepeat, setConfirmRepeat] = useState(false)
   const [patternMenuOpen, setPatternMenuOpen] = useState(false)
   const [fillOpen, setFillOpen] = useState(false)
+  // The whole song side by side in one grid, every section editable in place.
+  const [songView, setSongView] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
   const [confirmCopy, setConfirmCopy] = useState(false)
   const { selectedPadId, selectPad, beatStarts } = useNavigation()
@@ -127,6 +131,34 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
     : false
   const sampleLabels = Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))
+
+  // --- Whole song -----------------------------------------------------------
+  // Every section once, in song order, each showing its own pattern; a pattern
+  // two sections share shows (and edits) in both.
+  const segments = songView
+    ? state.songSections.flatMap((section) => {
+        const segmentPattern = state.patterns.find((item) => item.id === section.patternId)
+        return segmentPattern ? [{ section, pattern: segmentPattern }] : []
+      })
+    : []
+  const patternForSection = (sectionId: string | undefined) =>
+    segments.find((segment) => segment.section.id === sectionId)?.pattern ?? pattern
+  const showSong = (on: boolean) => {
+    engine.setSequencerPlaybackEnabled(false)
+    engine.stopAllSounds()
+    dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+    // Play follows what's on screen: the whole song here, the pattern otherwise.
+    dispatch({ type: 'SET_PLAY_MODE', mode: on ? 'song' : 'pattern' })
+    setSongView(on)
+  }
+  const playSection = (sectionId: string, scope: 'rest' | 'loop') => {
+    engine.getContext()
+    engine.setSequencerPlaybackEnabled(false)
+    engine.stopAllSounds()
+    const looping = scope === 'loop' && state.transport.isPlaying && state.transport.auditionScope === 'loop' && state.transport.auditionSectionId === sectionId
+    if (looping) dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+    else dispatch({ type: 'AUDITION_SONG_SECTION', sectionId, scope })
+  }
 
   const handleBounce = async () => {
     if (!pattern || bouncing) return
@@ -181,7 +213,8 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     const padId = el.dataset.padId
     if (!padId) return null
     const step = Number(el.dataset.stepIndex)
-    return { key: `${padId}:${step}`, padId, step, on: el.classList.contains('on') }
+    const section = el.dataset.section
+    return { key: `${padId}:${section ?? ''}:${step}`, padId, step, on: el.classList.contains('on'), section }
   }
 
   const cellAt = (x: number, y: number): PaintCell | null => {
@@ -207,17 +240,18 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
 
   const paintCell = (cell: PaintCell) => {
     const paint = paintRef.current
-    if (!paint || !pattern || paint.applied.has(cell.key)) return
+    const target = patternForSection(cell.section)
+    if (!paint || !target || paint.applied.has(cell.key)) return
     paint.applied.add(cell.key)
     paint.painted = true
     const pad = padsById.get(cell.padId)
     if (!pad) return
     if (paint.mode === 'erase') {
-      if (cell.on) dispatch({ type: 'CLEAR_STEP', patternId: pattern.id, padId: pad.id, stepIndex: cell.step })
+      if (cell.on) dispatch({ type: 'CLEAR_STEP', patternId: target.id, padId: pad.id, stepIndex: cell.step })
       return
     }
     if (cell.on || !pad.sampleId) return
-    dispatch({ type: 'SET_STEP_SAMPLE', patternId: pattern.id, padId: pad.id, stepIndex: cell.step, sampleId: pad.sampleId })
+    dispatch({ type: 'SET_STEP_SAMPLE', patternId: target.id, padId: pad.id, stepIndex: cell.step, sampleId: pad.sampleId })
     // Hear the first cell of a stroke, so you know what you're painting with.
     const sample = state.samples[pad.sampleId]
     if (paint.applied.size === 1 && previewOnClick && sample && !pad.muted) engine.triggerPad(pad, sample.buffer)
@@ -329,11 +363,14 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     <div className="sequencer-column">
     {withBeatStarter && <PatternBeatStarter />}
     <section
-      className={pattern.stepCount <= 16 ? 'module sequencer sequencer-fits-desktop' : 'module sequencer'}
+      className={['module sequencer', pattern.stepCount <= 16 && !songView ? 'sequencer-fits-desktop' : '', songView ? 'sequencer-song' : ''].filter(Boolean).join(' ')}
       aria-label="Sequencer"
     >
       <header className="module-head">
         <h2 className="module-title">Seq</h2>
+        {songView ? (
+          <span className="sequencer-song-title">Whole song · {segments.length} sections</span>
+        ) : (<>
         <select
           className="sequencer-pattern-select"
           value={pattern.id}
@@ -365,11 +402,22 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
         >
           <MoreIcon />
         </button>
-        {editingSection && (
+        </>)}
+        <button
+          type="button"
+          className={songView ? 'chip-btn on sequencer-song-toggle' : 'chip-btn sequencer-song-toggle'}
+          aria-pressed={songView}
+          onClick={() => showSong(!songView)}
+          title={songView ? 'Back to one pattern' : 'See and edit the whole song, section by section'}
+        >
+          Whole song
+        </button>
+        {!songView && editingSection && (
           <span className="module-sub">
             {state.transport.isPlaying ? 'Looping' : 'Loop ready'} {editingSection.name}
           </span>
         )}
+        {!songView && (
         <div className="module-head-tools">
           <Stepper
             label="Steps"
@@ -383,6 +431,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
             incrementTitle="Add four steps"
           />
         </div>
+        )}
       </header>
 
       <div className="toolbar" role="toolbar" aria-label="Sequence tools">
@@ -415,7 +464,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
             <BrushIcon size={14} />
             Paint
           </button>
-          <button
+          {!songView && <button
             type="button"
             className="chip-btn"
             onClick={() => setFillOpen(true)}
@@ -423,11 +472,11 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
             title={selectedPad ? 'Fill the selected row in one tap — every beat, 8th, 16th…' : 'Tap a row name to pick the row to fill'}
           >
             Fill row
-          </button>
+          </button>}
         </div>
       </div>
 
-      {!patternHasSteps && (
+      {!songView && !patternHasSteps && (
         <p className="sequencer-empty">
           <span className="sequencer-empty-text">Blank canvas? Tap steps, or pick parts and a style in Make a beat and press Generate.</span>
         </p>
@@ -437,13 +486,43 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
         <div
           className={paintMode ? 'sequencer-grid painting' : 'sequencer-grid'}
           ref={gridRef}
+          {...(songView ? { 'data-current-section': state.transport.currentSongSectionId ?? '' } : {})}
           onPointerDown={handleGridPointerDown}
           onPointerMove={handleGridPointerMove}
           onPointerUp={handleGridPointerEnd}
           onPointerCancel={handleGridPointerEnd}
           onClickCapture={handleGridClickCapture}
         >
-          <div className="sequencer-row sequencer-header-row" aria-hidden="true">
+          {songView ? (
+            <div className="sequencer-row sequencer-header-row sequencer-song-heads">
+              <div className="sequencer-row-fixed" />
+              {segments.map(({ section, pattern: segmentPattern }, index) => {
+                const name = section.name || `Section ${index + 1}`
+                const label = state.songSections.filter((item) => item.name === section.name).length > 1 ? `${name} (part ${index + 1})` : name
+                const looping = state.transport.isPlaying && state.transport.auditionScope === 'loop' && state.transport.auditionSectionId === section.id
+                const heard = state.transport.isPlaying && state.transport.currentSongSectionId === section.id
+                return (
+                  <div className={['seq-segment', heard ? 'heard' : ''].filter(Boolean).join(' ')} key={section.id}>
+                    <div className="seq-segment-head">
+                      <span className="seq-segment-name">{name}{section.repeats > 1 ? ` ×${section.repeats}` : ''}</span>
+                      <button type="button" className="icon-btn icon-btn-sm" onClick={() => playSection(section.id, 'rest')} aria-label={`Play song from ${label}`} title="Play the song from here">▶</button>
+                      <button type="button" className={looping ? 'icon-btn icon-btn-sm on' : 'icon-btn icon-btn-sm'} onClick={() => playSection(section.id, 'loop')} aria-pressed={looping} aria-label={`Loop ${label}`} title={looping ? 'Stop looping this section' : 'Loop just this section'}>
+                        <LoopIcon size={13} />
+                      </button>
+                    </div>
+                    <div className="seq-segment-groups" aria-hidden="true">
+                      {chunk(Array.from({ length: segmentPattern.stepCount }, (_, i) => i), GROUP_SIZE).map((group, gi) => (
+                        <div className="step-group" key={gi}>
+                          <span className="step-group-number">{group[0]! + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="sequencer-row sequencer-header-row" aria-hidden="true">
             <div className="sequencer-row-fixed" />
             {chunk(
               Array.from({ length: pattern.stepCount }, (_, i) => i),
@@ -454,23 +533,26 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
               </div>
             ))}
           </div>
+          )}
           {state.banks.map((bank) => {
             const bankPads = visibleBankPads(state, bank)
             if (bankPads.length === 0) return null
             const melodic = bank.kind !== 'drums'
-            const used = (pad: Pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null)
+            const used = (pad: Pad) => (songView ? segments.map((segment) => segment.pattern) : [pattern])
+              .some((item) => (item.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
             const expanded = expandedOverride[bank.id] ?? bank.id === state.activeBankId
             const ordered = melodic
               ? [...bankPads].sort((a, b) => (b.music?.midis[0] ?? 0) - (a.music?.midis[0] ?? 0))
               : bankPads
             // A folded bank still shows the selected pad's row, so a pad picked on the Pads page is always here.
             const rows = expanded ? ordered : ordered.filter((pad) => used(pad) || pad.id === selectedPadId)
-            const removedFromPart = targetSection?.excludedBanks?.includes(bank.kind) ?? false
+            const removedFromPart = !songView && (targetSection?.excludedBanks?.includes(bank.kind) ?? false)
             const bankHasSteps = bankPads.some(used)
             return (
               <div className={`sequencer-bank bank-${bank.kind}`} key={bank.id}>
                 <div className="sequencer-bank-head">
                   <span className="sequencer-bank-name">{BANK_NAMES[bank.kind]}</span>
+                  {!songView && <>
                   <button type="button" className="sequencer-bank-style" aria-label={`${BANK_NAMES[bank.kind]} phrasing`} onClick={() => { dispatch({ type: 'KEEP_VARIATION' }); setPhrasingBankId(bank.id) }}>Phrasing</button>
                   <button
                     type="button"
@@ -481,6 +563,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                   >
                     {partLabel(bank.kind, bankHasSteps)} ⋯
                   </button>
+                  </>}
                   <button
                     type="button"
                     className="sequencer-bank-toggle"
@@ -490,7 +573,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                   >
                     {expanded ? 'Used rows only' : `Show all ${bankPads.length}`}
                   </button>
-                  <button
+                  {!songView && <button
                     type="button"
                     className="icon-btn danger"
                     onClick={() => setDeletingBankId(bank.id)}
@@ -499,7 +582,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                     title="Permanently delete this group's steps from the pattern, including linked song parts"
                   >
                     <TrashIcon size={14} />
-                  </button>
+                  </button>}
                 </div>
                 {removedFromPart && (
                   <p className="sequencer-bank-removed">Left out of {targetSection?.name} — bring it back on the Song page.</p>
@@ -517,8 +600,9 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                   selected={pad.id === selectedPadId}
                   gateMode={sequencerGateMode}
                   previewOnClick={previewOnClick}
-                  onToggleStep={(stepIndex) =>
-                    dispatch({ type: 'TOGGLE_STEP', patternId: pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
+                  {...(songView ? { segments: segments.map((segment) => ({ sectionId: segment.section.id, steps: segment.pattern.steps[pad.id] ?? new Array<string | null>(segment.pattern.stepCount).fill(null) })) } : {})}
+                  onToggleStep={(stepIndex, sectionId) =>
+                    dispatch({ type: 'TOGGLE_STEP', patternId: patternForSection(sectionId)?.id ?? pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
                   }
                   onPick={() => pickRow(bank, pad)}
                 />
@@ -725,7 +809,9 @@ interface SequencerRowProps {
   selected: boolean
   gateMode: boolean
   previewOnClick: boolean
-  onToggleStep: (stepIndex: number) => void
+  /** The whole-song grid: one run of steps per section, side by side. */
+  segments?: Array<{ sectionId: string; steps: Array<string | null> }>
+  onToggleStep: (stepIndex: number, sectionId?: string) => void
   /** Tapping the row's name: hear it, and make it the selected pad (on the Pads page too). */
   onPick: () => void
 }
@@ -747,6 +833,7 @@ function SequencerRow({
   selected,
   gateMode,
   previewOnClick,
+  segments,
   onToggleStep,
   onPick,
 }: SequencerRowProps) {
@@ -767,13 +854,43 @@ function SequencerRow({
     gateSources.current.set(event.pointerId, engine.triggerPad(pad, sample.buffer))
   }
 
-  const toggle = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number) => {
-    onToggleStep(stepIndex)
+  const toggle = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number, sectionId?: string) => {
+    onToggleStep(stepIndex, sectionId)
     if (on || !sample || pad.muted || !previewOnClick) return
     // In Gate mode the note began on pointer-down and is stopped by release.
     // Keyboard activation has no pointer lifecycle, so give it a normal audition.
     if (!gateMode || event.detail === 0) engine.triggerPad(pad, sample.buffer)
   }
+
+  const renderGroups = (rowSteps: Array<string | null>, rowTrace: Array<string | null>, sectionId?: string) =>
+    chunk(rowSteps, GROUP_SIZE).map((group, groupIndex) => (
+        <div className="step-group" key={groupIndex}>
+          {group.map((sampleId, i) => {
+            const stepIndex = groupIndex * GROUP_SIZE + i
+            const on = sampleId !== null
+            const traceSampleId = rowTrace[stepIndex] ?? null
+            const traced = !on && traceSampleId !== null
+            const sampleLabel = sampleId ? sampleLabels[sampleId] ?? 'deleted sample' : null
+            const traceLabel = traceSampleId ? sampleLabels[traceSampleId] ?? 'deleted sample' : null
+            return (
+              <button
+                key={stepIndex}
+                type="button"
+                data-step-index={stepIndex}
+                data-pad-id={pad.id}
+                data-section={sectionId}
+                className={['step', on ? 'on' : '', traced ? 'trace' : ''].filter(Boolean).join(' ')}
+                onPointerDown={startGate}
+                onPointerUp={(event) => stopGateSource(event.pointerId)}
+                onPointerCancel={(event) => stopGateSource(event.pointerId)}
+                onClick={(event) => toggle(event, on, stepIndex, sectionId)}
+                aria-label={sampleLabel ? `step ${stepIndex + 1} for ${rowName}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for ${rowName}: ${traceLabel}` : `step ${stepIndex + 1} for ${rowName}`}
+                title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace: ${traceLabel}` : `Step ${stepIndex + 1}`}
+              />
+            )
+          })}
+        </div>
+      ))
 
   return (
     <div className={['sequencer-row', looping ? 'row-looping' : '', selected ? 'selected' : ''].filter(Boolean).join(' ')} data-row-pad={pad.id}>
@@ -794,33 +911,13 @@ function SequencerRow({
           {looping && <span className="row-loop-badge" aria-hidden="true" />}
         </button>
       </div>
-      {chunk(steps, GROUP_SIZE).map((group, groupIndex) => (
-        <div className="step-group" key={groupIndex}>
-          {group.map((sampleId, i) => {
-            const stepIndex = groupIndex * GROUP_SIZE + i
-            const on = sampleId !== null
-            const traceSampleId = traceSteps[stepIndex] ?? null
-            const traced = !on && traceSampleId !== null
-            const sampleLabel = sampleId ? sampleLabels[sampleId] ?? 'deleted sample' : null
-            const traceLabel = traceSampleId ? sampleLabels[traceSampleId] ?? 'deleted sample' : null
-            return (
-              <button
-                key={stepIndex}
-                type="button"
-                data-step-index={stepIndex}
-                data-pad-id={pad.id}
-                className={['step', on ? 'on' : '', traced ? 'trace' : ''].filter(Boolean).join(' ')}
-                onPointerDown={startGate}
-                onPointerUp={(event) => stopGateSource(event.pointerId)}
-                onPointerCancel={(event) => stopGateSource(event.pointerId)}
-                onClick={(event) => toggle(event, on, stepIndex)}
-                aria-label={sampleLabel ? `step ${stepIndex + 1} for ${rowName}: ${sampleLabel}` : traceLabel ? `Trace at step ${stepIndex + 1} for ${rowName}: ${traceLabel}` : `step ${stepIndex + 1} for ${rowName}`}
-                title={sampleLabel ? `Step ${stepIndex + 1}: ${sampleLabel}` : traceLabel ? `Trace: ${traceLabel}` : `Step ${stepIndex + 1}`}
-              />
-            )
-          })}
-        </div>
-      ))}
+      {segments
+        ? segments.map((segment) => (
+            <div className="seq-segment" key={segment.sectionId}>
+              <div className="seq-segment-groups">{renderGroups(segment.steps, [], segment.sectionId)}</div>
+            </div>
+          ))
+        : renderGroups(steps, traceSteps)}
     </div>
   )
 }
