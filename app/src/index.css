@@ -3027,6 +3027,11 @@ button.list-item:hover .list-wave {
     margin: 0 auto;
   }
 
+  /* The sequencer alone leads with the grid; Make a beat follows it (a phone still leads with Make a beat — see .beat-starter). */
+  .studio-solo-sequencer .sequencer-column > .beat-starter {
+    order: 1;
+  }
+
   .wide-split > .sequencer-column {
     align-self: stretch;
     min-height: 0;
@@ -3890,7 +3895,7 @@ button.list-item:hover .list-wave {
     inset 0 0 18px rgb(var(--orange-rgb) / 0.08);
 }
 
-/* Preset creation is a visible first step on both phone pages. */
+/* Preset creation is a visible first step on both phone pages (a wide screen's Seq view puts it after the grid instead — see .studio-solo-sequencer). */
 .beat-starter { padding: 14px; display: grid; gap: 10px; flex-shrink: 0; }
 .beat-starter p { margin: 0; font-size: 12px; line-height: 1.5; }
 .beat-starter select { background: var(--deck-raised); color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px; }

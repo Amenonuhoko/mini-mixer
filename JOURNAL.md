@@ -2293,3 +2293,7 @@ On a wide screen the Pads and Seq tabs both lit the docked split; there was no w
 
 ### Verification
 Types, lint (the same three warnings), 226 tests and the build pass. Driven headless at 1440×900: Pads → pads only, 168 px squares, Play centred, no shell scroll; Seq → sequencer and Make a beat only; the choice survives a reload; Both → the split with all three studio tabs lit; Song then Both → the split. At 360×780 the tabs are Pads · Seq · Song · Library, Play is centred, no sideways scroll. A faint rectangle seen behind the solo pads turned out, by pixel comparison with the light field hidden, to be the module's own glow over the hex mesh — not an element, nothing to fix.
+
+## 2026-09-27 — Make a beat below the grid in the wide Seq view
+
+The user asked for Make a beat below the sequencer. In the wide screen's Seq-alone view the sequencer column now leads with the grid and Make a beat follows it (a CSS `order` on `.studio-solo-sequencer`, so the phone keeps its documented order: Make a beat first, a visible first step). The docked Both view is unchanged — there Make a beat sits beside the pads. Verified headless: at 1440×900 the grid ends at 551 px and Make a beat starts at 563; at 390×844 Make a beat still precedes the grid. Types, build and 226 tests pass.
