@@ -3621,7 +3621,11 @@ button.list-item:hover .list-wave {
 .layer-strip-controls .chip-btn { white-space: nowrap; }
 
 .song-link-note { grid-column: 2 / -1; margin: 0; }
-.beat-edit-context { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; }
+.beat-edit-context { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; padding: 10px 12px; border: 1px solid rgb(var(--orange-rgb) / 0.5); border-radius: var(--r-md); background: rgb(var(--orange-rgb) / 0.06); }
+.beat-edit-text { display: grid; gap: 2px; min-width: 0; flex: 1 1 200px; }
+.beat-edit-text strong { color: var(--orange); }
+.beat-edit-text span { font-size: var(--fs-xs); color: var(--text-dim); line-height: 1.4; }
+.beat-edit-actions { display: flex; gap: 6px; }
 
 .variation-decision { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px; background: var(--deck-solid); border: 1px solid var(--cyan); border-radius: 10px; margin-bottom: 10px; flex-shrink: 0; }
 .variation-decision small { flex-basis: 100%; }
@@ -3689,15 +3693,16 @@ button.list-item:hover .list-wave {
 }
 .seq-segment-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 4px 6px;
   width: 0;
   min-width: 100%;
-  height: 34px;
+  padding: 4px 0;
   overflow: hidden;
 }
 .seq-segment-name {
-  flex: 0 1 auto;
+  flex: 1 0 100%;
   margin-right: 4px;
   min-width: 0;
   overflow: hidden;
@@ -3709,8 +3714,14 @@ button.list-item:hover .list-wave {
   text-transform: uppercase;
   color: var(--cyan);
 }
-.seq-segment-head .icon-btn-sm { flex: none; width: 30px; height: 30px; font-size: 11px; }
+.seq-segment-btn { flex: none; min-height: 30px; padding: 0 8px; gap: 4px; font-size: 10px; white-space: nowrap; }
+.seq-segment-repeats { color: var(--text-dim); }
+.seq-segment-tag { margin-left: 6px; padding: 1px 5px; border-radius: 4px; background: var(--orange); color: #1a0f06; font-size: 9px; letter-spacing: 0.1em; }
+.seq-segment.looping { border-left-color: var(--orange); background: rgb(var(--orange-rgb) / 0.05); }
+.seq-segment.looping .seq-segment-name { color: var(--orange); }
 .sequencer-song-heads { align-items: flex-end; }
 .seq-segment.heard .seq-segment-name { color: var(--orange); text-shadow: var(--text-glow-orange); }
 .sequencer-song-title { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-dim); letter-spacing: 0.06em; }
 .sequencer-song-toggle { margin-left: auto; }
+/* Section names scroll under the fixed name column cleanly. */
+.sequencer-song-heads .sequencer-row-fixed { align-self: stretch; background: var(--deck-solid); }

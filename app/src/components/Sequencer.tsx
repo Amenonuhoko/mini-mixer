@@ -156,8 +156,23 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     engine.setSequencerPlaybackEnabled(false)
     engine.stopAllSounds()
     const looping = scope === 'loop' && state.transport.isPlaying && state.transport.auditionScope === 'loop' && state.transport.auditionSectionId === sectionId
-    if (looping) dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
-    else dispatch({ type: 'AUDITION_SONG_SECTION', sectionId, scope })
+    if (looping) {
+      // Stop loop: back to the whole song.
+      dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+      dispatch({ type: 'SET_PLAY_MODE', mode: 'song' })
+      return
+    }
+    // Bring the section's start into view, just right of the row names.
+    const scroller = scrollRef.current
+    const head = scroller?.querySelector<HTMLElement>(`[data-segment="${sectionId}"]`)
+    if (scroller && head) {
+      const fixed = scroller.querySelector('.sequencer-row-fixed')?.getBoundingClientRect().right ?? scroller.getBoundingClientRect().left
+      scroller.scrollBy({ left: head.getBoundingClientRect().left - fixed - 4, behavior: 'smooth' })
+    }
+    // Looping a section is working on it: Make a beat and the pads follow it.
+    const section = state.songSections.find((item) => item.id === sectionId)
+    if (scope === 'loop' && section) dispatch({ type: 'SET_ACTIVE_PATTERN', patternId: section.patternId })
+    dispatch({ type: 'AUDITION_SONG_SECTION', sectionId, scope })
   }
 
   const handleBounce = async () => {
@@ -502,12 +517,18 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                 const looping = state.transport.isPlaying && state.transport.auditionScope === 'loop' && state.transport.auditionSectionId === section.id
                 const heard = state.transport.isPlaying && state.transport.currentSongSectionId === section.id
                 return (
-                  <div className={['seq-segment', heard ? 'heard' : ''].filter(Boolean).join(' ')} key={section.id}>
+                  <div className={['seq-segment', heard ? 'heard' : '', looping ? 'looping' : ''].filter(Boolean).join(' ')} key={section.id} data-segment={section.id}>
                     <div className="seq-segment-head">
-                      <span className="seq-segment-name">{name}{section.repeats > 1 ? ` ×${section.repeats}` : ''}</span>
-                      <button type="button" className="icon-btn icon-btn-sm" onClick={() => playSection(section.id, 'rest')} aria-label={`Play song from ${label}`} title="Play the song from here">▶</button>
-                      <button type="button" className={looping ? 'icon-btn icon-btn-sm on' : 'icon-btn icon-btn-sm'} onClick={() => playSection(section.id, 'loop')} aria-pressed={looping} aria-label={`Loop ${label}`} title={looping ? 'Stop looping this section' : 'Loop just this section'}>
-                        <LoopIcon size={13} />
+                      <span className="seq-segment-name">
+                        {name}
+                        {section.repeats > 1 && <span className="seq-segment-repeats"> ×{section.repeats}</span>}
+                        {looping && <span className="seq-segment-tag">Looping</span>}
+                      </span>
+                      <button type="button" className="chip-btn seq-segment-btn" onClick={() => playSection(section.id, 'rest')} aria-label={`Play song from ${label}`} title="Play the song from the start of this section">
+                        ▶ From here
+                      </button>
+                      <button type="button" className={looping ? 'chip-btn on seq-segment-btn' : 'chip-btn seq-segment-btn'} onClick={() => playSection(section.id, 'loop')} aria-pressed={looping} aria-label={`Loop ${label}`} title={looping ? 'Stop looping — back to the whole song' : 'Loop just this section, and work on it'}>
+                        {looping ? '■ Stop loop' : <><LoopIcon size={12} /> Loop</>}
                       </button>
                     </div>
                     <div className="seq-segment-groups" aria-hidden="true">

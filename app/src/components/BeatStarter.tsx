@@ -58,6 +58,13 @@ export function BeatStarter() {
   const editingSection =
     state.transport.auditionScope === 'loop' ? state.songSections.find((section) => section.id === state.transport.auditionSectionId) : undefined
 
+  /** Back to playing the whole song — the section loop (and its "Working on" note) ends. */
+  const endLoop = () => {
+    engine.setSequencerPlaybackEnabled(false)
+    dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+    dispatch({ type: 'SET_PLAY_MODE', mode: 'song' })
+  }
+
   const toggleLock = (kind: BankKind) =>
     dispatch({ type: 'SET_VARIATION_LOCKS', locked: locked.includes(kind) ? locked.filter((item) => item !== kind) : BANK_KINDS.filter((item) => item === kind || locked.includes(item)) })
 
@@ -106,11 +113,19 @@ export function BeatStarter() {
   return (
     <section className={open ? 'module beat-starter' : 'module beat-starter folded'} aria-label="Make a beat">
       {editingSection && (
-        <div className="beat-edit-context">
-          <strong>Editing {editingSection.name} · section loops</strong>
-          <button type="button" className="chip-btn" onClick={goToSong}>
-            Back to song
-          </button>
+        <div className="beat-edit-context" role="status">
+          <div className="beat-edit-text">
+            <strong>Working on {editingSection.name}</strong>
+            <span>{state.transport.isPlaying ? 'Looping it now.' : 'Play loops it.'} Make a beat and the pads change this section.</span>
+          </div>
+          <div className="beat-edit-actions">
+            <button type="button" className="chip-btn" onClick={endLoop}>
+              End loop
+            </button>
+            <button type="button" className="chip-btn" onClick={goToSong}>
+              Song page
+            </button>
+          </div>
         </div>
       )}
       <header className="module-head">
