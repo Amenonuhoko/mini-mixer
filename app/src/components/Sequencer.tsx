@@ -18,6 +18,8 @@ import type { PendingRecording } from './RecordingReview'
 import { StepsMenu } from './StepsMenu'
 import { Stepper } from './Stepper'
 import { PatternBeatStarter } from './BeatStarter'
+
+const STEP_POP_KEYFRAMES: Keyframe[] = [{ transform: 'scale(1.22)' }, { transform: 'scale(1)' }]
 import { PhrasingEditor } from './PhrasingEditor'
 
 const GROUP_SIZE = 4
@@ -434,6 +436,8 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
           onPointerCancel={handleGridPointerEnd}
           onClickCapture={handleGridClickCapture}
         >
+          {/* The light that sweeps the grid with the playhead — LightShow moves it. */}
+          <div className="playhead-beam" aria-hidden="true" />
           <div className="sequencer-row sequencer-header-row" aria-hidden="true">
             <div className="sequencer-row-fixed" />
             {chunk(
@@ -748,6 +752,8 @@ function SequencerRow({
 
   const toggle = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number) => {
     onToggleStep(stepIndex)
+    // A tapped-on step pops, like a hardware button lighting under the finger.
+    if (!on) event.currentTarget.animate?.(STEP_POP_KEYFRAMES, { duration: 180, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' })
     if (on || !sample || pad.muted || !previewOnClick) return
     // In Gate mode the note began on pointer-down and is stopped by release.
     // Keyboard activation has no pointer lifecycle, so give it a normal audition.

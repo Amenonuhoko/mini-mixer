@@ -5,6 +5,12 @@
    the light the UI is made of; a soft amber marks anything active, armed,
    or recording. Glows are wide and gentle rather than hard neon. Pads are
    the light show; everything else stays calm so they can shine.
+
+   Every instrument has its own light: drums are the ice the UI is made of,
+   bass violet, chords mint, melody rose. A bank's elements inherit it as
+   --bank-rgb (set once by a .bank-<kind> class, never per frame), and the
+   room takes the active bank's, so the stage is lit by the instrument in
+   hand. Amber stays what it was: active, armed, looping, the playhead.
    ========================================================================== */
 
 :root {
@@ -18,6 +24,12 @@
   --cyan-rgb: 140 222 250;
   --orange-rgb: 255 180 105;
   --haze-rgb: 120 190 220;
+  --light-drums-rgb: var(--cyan-rgb);
+  --light-bass-rgb: 168 140 255;
+  --light-chords-rgb: 110 236 196;
+  --light-melody-rgb: 255 150 205;
+  /* The light of the bank at hand — ice until a .bank-<kind> says otherwise. */
+  --bank-rgb: var(--cyan-rgb);
   --cyan: rgb(var(--cyan-rgb));
   --cyan-dim: #4a8aa0;
   --orange: rgb(var(--orange-rgb));
@@ -65,6 +77,12 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* Each bank's light, inherited by everything inside its pad grid, sequencer section, tab and the room. */
+.bank-drums { --bank-rgb: var(--light-drums-rgb); }
+.bank-bass { --bank-rgb: var(--light-bass-rgb); }
+.bank-chords { --bank-rgb: var(--light-chords-rgb); }
+.bank-melody { --bank-rgb: var(--light-melody-rgb); }
 
 /* --------------------------------------------------------------------------
    Base
@@ -179,7 +197,9 @@ button:disabled {
 }
 
 /* --------------------------------------------------------------------------
-   Light field — the background layer LightShow drives (--beat, --scene)
+   Light field — the background LightShow drives, one opacity per layer:
+   the mesh with the body of the mix, the shaft with its air, the floor
+   with its kick and bass, in the active bank's light.
    -------------------------------------------------------------------------- */
 
 .light-field {
@@ -217,6 +237,17 @@ button:disabled {
   will-change: opacity;
 }
 
+.light-field-floor {
+  position: absolute;
+  inset: 0;
+  /* The stage floor: the instrument's light rising from below, thumping with the low end. */
+  background:
+    radial-gradient(ellipse 85% 42% at 50% 108%, rgb(var(--bank-rgb) / 0.4), rgb(var(--bank-rgb) / 0.1) 45%, transparent 72%),
+    linear-gradient(0deg, rgb(var(--bank-rgb) / 0.08), transparent 35%);
+  opacity: 0.04;
+  will-change: opacity;
+}
+
 /* --------------------------------------------------------------------------
    Layout shell
    The transport strip and tab bar are fixed chrome; .app-shell is pinned
@@ -246,6 +277,19 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--s3);
+}
+
+/* A page arrives rather than appears: a short rise from just below. Popups portal to body, so the transform never traps them. */
+.page,
+.sequencer-column {
+  animation: page-in var(--med) var(--ease);
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -885,15 +929,28 @@ button:disabled {
   box-shadow: var(--glow-orange);
 }
 
-.beat-led {
+/* The bar counter: four LEDs, the downbeat amber, the one being heard lit by LightShow. */
+.beat-leds {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex: none;
-  width: 7px;
-  height: 7px;
+  padding: 0 2px;
+}
+
+.beat-led {
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--cyan);
-  opacity: 0.15;
-  box-shadow: 0 0 8px var(--cyan);
+  opacity: 0.12;
+  box-shadow: 0 0 6px var(--cyan);
   will-change: opacity;
+}
+
+.beat-led[data-beat='0'] {
+  background: var(--orange);
+  box-shadow: 0 0 7px var(--orange);
 }
 
 .bpm-control {
@@ -1118,6 +1175,7 @@ button:disabled {
 
 /* Play / stop, raised in the middle of the tab bar (inside .transport-cluster). */
 .play-btn {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1156,6 +1214,46 @@ button:disabled {
   box-shadow:
     var(--glow-orange),
     inset 0 0 12px rgb(var(--orange-rgb) / 0.25);
+}
+
+/* The heartbeat: a halo LightShow lights on every beat while something is keeping time. */
+.play-halo {
+  position: absolute;
+  inset: -7px;
+  border: 2px solid rgb(var(--orange-rgb) / 0.9);
+  border-radius: 50%;
+  box-shadow:
+    0 0 22px 4px rgb(var(--orange-rgb) / 0.45),
+    inset 0 0 14px rgb(var(--orange-rgb) / 0.3);
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+/* Pressing Play sends a ring out across the bar — a CSS animation that runs once as .on arrives. */
+.play-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--orange);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.play-btn.on::after {
+  animation: launch-ring 640ms var(--ease);
+}
+
+@keyframes launch-ring {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.2);
+  }
 }
 
 .record-btn {
@@ -1292,20 +1390,22 @@ button:disabled {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  /* Quick to go down under the finger, an eased spring back up. */
   transition:
-    transform 70ms ease-out,
+    transform 220ms var(--ease),
     border-color var(--fast);
 }
 
 .pad:active {
-  transform: scale(0.965);
+  transform: scale(0.955);
+  transition-duration: 45ms, var(--fast);
 }
 
 .pad.filled {
-  border-color: rgb(var(--cyan-rgb) / 0.32);
+  border-color: rgb(var(--bank-rgb) / 0.32);
   box-shadow:
-    inset 0 1px 0 rgb(var(--cyan-rgb) / 0.18),
-    inset 0 0 22px rgb(var(--cyan-rgb) / 0.05);
+    inset 0 1px 0 rgb(var(--bank-rgb) / 0.18),
+    inset 0 0 22px rgb(var(--bank-rgb) / 0.05);
 }
 
 .pad.empty {
@@ -1313,16 +1413,16 @@ button:disabled {
   border-color: rgb(var(--cyan-rgb) / 0.16);
 }
 
-/* Audio-reactive layer: LightShow writes --level (0-1) straight onto the pad. */
+/* Audio-reactive layer, in the bank's light: LightShow writes its opacity (the pad's live level). */
 .pad-glow {
   position: absolute;
   inset: -1px;
-  border: 1px solid var(--cyan);
+  border: 1px solid rgb(var(--bank-rgb));
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 55%, rgb(var(--cyan-rgb) / 0.2), rgb(var(--cyan-rgb) / 0.04) 72%);
+  background: radial-gradient(circle at 50% 55%, rgb(var(--bank-rgb) / 0.2), rgb(var(--bank-rgb) / 0.04) 72%);
   box-shadow:
-    0 0 34px 6px rgb(var(--cyan-rgb) / 0.35),
-    inset 0 0 26px rgb(var(--cyan-rgb) / 0.3);
+    0 0 34px 6px rgb(var(--bank-rgb) / 0.35),
+    inset 0 0 26px rgb(var(--bank-rgb) / 0.3);
   /* LightShow writes this layer's opacity directly (its pad's live level). */
   opacity: 0;
   pointer-events: none;
@@ -1334,7 +1434,7 @@ button:disabled {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle, rgb(225 245 255 / 0.55), rgb(var(--cyan-rgb) / 0.25) 45%, transparent 75%);
+  background: radial-gradient(circle, rgb(235 248 255 / 0.6), rgb(var(--bank-rgb) / 0.28) 45%, transparent 75%);
   opacity: 0;
   pointer-events: none;
 }
@@ -1342,9 +1442,9 @@ button:disabled {
 .pad-bloom {
   position: absolute;
   inset: 0;
-  border: 2px solid var(--cyan);
+  border: 2px solid rgb(var(--bank-rgb));
   border-radius: inherit;
-  box-shadow: 0 0 16px rgb(var(--cyan-rgb) / 0.8);
+  box-shadow: 0 0 16px rgb(var(--bank-rgb) / 0.8);
   opacity: 0;
   pointer-events: none;
 }
@@ -1352,7 +1452,7 @@ button:disabled {
 .pad-wave {
   position: absolute;
   inset: 26% 10% 30%;
-  color: var(--cyan);
+  color: rgb(var(--bank-rgb));
   opacity: 0.3;
   pointer-events: none;
 }
@@ -1369,8 +1469,8 @@ button:disabled {
 }
 
 .pad.filled .pad-num {
-  color: var(--cyan);
-  text-shadow: var(--text-glow-cyan);
+  color: rgb(var(--bank-rgb));
+  text-shadow: 0 0 12px rgb(var(--bank-rgb) / 0.35);
 }
 
 .pad-key {
@@ -1417,11 +1517,11 @@ button:disabled {
 
 /* Selected: its edge light comes up and softly blooms — no hardware brackets. */
 .pad.selected {
-  border-color: rgb(var(--cyan-rgb) / 0.75);
+  border-color: rgb(var(--bank-rgb) / 0.75);
   box-shadow:
-    0 0 20px rgb(var(--cyan-rgb) / 0.2),
-    inset 0 1px 0 rgb(var(--cyan-rgb) / 0.3),
-    inset 0 0 18px rgb(var(--cyan-rgb) / 0.08);
+    0 0 20px rgb(var(--bank-rgb) / 0.2),
+    inset 0 1px 0 rgb(var(--bank-rgb) / 0.3),
+    inset 0 0 18px rgb(var(--bank-rgb) / 0.08);
 }
 
 /* Looping: orange, breathing with the beat on top of its own level. */
@@ -1480,7 +1580,7 @@ button:disabled {
 }
 
 .mix-tile .pad-num {
-  color: var(--cyan);
+  color: rgb(var(--bank-rgb));
 }
 
 .mix-tile-level {
@@ -1564,10 +1664,28 @@ button:disabled {
 }
 
 .sequencer-grid {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: max-content;
+}
+
+/* The beam: a column of pale light that sweeps the grid with the playhead.
+   LightShow glides it one step along with a Web Animations transform and
+   breathes its opacity, so it never restyles a cell. */
+.playhead-beam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--step);
+  border-radius: var(--r-sm);
+  background: linear-gradient(180deg, rgb(230 246 255 / 0.03), rgb(230 246 255 / 0.13) 10%, rgb(230 246 255 / 0.13) 90%, rgb(230 246 255 / 0.03));
+  box-shadow: 0 0 16px 3px rgb(var(--cyan-rgb) / 0.16);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 .sequencer-row {
@@ -1706,9 +1824,9 @@ button:disabled {
 .sequencer-row-label .row-glow {
   position: absolute;
   inset: -1px;
-  border: 1px solid var(--cyan);
+  border: 1px solid rgb(var(--bank-rgb));
   border-radius: inherit;
-  box-shadow: 0 0 12px rgb(var(--cyan-rgb) / 0.7);
+  box-shadow: 0 0 12px rgb(var(--bank-rgb) / 0.7);
   opacity: 0;
   pointer-events: none;
   will-change: opacity;
@@ -1773,9 +1891,9 @@ button:disabled {
 }
 
 .step.on {
-  border-color: var(--cyan);
-  background: rgb(var(--cyan-rgb) / 0.85);
-  box-shadow: 0 0 9px rgb(var(--cyan-rgb) / 0.55);
+  border-color: rgb(var(--bank-rgb));
+  background: rgb(var(--bank-rgb) / 0.85);
+  box-shadow: 0 0 9px rgb(var(--bank-rgb) / 0.55);
 }
 
 .step.trace {
@@ -1791,9 +1909,9 @@ button:disabled {
 /* The playhead crossing a lit step flashes it white-hot. */
 .step.on[data-playhead] {
   border-color: #fff;
-  background: #e6feff;
+  background: #f2fdff;
   box-shadow:
-    0 0 16px 2px rgb(var(--cyan-rgb) / 0.9),
+    0 0 18px 3px rgb(var(--bank-rgb) / 0.95),
     0 0 4px #fff;
 }
 
@@ -3243,12 +3361,21 @@ button.list-item:hover .list-wave {
   letter-spacing: 0.08em;
 }
 
+.bank-tabs .segment.on {
+  color: rgb(var(--bank-rgb));
+  background: rgb(var(--bank-rgb) / 0.13);
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--bank-rgb) / 0.45),
+    0 0 18px rgb(var(--bank-rgb) / 0.26);
+  text-shadow: 0 0 12px rgb(var(--bank-rgb) / 0.35);
+}
+
 .bank-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--orange);
-  box-shadow: var(--glow-orange);
+  background: rgb(var(--bank-rgb));
+  box-shadow: 0 0 8px rgb(var(--bank-rgb) / 0.8);
 }
 
 .bank-strip {
@@ -3505,13 +3632,10 @@ button.list-item:hover .list-wave {
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--cyan);
+  color: rgb(var(--bank-rgb));
+  text-shadow: 0 0 12px rgb(var(--bank-rgb) / 0.35);
 }
 .sequencer-bank-removed { margin: 4px 0 8px; color: var(--text-dim); font-size: var(--fs-xs); }
-
-.sequencer-bank:not(.bank-drums) .sequencer-bank-name {
-  color: var(--orange);
-}
 
 .sequencer-bank-toggle {
   font-family: var(--font-mono);

@@ -2234,3 +2234,30 @@ The user: pitching the verse shouldn't change the chorus. The bank Pitch had wri
 
 Verified: reducer tests (Verse vs another pattern, clamp, duplicate carries it), project round-trip, and a phone test — Verse at +12, Verse 2 still 0, whole-song playback plays Verse notes at +1200 cents and Verse 2's at 0.
 
+
+## 2026-09-27 — The light show becomes an experience: a colour per instrument, a room that hears the mix, a beam, a heartbeat
+
+### Context
+The user asked for a pass at the visuals: upgrade the light show and the feel, make it an experience. Until now every light was ice-blue, the background swelled with overall loudness only, the playhead hopped cell to cell, and Play was a static button.
+
+### Decision(s)
+- **Every instrument has its own light.** Drums stay the ice the UI is made of; bass is violet, chords mint, melody rose. A `.bank-<kind>` class on the pad grid, each sequencer bank section, each bank tab and the light field sets `--bank-rgb` once; pad glows, hit blooms, pad numbers, waveforms, the selected pad, lit steps, the white-hot playhead step's halo, row lights, bank names and the tab dots all draw from it. Amber keeps its meaning: active, armed, looping, the playhead, home pads.
+- **The room hears the mix in three bands.** `AudioEngine.getMasterBands()` reads the existing master analyser's spectrum once per frame (128 bins, smoothing lowered to 0.55 so a kick thumps rather than swells): the low band lights a new stage floor in the active bank's colour, the mids drive the hex mesh, the highs lift the light shaft. Each band has a fast attack and its own release, the floor's a touch longer so a kick has weight.
+- **The playhead sweeps.** A `.playhead-beam` column inside the sequencer grid glides to the next step with one Web Animations transform per step (duration = one 16th from `getStepSeconds()`), jumps on a bar wrap or pattern change, and breathes with the beat. Between steps it costs nothing.
+- **The transport has a heartbeat.** Play carries a halo LightShow lights on each beat while something is keeping time, and a CSS ring runs once out across the bar as `.on` arrives. The single beat LED is now a four-LED bar counter, the downbeat amber, walking 1-2-3-4 off the playhead while playing and off the free-running beat while idle.
+- **Feel.** Pages rise in over 200 ms; pads drop in 45 ms and spring back over 220 ms; a step tapped on pops under the finger.
+
+### Alternatives considered
+- Colouring the chrome (borders, module edges) per bank was rejected: the design system's rule is that pads are the light show and everything else stays calm. Only light-carrying layers took the hue.
+- Per-frame interpolation of the beam from the beat phase was rejected in favour of one WAAPI glide per step: no layout reads per frame, and it stays on the compositor.
+- A drifting mesh animation was left out — a fullscreen transform animation running forever costs battery for little.
+
+### Reasoning
+The 2026-09 light-show rule still holds: only opacity writes on dedicated layers, WAAPI for one-shots, nothing that restyles pads per frame. This pass adds one spectrum read, three opacity writes (floor, halo, beam) and three more LEDs per frame, and one `offsetLeft` read per step. Reduced motion zeroes the beat pulse (so the halo, LEDs and floor pulse go still), makes the beam jump instead of glide, and the global rule removes the ring, page and step animations.
+
+### Verification
+Types, lint (the three pre-existing fast-refresh warnings only), all 220 unit tests and the production build pass. Driven headless in Chromium on a 390×844 phone viewport with a generated Reggae beat playing: the beam mid-glide toward the playhead cell, beat 3's LED lit, the floor at 0.89 on a kick, the field carrying the melody bank's class; screenshots of Seq playing and of each bank's pads confirmed violet/mint/rose lights, coloured tab dots and a tinted floor with amber semantics intact. No console errors from the app.
+
+### Open questions / carried forward
+- A haptic tick on manual pad hits (`navigator.vibrate` on Android) would complete the feel; it wants a Settings toggle, so it was left for its own pass.
+- Bank colour switches are instantaneous; a registered `@property` could let the floor cross-fade between banks.

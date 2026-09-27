@@ -121,7 +121,7 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
   const moodLabel = state.mood ? moodById(state.mood).name : 'Custom'
 
   return (
-    <section className="module pad-grid" aria-label="Pads">
+    <section className={`module pad-grid bank-${bank.kind}`} aria-label="Pads">
       <header className="module-head">
         <BankTabs />
       </header>

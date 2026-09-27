@@ -33,6 +33,7 @@ export function PlayButton() {
       aria-label={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
       title={isPlaying ? `Stop ${scope}` : `Play ${scope}`}
     >
+      <span className="play-halo" data-beat-halo aria-hidden="true" />
       {isPlaying ? <StopIcon size={24} /> : <PlayIcon size={24} />}
       <span className="play-btn-caption">{isPlaying ? 'STOP' : 'PLAY'}</span>
     </button>
