@@ -10,6 +10,10 @@ import {
   keyName,
   keyShortName,
   MOODS,
+  type ScaleId,
+  pitchClass,
+  relativeMinor,
+  CIRCLE_OF_FIFTHS,
   noteFeel,
   noteName,
   noteNumeral,
@@ -163,5 +167,21 @@ describe('moods', () => {
       expect(mood.key.tonic).toBeGreaterThanOrEqual(0)
       expect(mood.key.tonic).toBeLessThan(12)
     }
+  })
+})
+
+describe('song keys', () => {
+  it('lists every major key once, a fifth apart, with a relative minor that shares its notes', () => {
+    expect([...CIRCLE_OF_FIFTHS].sort((a, b) => a - b)).toEqual(Array.from({ length: 12 }, (_, i) => i))
+    for (let i = 1; i < CIRCLE_OF_FIFTHS.length; i++) expect(pitchClass(CIRCLE_OF_FIFTHS[i]! - CIRCLE_OF_FIFTHS[i - 1]!)).toBe(7)
+    const notes = (tonic: number, scale: ScaleId) => [...new Set(SCALES[scale].intervals.map((interval) => pitchClass(tonic + interval)))].sort((a, b) => a - b)
+    for (const major of CIRCLE_OF_FIFTHS) expect(notes(relativeMinor(major), 'minor')).toEqual(notes(major, 'major'))
+    expect(relativeMinor(0)).toBe(9)
+  })
+
+  it('moods have distinct ids, names and keys', () => {
+    expect(new Set(MOODS.map((mood) => mood.id)).size).toBe(MOODS.length)
+    expect(new Set(MOODS.map((mood) => mood.name)).size).toBe(MOODS.length)
+    expect(new Set(MOODS.map((mood) => `${mood.key.tonic}:${mood.key.scale}:${mood.key.chordColor}`)).size).toBe(MOODS.length)
   })
 })

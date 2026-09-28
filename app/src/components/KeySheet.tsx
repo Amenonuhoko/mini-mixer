@@ -1,5 +1,5 @@
 import { useBankBuilder } from '../hooks/useBankBuilder'
-import { keyName, keyShortName, MOODS, pitchName, SCALE_IDS, SCALES, type Mood, type MusicalKey } from '../music/theory'
+import { CIRCLE_OF_FIFTHS, keyName, keyShortName, MOODS, pitchName, relativeMinor, SCALE_IDS, SCALES, type Mood, type MusicalKey } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
 import { Overlay } from './Overlay'
 
@@ -10,9 +10,10 @@ interface KeySheetProps {
 /**
  * Mood first, key under the hood: picking a mood sets the project key that
  * every melodic bank is laid out in, so the pads only offer notes and chords
- * that fit. Musicians can open "Pick the key yourself" to set the home note,
- * scale and chord color directly. Either way the melodic banks re-render and
- * programmed steps move with them.
+ * that fit. "Key of a song" lists the plain major and minor keys, for playing
+ * along with or recreating a song, and musicians can open "Pick the key
+ * yourself" to set the home note, scale and chord color directly. Either way
+ * the melodic banks re-render and programmed steps move with them.
  */
 export function KeySheet({ onClose }: KeySheetProps) {
   const { state } = useAppState()
@@ -46,6 +47,37 @@ export function KeySheet({ onClose }: KeySheetProps) {
           </li>
         ))}
       </ul>
+
+      <section className="sheet-section song-keys" aria-label="Key of a song">
+        <h3 className="label">Key of a song</h3>
+        <p className="muted sheet-note">
+          Playing along with or recreating a song? Pick its key. Major keys and their relative minors sit in the same order: C major and A minor share their notes.
+        </p>
+        {(['major', 'minor'] as const).map((scale) => (
+          <div key={scale}>
+            <h4 className="label">{scale === 'major' ? 'Major' : 'Minor'}</h4>
+            <div className="key-notes" role="radiogroup" aria-label={`${scale} keys`}>
+              {CIRCLE_OF_FIFTHS.map((major) => {
+                const tonic = scale === 'major' ? major : relativeMinor(major)
+                const on = key.tonic === tonic && key.scale === scale
+                return (
+                  <button
+                    key={tonic}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    className={on ? 'chip-btn on' : 'chip-btn'}
+                    disabled={busy !== null}
+                    onClick={() => tweak({ tonic, scale }, `song:${scale}:${tonic}`)}
+                  >
+                    {pitchName(tonic, { ...key, tonic, scale })}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </section>
 
       <details className="sheet-section key-advanced" open={mood === null}>
         <summary className="label">Pick the key yourself · {keyName(key)}</summary>

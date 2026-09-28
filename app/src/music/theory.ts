@@ -281,7 +281,7 @@ export function chordFeel(midis: readonly number[], key: MusicalKey): string {
 // Moods — a key chosen for you, for people who don't think in keys
 // ---------------------------------------------------------------------------
 
-export type MoodId = 'bright' | 'chill' | 'dreamy' | 'soulful' | 'dark' | 'tense' | 'epic'
+export type MoodId = 'bright' | 'chill' | 'dreamy' | 'soulful' | 'dark' | 'tense' | 'epic' | 'sad' | 'bluesy' | 'funky' | 'mysterious'
 
 export interface Mood {
   id: MoodId
@@ -298,7 +298,23 @@ export const MOODS: Mood[] = [
   { id: 'dark', name: 'Dark', blurb: 'Moody and heavy', key: { tonic: 0, scale: 'minor', chordColor: 'triad' } },
   { id: 'tense', name: 'Tense', blurb: 'Suspense, on edge', key: { tonic: 4, scale: 'phrygian', chordColor: 'triad' } },
   { id: 'epic', name: 'Epic', blurb: 'Big and cinematic', key: { tonic: 2, scale: 'minor', chordColor: 'triad' } },
+  { id: 'sad', name: 'Sad', blurb: 'Wistful, heartfelt', key: { tonic: 9, scale: 'minor', chordColor: 'triad' } },
+  { id: 'bluesy', name: 'Bluesy', blurb: 'Gritty, twelve-bar swagger', key: { tonic: 9, scale: 'blues', chordColor: 'seventh' } },
+  { id: 'funky', name: 'Funky', blurb: 'Strutting, syncopated', key: { tonic: 4, scale: 'mixolydian', chordColor: 'seventh' } },
+  { id: 'mysterious', name: 'Mysterious', blurb: 'Exotic, old-world', key: { tonic: 9, scale: 'harmonicMinor', chordColor: 'triad' } },
 ]
+
+/**
+ * The twelve major keys in circle-of-fifths order (C, G, D … F). A song's key
+ * is nearly always one of these or its relative minor, so the key sheet lists
+ * them as pairs that share the same notes.
+ */
+export const CIRCLE_OF_FIFTHS: readonly number[] = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]
+
+/** The minor key that shares a major key's notes: three semitones below its tonic. */
+export function relativeMinor(majorTonic: number): number {
+  return pitchClass(majorTonic + 9)
+}
 
 export const DEFAULT_KEY: MusicalKey = MOODS[0]!.key
 
