@@ -3904,17 +3904,17 @@ button.list-item:hover .list-wave {
 }
 
 /* Preset creation is a visible first step on both phone pages (a wide screen's Seq view puts it after the grid instead — see .studio-solo-sequencer). */
-.beat-starter { padding: 14px; display: grid; gap: 10px; flex-shrink: 0; }
+.beat-starter { padding: 18px 16px 20px; display: grid; gap: 14px; flex-shrink: 0; }
 .beat-starter p { margin: 0; font-size: 12px; line-height: 1.5; }
-.beat-starter select { background: var(--deck-raised); color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px; }
+.beat-starter select { background: var(--deck-raised); color: var(--text); border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; }
 /* Make a beat: style + Generate, the parts as lock chips, and Vary. */
-.beat-starter.folded { padding-block: 8px; }
+.beat-starter.folded { padding-block: 10px; }
 .beat-fold { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 0; color: inherit; }
 .beat-fold-chevron { font-size: 12px; color: var(--text-dim); }
-.beat-main { display: flex; gap: 8px; }
+.beat-main { display: flex; gap: 10px; }
 .beat-starter .beat-style-all { flex: 1 1 auto; min-width: 0; min-height: 44px; }
 .beat-main .beat-generate { flex: 0 0 auto; padding: 0 18px; }
-.beat-parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.beat-parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .beat-part { justify-content: center; gap: 5px; min-height: 40px; padding: 0 4px; }
 .beat-part.on { color: var(--cyan); }
 .beat-part.locked { border-color: var(--orange); color: var(--orange); background: rgb(var(--orange-rgb) / 0.1); }
@@ -3925,7 +3925,7 @@ button.list-item:hover .list-wave {
 .part-sheet-slider { display: grid; gap: 4px; }
 .part-sheet-slider .slider { height: 36px; }
 .beat-generate { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; background: var(--cyan); color: #08232a; font-weight: 700; }
-.beat-tweaks { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.beat-tweaks { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; padding-block: 2px; overflow-x: auto; scrollbar-width: none; }
 .beat-tweaks .label { flex: none; }
 .beat-notice { color: var(--text-dim); }
 .fx-preset-description { display: block; font-size: 10px; line-height: 1.3; font-weight: normal; color: var(--text-faint); margin-top: 3px; }

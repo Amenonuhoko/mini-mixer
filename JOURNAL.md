@@ -2342,3 +2342,7 @@ The user asked to expand the instrument library and fine-tune the current instru
 ## 2026-09-28 — Four more moods, and the plain keys for recreating a song
 
 The user asked for a couple more moods and then the basic keys, for when you want to recreate a song. Moods gained Sad (A minor), Bluesy (A blues, sevenths), Funky (E mixolydian, sevenths) and Mysterious (A harmonic minor), which also puts the blues, mixolydian and harmonic-minor scales within a tap; matching styles list them so picking a style keeps such a key. The Mood sheet has a new "Key of a song" section between the moods and the hand-pick controls: the twelve major keys in circle-of-fifths order and the relative minors in the same order (C over A, G over E…), so a song's key is one tap and the relationship "same notes, different home" is visible. Picking one keeps the chord color and clears the mood, like the hand-picked controls. Tests cover the circle (every key once, fifths apart, relative minors sharing notes) and mood uniqueness.
+
+## 2026-09-28 — Make a beat: more breathing room
+
+The user found the Make a beat panel cramped on the phone (the style box tight against the edge, the rows close together). Its padding grew from 14 px to 16 px at the sides and 18/20 px top and bottom, the row gap from 10 px to 14 px, the style box's inner padding to 10 × 12 px, and the part-chip and Vary gaps to 8 px. Checked at 390 px wide in headless Chromium.
