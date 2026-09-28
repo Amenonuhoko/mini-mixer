@@ -2983,7 +2983,7 @@ button.list-item:hover .list-wave {
   /* Desktop: the sequencer across the top; the pads and Make a beat side by side beneath it. */
   .wide-split {
     display: grid;
-    grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+    grid-template-columns: minmax(340px, 1fr) minmax(400px, 720px);
     grid-template-areas:
       'seq seq'
       'pads beat';
@@ -3006,7 +3006,6 @@ button.list-item:hover .list-wave {
   .app-shell > .wide-split {
     flex: 1 1 auto;
     min-height: 0;
-    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
     grid-template-rows: minmax(240px, 1fr) minmax(0, 62%);
   }
 
@@ -3020,10 +3019,35 @@ button.list-item:hover .list-wave {
     margin: -2px;
   }
 
-  /* Docked under the sequencer, a square pad grid would take the window: desktop pads are a little wider than tall, like a drum rack's cells. */
+  /* Docked under the sequencer, the pads take whatever width Make a beat leaves, but a pad's height
+     is bounded by the dock (about a tenth of the window), so the grid is capped at the width those
+     pads want and sits centred, like a keyboard on a console: drum-rack cells a little wider than
+     tall for three or four across, square keys for a scale's five to seven. */
+  .wide-split .pad-grid {
+    --pad-h: clamp(78px, 9vh, 112px);
+  }
+
+  .wide-split .pad-grid-cells {
+    width: 100%;
+    margin-inline: auto;
+  }
+
+  .wide-split .pad-grid-cells:not(.dense) {
+    max-width: calc(var(--cols, 3) * var(--pad-h) * 1.3 + (var(--cols, 3) - 1) * var(--s2));
+  }
+
   .wide-split .pad-grid-cells:not(.dense) .pad {
     aspect-ratio: 1.3;
-    max-height: 78px;
+    max-height: var(--pad-h);
+  }
+
+  .wide-split .pad-grid-cells.dense {
+    max-width: calc(var(--cols, 3) * var(--pad-h) + (var(--cols, 3) - 1) * 6px);
+  }
+
+  .wide-split .pad-grid-cells.dense .pad {
+    aspect-ratio: 1;
+    max-height: var(--pad-h);
   }
 
   /* One of the two alone (the Pads / Seq tabs): the window is theirs, and the shell scrolls as a page again. */
@@ -3046,15 +3070,24 @@ button.list-item:hover .list-wave {
     max-width: 720px;
   }
 
+  /* The sequencer panel stays whole in its row — header and toolbar fixed, the grid scrolling
+     inside the frame — so its bottom edge meets the dock below as a clean seam. */
   .wide-split > .sequencer-column {
     align-self: stretch;
+    min-height: 0;
+  }
+
+  .wide-split .sequencer {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .wide-split .sequencer-scroll {
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-    /* Room for the module's edge light, which the scroll box would otherwise clip. */
-    padding: 2px;
-    margin: -2px;
   }
 
   /* The tab bar becomes a console dock in the middle of the window, the room lit either side of it. */
@@ -3105,7 +3138,7 @@ button.list-item:hover .list-wave {
   }
 
   .wide-split {
-    grid-template-columns: minmax(340px, 520px) minmax(0, 1fr);
+    grid-template-columns: minmax(340px, 1fr) minmax(440px, 720px);
   }
 }
 
