@@ -13,7 +13,9 @@ interface StudioViewToggleProps {
  * the other one back. A phone never shows it — there the pages are the tabs.
  */
 export function StudioViewToggle({ panel }: StudioViewToggleProps) {
-  const combinedView = useIsWideScreen() || useIsLandscapeLayout()
+  const wide = useIsWideScreen()
+  const landscape = useIsLandscapeLayout()
+  const combinedView = wide || landscape
   const { studioView, setStudioView } = useNavigation()
   if (!combinedView) return null
   const alone = studioView === panel

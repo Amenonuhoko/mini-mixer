@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { getActiveBank } from '../state/banks'
 import { useEngine } from '../state/EngineContext'
+import type { BankKind } from '../state/types'
 
 /** Per-frame multiplier on a decaying level — fast attack, ~150ms visual release at 60fps. */
 const RELEASE = 0.86
@@ -19,6 +20,14 @@ const BLOOM_KEYFRAMES: Keyframe[] = [
   { transform: 'scale(1.42)', opacity: 0 },
 ]
 const FLASH_KEYFRAMES: Keyframe[] = [{ opacity: 1 }, { opacity: 0 }]
+/** A ring of the pad's light spreading out across the room from where it was hit. */
+const RIPPLE_KEYFRAMES: Keyframe[] = [
+  { transform: 'translate(-50%, -50%) scale(0.1)', opacity: 0.85 },
+  { transform: 'translate(-50%, -50%) scale(1)', opacity: 0 },
+]
+/** Rings kept ready in the field; a busier moment than this just skips a ring. */
+const RIPPLE_POOL = 10
+const BANK_KINDS: readonly BankKind[] = ['drums', 'bass', 'chords', 'melody']
 
 /**
  * The light show: one requestAnimationFrame loop that reads the audio engine's
@@ -42,7 +51,13 @@ const FLASH_KEYFRAMES: Keyframe[] = [{ opacity: 1 }, { opacity: 0 }]
  * of the mix, the shaft from above lifts with the hats. Colour comes from
  * CSS: each bank's light is a `--bank-rgb` its elements inherit, and the
  * field takes the active bank's, so the stage is lit by the instrument in
- * hand.
+ * hand. The room also hears each instrument on its own: four washes, one per
+ * bank in its own corner of the room, each lit by the sum of that bank's
+ * pads, so a bass line glows purple low on the right while the melody plays
+ * pink high on the left — and every hit sends a ring of its bank's light out
+ * across the room from the pad (or the sequencer row) that made it. The rings
+ * are a fixed pool of layers, repositioned rather than created, so a hit
+ * never mutates the DOM the observer below is watching.
  *
  * Hit bloom uses the Web Animations API on each pad's own bloom/flash layers,
  * timed to the audio clock so a sequencer step (scheduled ~100ms ahead)
@@ -53,6 +68,14 @@ export function LightShow() {
   const { state } = useAppState()
   const fieldRef = useRef<HTMLDivElement>(null)
   const bankKind = getActiveBank(state).kind
+  // The frame loop reads these through refs: which pads belong to each bank
+  // (for the washes) and which bank a pad belongs to (for its ring's colour).
+  const banksRef = useRef<Array<{ kind: BankKind; padIds: string[] }>>([])
+  const padBankRef = useRef<Map<string, BankKind>>(new Map())
+  useEffect(() => {
+    banksRef.current = state.banks.map((bank) => ({ kind: bank.kind, padIds: bank.padIds.slice(0, bank.visibleCount) }))
+    padBankRef.current = new Map(state.banks.flatMap((bank) => bank.padIds.map((padId) => [padId, bank.kind] as const)))
+  }, [state.banks])
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -100,6 +123,18 @@ export function LightShow() {
     const mesh = field?.querySelector<HTMLElement>('.light-field-mesh') ?? null
     const shaft = field?.querySelector<HTMLElement>('.light-field-shaft') ?? null
     const floorEl = field?.querySelector<HTMLElement>('.light-field-floor') ?? null
+    const washes = new Map(BANK_KINDS.map((kind) => [kind, field?.querySelector<HTMLElement>(`.light-field-wash.bank-${kind}`) ?? null]))
+    const bankLevels = new Map<BankKind, number>()
+    // The ring pool: made once, before the observer starts watching.
+    const rings: Array<{ el: HTMLElement; busy: boolean }> = []
+    if (field && !reducedMotion.matches) {
+      for (let i = 0; i < RIPPLE_POOL; i++) {
+        const el = document.createElement('div')
+        el.className = 'light-field-ripple'
+        field.appendChild(el)
+        rings.push({ el, busy: false })
+      }
+    }
 
     /** Moves the beam to the column being heard: a glide over one step when it's the next column along, a jump otherwise (bar wrap, a new pattern, first step). */
     const moveBeam = (cell: HTMLElement | null) => {
@@ -214,20 +249,56 @@ export function LightShow() {
       for (const el of haloEls) setOpacity(el, locked ? beat * 0.9 : 0)
 
       // The room. Loudness swells the shaft; the three bands each light their
-      // own layer, with a fast attack and their own release.
+      // own layer, with a fast attack and their own release. The mesh pulses
+      // harder once something is keeping time.
       const master = engine.getMasterLevel()
       scene = master >= scene ? master : Math.max(master, scene * release)
       const bands = engine.getMasterBands()
       floor = bands.low >= floor ? bands.low : Math.max(bands.low, floor * floorRelease)
       body = bands.mid >= body ? bands.mid : Math.max(bands.mid, body * release)
       air = bands.high >= air ? bands.high : Math.max(bands.high, air * release)
-      if (mesh) setOpacity(mesh, 0.14 + beat * 0.06 + body * 0.22)
+      if (mesh) setOpacity(mesh, 0.12 + beat * (locked ? 0.16 : 0.06) + body * 0.26)
       if (shaft) setOpacity(shaft, 0.5 + scene * 0.2 + air * 0.35 + beat * 0.08)
       if (floorEl) setOpacity(floorEl, (locked ? 0.08 : 0.04) + beat * 0.08 + floor * 0.8)
+
+      // Each instrument's wash: the sum of its pads (a chord's notes add up),
+      // reusing this frame's meter reads and touching no pad that is silent.
+      for (const { kind, padIds } of banksRef.current) {
+        let sum = 0
+        for (const padId of padIds) sum += levelOf(padId)
+        // One note lights a corner softly; a full chord or a busy kit lights it fully.
+        const target = Math.min(1, sum * 1.2)
+        const previous = bankLevels.get(kind) ?? 0
+        const level = target >= previous ? target : Math.max(target, previous * release)
+        bankLevels.set(kind, level)
+        const wash = washes.get(kind)
+        if (wash) setOpacity(wash, level)
+      }
     }
     frame = requestAnimationFrame(tick)
 
+    /** A ring of the pad's light across the room, from the pad on screen — or its sequencer row, or the floor when neither is showing. */
+    const ripple = (padId: string) => {
+      const ring = rings.find((candidate) => !candidate.busy)
+      if (!ring) return
+      const anchor =
+        document.querySelector<HTMLElement>(`.pad[data-glow-pad="${CSS.escape(padId)}"]`) ??
+        document.querySelector<HTMLElement>(`[data-glow-pad="${CSS.escape(padId)}"]`)
+      const rect = anchor?.getBoundingClientRect()
+      const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2
+      const y = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.85
+      ring.busy = true
+      ring.el.className = `light-field-ripple bank-${padBankRef.current.get(padId) ?? 'drums'}`
+      ring.el.style.left = `${x}px`
+      ring.el.style.top = `${y}px`
+      const animation = ring.el.animate(RIPPLE_KEYFRAMES, { duration: 1100, easing: 'cubic-bezier(0.1, 0.6, 0.3, 1)' })
+      animation.onfinish = animation.oncancel = () => {
+        ring.busy = false
+      }
+    }
+
     const bloom = (padId: string) => {
+      ripple(padId)
       for (const el of document.querySelectorAll<HTMLElement>(`[data-glow-pad="${CSS.escape(padId)}"]`)) {
         el.querySelector<HTMLElement>('.pad-flash')?.animate(FLASH_KEYFRAMES, {
           duration: reducedMotion.matches ? 160 : 280,
@@ -263,6 +334,7 @@ export function LightShow() {
       unsubscribe()
       beamGlide?.cancel()
       for (const timer of timers) window.clearTimeout(timer)
+      for (const ring of rings) ring.el.remove()
     }
   }, [engine])
 
@@ -271,6 +343,9 @@ export function LightShow() {
       <div className="light-field-mesh" />
       <div className="light-field-shaft" />
       <div className="light-field-floor" />
+      {BANK_KINDS.map((kind) => (
+        <div key={kind} className={`light-field-wash bank-${kind}`} />
+      ))}
     </div>
   )
 }
