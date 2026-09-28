@@ -22,11 +22,11 @@ const BLOOM_KEYFRAMES: Keyframe[] = [
 const FLASH_KEYFRAMES: Keyframe[] = [{ opacity: 1 }, { opacity: 0 }]
 /** A ring of the pad's light spreading out across the room from where it was hit. */
 const RIPPLE_KEYFRAMES: Keyframe[] = [
-  { transform: 'translate(-50%, -50%) scale(0.1)', opacity: 0.85 },
+  { transform: 'translate(-50%, -50%) scale(0.1)', opacity: 0.6 },
   { transform: 'translate(-50%, -50%) scale(1)', opacity: 0 },
 ]
-/** Rings kept ready in the field; a busier moment than this just skips a ring. */
-const RIPPLE_POOL = 10
+/** Rings kept ready in the field; a busier moment than this just skips a ring, which keeps a dense beat from filling the room with them. */
+const RIPPLE_POOL = 7
 const BANK_KINDS: readonly BankKind[] = ['drums', 'bass', 'chords', 'melody']
 
 /**

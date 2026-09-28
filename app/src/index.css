@@ -272,7 +272,7 @@ button:disabled {
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(0.1);
   opacity: 0;
-  background: radial-gradient(circle, transparent 42%, rgb(var(--bank-rgb) / 0.3) 49%, rgb(var(--bank-rgb) / 0.05) 56%, transparent 62%);
+  background: radial-gradient(circle, transparent 42%, rgb(var(--bank-rgb) / 0.2) 49%, rgb(var(--bank-rgb) / 0.035) 56%, transparent 62%);
   mix-blend-mode: screen;
   will-change: transform, opacity;
 }
