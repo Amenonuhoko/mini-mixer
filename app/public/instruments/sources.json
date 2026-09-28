@@ -7,7 +7,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 36,
       "file": "piano-36.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": -8
     },
     {
       "kind": "piano",
@@ -16,7 +17,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 48,
       "file": "piano-48.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": -4
     },
     {
       "kind": "piano",
@@ -25,7 +27,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 60,
       "file": "piano-60.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -34,7 +37,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 72,
       "file": "piano-72.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -43,7 +47,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 84,
       "file": "piano-84.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 6
     },
     {
       "kind": "piano",
@@ -52,7 +57,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 40,
       "file": "piano-40.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": -5
     },
     {
       "kind": "piano",
@@ -61,7 +67,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 52,
       "file": "piano-52.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -70,7 +77,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 64,
       "file": "piano-64.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -79,7 +87,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 76,
       "file": "piano-76.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -88,7 +97,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 44,
       "file": "piano-44.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -97,7 +107,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 56,
       "file": "piano-56.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -106,7 +117,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 68,
       "file": "piano-68.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     },
     {
       "kind": "piano",
@@ -115,7 +127,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 80,
       "file": "piano-80.wav",
-      "seconds": 5.0
+      "seconds": 5.0,
+      "cents": 0
     }
   ],
   "marimba": [
@@ -126,7 +139,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 59,
       "file": "marimba-59.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -135,7 +149,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 83,
       "file": "marimba-83.wav",
-      "seconds": 1.176
+      "seconds": 1.176,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -144,7 +159,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 48,
       "file": "marimba-48.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -153,7 +169,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 72,
       "file": "marimba-72.wav",
-      "seconds": 2.264
+      "seconds": 2.264,
+      "cents": 4
     },
     {
       "kind": "marimba",
@@ -162,7 +179,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 96,
       "file": "marimba-96.wav",
-      "seconds": 1.356
+      "seconds": 1.356,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -171,7 +189,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 41,
       "file": "marimba-41.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -180,7 +199,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 65,
       "file": "marimba-65.wav",
-      "seconds": 3.265
+      "seconds": 3.265,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -189,7 +209,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 89,
       "file": "marimba-89.wav",
-      "seconds": 1.345
+      "seconds": 1.345,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -198,7 +219,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 55,
       "file": "marimba-55.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "marimba",
@@ -207,7 +229,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "midi": 79,
       "file": "marimba-79.wav",
-      "seconds": 1.231
+      "seconds": 1.231,
+      "cents": 0
     }
   ],
   "harp": [
@@ -219,7 +242,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-69.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -10
     },
     {
       "kind": "harp",
@@ -229,7 +253,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-59.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -10
     },
     {
       "kind": "harp",
@@ -239,7 +264,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-48.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "harp",
@@ -249,7 +275,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-72.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -11
     },
     {
       "kind": "harp",
@@ -259,7 +286,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-62.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -13
     },
     {
       "kind": "harp",
@@ -269,7 +297,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-52.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -5
     },
     {
       "kind": "harp",
@@ -279,7 +308,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-76.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -12
     },
     {
       "kind": "harp",
@@ -289,7 +319,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-65.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "harp",
@@ -299,7 +330,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-55.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -7
     },
     {
       "kind": "harp",
@@ -309,7 +341,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "harp-79.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": -5
     }
   ],
   "bell": [
@@ -321,7 +354,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-70.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -331,7 +365,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-60.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -341,7 +376,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-72.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -351,7 +387,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-62.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -361,7 +398,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-74.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -371,7 +409,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-64.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -381,7 +420,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-76.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -391,7 +431,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-66.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     },
     {
       "kind": "bell",
@@ -401,7 +442,8 @@
       "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
       "repository": "sgossner/VCSL",
       "file": "bell-68.wav",
-      "seconds": 3.5
+      "seconds": 3.5,
+      "cents": 0
     }
   ],
   "trumpet": [
@@ -413,7 +455,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-70.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": 0
     },
     {
       "kind": "trumpet",
@@ -423,7 +466,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-57.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": -4
     },
     {
       "kind": "trumpet",
@@ -433,7 +477,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-81.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": 0
     },
     {
       "kind": "trumpet",
@@ -443,7 +488,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-60.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": 0
     },
     {
       "kind": "trumpet",
@@ -453,7 +499,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-84.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": -5
     },
     {
       "kind": "trumpet",
@@ -463,7 +510,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-63.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": 0
     },
     {
       "kind": "trumpet",
@@ -473,7 +521,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-74.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": 3
     },
     {
       "kind": "trumpet",
@@ -483,7 +532,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-53.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": -4
     },
     {
       "kind": "trumpet",
@@ -493,7 +543,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-77.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": -4
     },
     {
       "kind": "trumpet",
@@ -503,7 +554,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "trumpet-67.wav",
-      "seconds": 1.6
+      "seconds": 1.6,
+      "cents": 5
     }
   ],
   "strings": [
@@ -515,7 +567,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-57.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 5
     },
     {
       "kind": "strings",
@@ -525,7 +578,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-69.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": -6
     },
     {
       "kind": "strings",
@@ -535,7 +589,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-59.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": -7
     },
     {
       "kind": "strings",
@@ -545,7 +600,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-83.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 0
     },
     {
       "kind": "strings",
@@ -555,7 +611,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-72.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 0
     },
     {
       "kind": "strings",
@@ -565,7 +622,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-62.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 0
     },
     {
       "kind": "strings",
@@ -575,7 +633,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-86.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 0
     },
     {
       "kind": "strings",
@@ -585,7 +644,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-76.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 0
     },
     {
       "kind": "strings",
@@ -595,7 +655,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-66.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 0
     },
     {
       "kind": "strings",
@@ -605,7 +666,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-55.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": -5
     },
     {
       "kind": "strings",
@@ -615,7 +677,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "strings-79.wav",
-      "seconds": 3.0
+      "seconds": 3.0,
+      "cents": 0
     }
   ],
   "clarinet": [
@@ -627,7 +690,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-58.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "clarinet",
@@ -637,7 +701,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-70.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "clarinet",
@@ -647,7 +712,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-82.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 3
     },
     {
       "kind": "clarinet",
@@ -657,7 +723,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-50.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 3
     },
     {
       "kind": "clarinet",
@@ -667,7 +734,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-62.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "clarinet",
@@ -677,7 +745,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-74.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "clarinet",
@@ -687,7 +756,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-86.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 6
     },
     {
       "kind": "clarinet",
@@ -697,7 +767,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-89.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "clarinet",
@@ -707,7 +778,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-53.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "clarinet",
@@ -717,7 +789,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-65.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 5
     },
     {
       "kind": "clarinet",
@@ -727,7 +800,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "clarinet-77.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 4
     }
   ],
   "flute": [
@@ -739,7 +813,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-69.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 9
     },
     {
       "kind": "flute",
@@ -749,7 +824,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-81.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 7
     },
     {
       "kind": "flute",
@@ -759,7 +835,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-93.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 6
     },
     {
       "kind": "flute",
@@ -769,7 +846,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-60.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": -4
     },
     {
       "kind": "flute",
@@ -779,7 +857,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-72.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "flute",
@@ -789,7 +868,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-84.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "flute",
@@ -799,7 +879,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-96.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "flute",
@@ -809,7 +890,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-64.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "flute",
@@ -819,7 +901,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-76.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "flute",
@@ -829,7 +912,8 @@
       "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
       "repository": "sgossner/VSCO-2-CE",
       "file": "flute-88.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     }
   ],
   "sax": [
@@ -841,7 +925,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-56.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -851,7 +936,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-68.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -861,7 +947,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-80.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -871,7 +958,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-59.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -881,7 +969,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-71.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -891,7 +980,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-50.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -901,7 +991,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-62.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -911,7 +1002,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-74.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -921,7 +1013,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-53.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -931,7 +1024,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-65.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     },
     {
       "kind": "sax",
@@ -941,7 +1035,8 @@
       "revision": "a4d756b21d2a573aca0d840cce7e71ba5effd4c6",
       "repository": "sfzinstruments/karoryfer.weresax",
       "file": "sax-77.wav",
-      "seconds": 1.8
+      "seconds": 1.8,
+      "cents": 0
     }
   ],
   "guitar": [
@@ -954,7 +1049,8 @@
       "sha256": "44506063b8c359cb2622e0f12e0c9ebd79ce2327f00d24c11156dc1c9c82e577",
       "license": "CC0-1.0",
       "file": "guitar-40.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 5
     },
     {
       "kind": "guitar",
@@ -965,7 +1061,8 @@
       "sha256": "afd5f660963f3ad9216bd2c53dff57c7f45eb5bbc351577739aed529888bf13e",
       "license": "CC0-1.0",
       "file": "guitar-47.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 3
     },
     {
       "kind": "guitar",
@@ -976,7 +1073,8 @@
       "sha256": "dc2e9d0cf53475c283be3c4a587bcb9802ba7bc678fe35685e0ac0382234b940",
       "license": "CC0-1.0",
       "file": "guitar-55.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 10
     },
     {
       "kind": "guitar",
@@ -987,7 +1085,8 @@
       "sha256": "009322d60fef7c05ab0eb230974f6bf0e73f5de92df95ac31c3daf87c537e134",
       "license": "CC0-1.0",
       "file": "guitar-60.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 8
     },
     {
       "kind": "guitar",
@@ -998,7 +1097,8 @@
       "sha256": "6a430b54a7e22996ad0a033ac2a178cda3499a28fd11c32fa9654c8f8f2be6aa",
       "license": "CC0-1.0",
       "file": "guitar-68.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 0
     },
     {
       "kind": "guitar",
@@ -1009,7 +1109,8 @@
       "sha256": "71b3d5aead3918008bed8a09f8f8ef162d019d727e53137c09aeda38660cfc79",
       "license": "CC0-1.0",
       "file": "guitar-76.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": -3
     },
     {
       "kind": "guitar",
@@ -1020,7 +1121,8 @@
       "sha256": "151b1e84c93f3a72ce2c65cf5d73da32846fd8419794e020289fabc7cf1af3bd",
       "license": "CC0-1.0",
       "file": "guitar-84.wav",
-      "seconds": 2.381
+      "seconds": 2.381,
+      "cents": -5
     }
   ],
   "bass": [
@@ -1033,7 +1135,8 @@
       "sha256": "7d1738ee7dc1848f5bba54c8e6fa47c11903cb96a892f15bdf7bc66841345761",
       "license": "CC0-1.0",
       "file": "bass-25.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 0
     },
     {
       "kind": "bass",
@@ -1044,7 +1147,8 @@
       "sha256": "2e03d693c3a134f67ebcc8818bc290f085bbc234b2ee5978e2bfd06d5692239f",
       "license": "CC0-1.0",
       "file": "bass-33.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 0
     },
     {
       "kind": "bass",
@@ -1055,7 +1159,8 @@
       "sha256": "c77cdd26f3ad7dea37e44120c17a0065f28ecf32bb2e175c99b88e76fef1ff33",
       "license": "CC0-1.0",
       "file": "bass-36.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": -3
     },
     {
       "kind": "bass",
@@ -1066,7 +1171,8 @@
       "sha256": "89961abf41ca481a0216f76b1875e1e203c82ff205bb5d19502c2ce492813656",
       "license": "CC0-1.0",
       "file": "bass-42.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": -8
     },
     {
       "kind": "bass",
@@ -1077,7 +1183,8 @@
       "sha256": "d91ffef3771636d9e6039a44d0661116b83438943608973eb3a2f8c2936d1252",
       "license": "CC0-1.0",
       "file": "bass-48.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 6
     },
     {
       "kind": "bass",
@@ -1088,7 +1195,8 @@
       "sha256": "b61e148eac269af91c2bbbc6da135f187121cd56984d09963b167646de6f33a3",
       "license": "CC0-1.0",
       "file": "bass-54.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": -9
     },
     {
       "kind": "bass",
@@ -1099,7 +1207,1420 @@
       "sha256": "a42ea16bb0887c61aef3acc704277ef5ee01db02731915ef383accbaa712eeb2",
       "license": "CC0-1.0",
       "file": "bass-60.wav",
-      "seconds": 2.5
+      "seconds": 2.5,
+      "cents": 5
+    }
+  ],
+  "harpsichord": [
+    {
+      "kind": "harpsichord",
+      "note": "C1",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_C1_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 36,
+      "file": "harpsichord-36.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "harpsichord",
+      "note": "F#1",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_F#1_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 42,
+      "file": "harpsichord-42.wav",
+      "seconds": 3.0,
+      "cents": -4
+    },
+    {
+      "kind": "harpsichord",
+      "note": "C2",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_C2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 48,
+      "file": "harpsichord-48.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "harpsichord",
+      "note": "F#2",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_F#2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 54,
+      "file": "harpsichord-54.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "harpsichord",
+      "note": "C3",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_C3_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 60,
+      "file": "harpsichord-60.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "harpsichord",
+      "note": "F#3",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_F#3_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 66,
+      "file": "harpsichord-66.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "harpsichord",
+      "note": "C4",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_C4_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 72,
+      "file": "harpsichord-72.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "harpsichord",
+      "note": "F#4",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_F#4_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 78,
+      "file": "harpsichord-78.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "harpsichord",
+      "note": "C5",
+      "path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_C5_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 84,
+      "file": "harpsichord-84.wav",
+      "seconds": 3.0,
+      "cents": 0
+    }
+  ],
+  "vibraphone": [
+    {
+      "kind": "vibraphone",
+      "note": "F2",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F2_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 53,
+      "file": "vibraphone-53.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "A2",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A2_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 57,
+      "file": "vibraphone-57.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "C3",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C3_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 60,
+      "file": "vibraphone-60.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "E3",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E3_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 64,
+      "file": "vibraphone-64.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "G3",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_G3_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 67,
+      "file": "vibraphone-67.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "D4",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_D4_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 74,
+      "file": "vibraphone-74.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "F4",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_F4_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 77,
+      "file": "vibraphone-77.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "A4",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_A4_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 81,
+      "file": "vibraphone-81.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "C5",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_C5_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 84,
+      "file": "vibraphone-84.wav",
+      "seconds": 3.5,
+      "cents": 0
+    },
+    {
+      "kind": "vibraphone",
+      "note": "E5",
+      "path": "Idiophones/Struck Idiophones/Vibraphone/Soft Mallets/Vibes_soft_E5_v2_rr1_Main.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 88,
+      "file": "vibraphone-88.wav",
+      "seconds": 3.5,
+      "cents": 0
+    }
+  ],
+  "glockenspiel": [
+    {
+      "kind": "glockenspiel",
+      "note": "G4",
+      "path": "Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G4_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 79,
+      "file": "glockenspiel-79.wav",
+      "seconds": 3.0,
+      "cents": 8
+    },
+    {
+      "kind": "glockenspiel",
+      "note": "C5",
+      "path": "Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C5_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 84,
+      "file": "glockenspiel-84.wav",
+      "seconds": 3.0,
+      "cents": 12
+    },
+    {
+      "kind": "glockenspiel",
+      "note": "G5",
+      "path": "Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G5_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 91,
+      "file": "glockenspiel-91.wav",
+      "seconds": 3.0,
+      "cents": 12
+    },
+    {
+      "kind": "glockenspiel",
+      "note": "C6",
+      "path": "Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C6_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 96,
+      "file": "glockenspiel-96.wav",
+      "seconds": 3.0,
+      "cents": 15
+    },
+    {
+      "kind": "glockenspiel",
+      "note": "G6",
+      "path": "Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G6_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 103,
+      "file": "glockenspiel-103.wav",
+      "seconds": 3.0,
+      "cents": 16
+    },
+    {
+      "kind": "glockenspiel",
+      "note": "C7",
+      "path": "Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C7_01.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 108,
+      "file": "glockenspiel-108.wav",
+      "seconds": 1.241,
+      "cents": 24
+    }
+  ],
+  "kalimba": [
+    {
+      "kind": "kalimba",
+      "note": "G1",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_G1_k12_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 43,
+      "file": "kalimba-43.wav",
+      "seconds": 2.5,
+      "cents": 62
+    },
+    {
+      "kind": "kalimba",
+      "note": "C#2",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_C#2_k10_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 49,
+      "file": "kalimba-49.wav",
+      "seconds": 2.5,
+      "cents": 0
+    },
+    {
+      "kind": "kalimba",
+      "note": "G2",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_G2_k15_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 55,
+      "file": "kalimba-55.wav",
+      "seconds": 2.5,
+      "cents": 39
+    },
+    {
+      "kind": "kalimba",
+      "note": "C#3",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_C#3_k16_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 61,
+      "file": "kalimba-61.wav",
+      "seconds": 2.026,
+      "cents": -45
+    },
+    {
+      "kind": "kalimba",
+      "note": "G3",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_G3_k6_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 67,
+      "file": "kalimba-67.wav",
+      "seconds": 2.273,
+      "cents": 16
+    },
+    {
+      "kind": "kalimba",
+      "note": "C#4",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_C#4_k5_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 73,
+      "file": "kalimba-73.wav",
+      "seconds": 1.732,
+      "cents": 10
+    },
+    {
+      "kind": "kalimba",
+      "note": "G4",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_G4_k22_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 79,
+      "file": "kalimba-79.wav",
+      "seconds": 1.223,
+      "cents": 33
+    },
+    {
+      "kind": "kalimba",
+      "note": "C#5",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_C#5_k24_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 85,
+      "file": "kalimba-85.wav",
+      "seconds": 1.156,
+      "cents": 38
+    },
+    {
+      "kind": "kalimba",
+      "note": "G#5",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_G#5_k26_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 92,
+      "file": "kalimba-92.wav",
+      "seconds": 1.094,
+      "cents": 12
+    },
+    {
+      "kind": "kalimba",
+      "note": "C#6",
+      "path": "Idiophones/Plucked Idiophones/Kalimba, Tanzania/MBira3_pluck_Main_C#6_k27_50_100_rr2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 97,
+      "file": "kalimba-97.wav",
+      "seconds": 1.411,
+      "cents": 36
+    }
+  ],
+  "pipeorgan": [
+    {
+      "kind": "pipeorgan",
+      "note": "C2",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_C2_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 48,
+      "file": "pipeorgan-48.wav",
+      "seconds": 2.5,
+      "cents": 0
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "F#2",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_F#2_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 54,
+      "file": "pipeorgan-54.wav",
+      "seconds": 2.5,
+      "cents": 5
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "C3",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_C3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 60,
+      "file": "pipeorgan-60.wav",
+      "seconds": 2.5,
+      "cents": 0
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "F#3",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_F#3_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 66,
+      "file": "pipeorgan-66.wav",
+      "seconds": 2.5,
+      "cents": 0
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "C4",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_C4_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 72,
+      "file": "pipeorgan-72.wav",
+      "seconds": 2.5,
+      "cents": -4
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "F#4",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_F#4_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 78,
+      "file": "pipeorgan-78.wav",
+      "seconds": 2.5,
+      "cents": 0
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "C5",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_C5_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 84,
+      "file": "pipeorgan-84.wav",
+      "seconds": 2.5,
+      "cents": -3
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "F#5",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_F#5_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 90,
+      "file": "pipeorgan-90.wav",
+      "seconds": 2.5,
+      "cents": -4
+    },
+    {
+      "kind": "pipeorgan",
+      "note": "C6",
+      "path": "Aerophones/Edge-blown Aerophones/Pipe Organ/Quiet/NT5_Man3Quiet_C6_rr1.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 96,
+      "file": "pipeorgan-96.wav",
+      "seconds": 2.5,
+      "cents": 0
+    }
+  ],
+  "harmonica": [
+    {
+      "kind": "harmonica",
+      "note": "C2",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _C2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 48,
+      "file": "harmonica-48.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "G2",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _G2.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 55,
+      "file": "harmonica-55.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "C3",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _C3.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 60,
+      "file": "harmonica-60.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "E3",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _E3.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 64,
+      "file": "harmonica-64.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "G3",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _G3.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 67,
+      "file": "harmonica-67.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "C4",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _C4.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 72,
+      "file": "harmonica-72.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "E4",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _E4.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 76,
+      "file": "harmonica-76.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "G4",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _G4.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 79,
+      "file": "harmonica-79.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "C5",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _C5.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 84,
+      "file": "harmonica-84.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "G5",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _G5.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 91,
+      "file": "harmonica-91.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "harmonica",
+      "note": "C6",
+      "path": "Aerophones/Free Aerophones/Harmonica-Hohner-Super64/Sustains/Normal/Hohner-Super64_Normal _C6.wav",
+      "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "repository": "sgossner/VCSL",
+      "midi": 96,
+      "file": "harmonica-96.wav",
+      "seconds": 1.8,
+      "cents": 0
+    }
+  ],
+  "cello": [
+    {
+      "kind": "cello",
+      "note": "C1",
+      "path": "Strings/Cello Section/susvib/susvib_C1_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 36,
+      "file": "cello-36.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "cello",
+      "note": "G1",
+      "path": "Strings/Cello Section/susvib/susvib_G1_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 43,
+      "file": "cello-43.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "cello",
+      "note": "D2",
+      "path": "Strings/Cello Section/susvib/susvib_D2_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 50,
+      "file": "cello-50.wav",
+      "seconds": 3.0,
+      "cents": 5
+    },
+    {
+      "kind": "cello",
+      "note": "F2",
+      "path": "Strings/Cello Section/susvib/susvib_F2_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 53,
+      "file": "cello-53.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "cello",
+      "note": "A2",
+      "path": "Strings/Cello Section/susvib/susvib_A2_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 57,
+      "file": "cello-57.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "cello",
+      "note": "C3",
+      "path": "Strings/Cello Section/susvib/susvib_C3_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 60,
+      "file": "cello-60.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "cello",
+      "note": "E3",
+      "path": "Strings/Cello Section/susvib/susvib_E3_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 64,
+      "file": "cello-64.wav",
+      "seconds": 3.0,
+      "cents": 3
+    },
+    {
+      "kind": "cello",
+      "note": "G3",
+      "path": "Strings/Cello Section/susvib/susvib_G3_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 67,
+      "file": "cello-67.wav",
+      "seconds": 3.0,
+      "cents": 0
+    },
+    {
+      "kind": "cello",
+      "note": "B3",
+      "path": "Strings/Cello Section/susvib/susvib_B3_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 71,
+      "file": "cello-71.wav",
+      "seconds": 3.0,
+      "cents": -10
+    },
+    {
+      "kind": "cello",
+      "note": "F4",
+      "path": "Strings/Cello Section/susvib/susvib_F4_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 77,
+      "file": "cello-77.wav",
+      "seconds": 3.0,
+      "cents": -10
+    }
+  ],
+  "pizzicato": [
+    {
+      "kind": "pizzicato",
+      "note": "C1",
+      "path": "Strings/Cello Section/pizzT/pizzT_C1_v2_RR1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 36,
+      "file": "pizzicato-36.wav",
+      "seconds": 2.0,
+      "cents": 9
+    },
+    {
+      "kind": "pizzicato",
+      "note": "G1",
+      "path": "Strings/Cello Section/pizzT/pizzT_G1_v2_RR1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 43,
+      "file": "pizzicato-43.wav",
+      "seconds": 2.0,
+      "cents": 3
+    },
+    {
+      "kind": "pizzicato",
+      "note": "D2",
+      "path": "Strings/Cello Section/pizzT/pizzT_D2_v2_RR1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 50,
+      "file": "pizzicato-50.wav",
+      "seconds": 2.0,
+      "cents": 5
+    },
+    {
+      "kind": "pizzicato",
+      "note": "G2",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_G2_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 55,
+      "file": "pizzicato-55.wav",
+      "seconds": 2.0,
+      "cents": 0
+    },
+    {
+      "kind": "pizzicato",
+      "note": "B2",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_B2_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 59,
+      "file": "pizzicato-59.wav",
+      "seconds": 0.954,
+      "cents": -4
+    },
+    {
+      "kind": "pizzicato",
+      "note": "D3",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_D3_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 62,
+      "file": "pizzicato-62.wav",
+      "seconds": 1.633,
+      "cents": 14
+    },
+    {
+      "kind": "pizzicato",
+      "note": "F#3",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_F#3_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 66,
+      "file": "pizzicato-66.wav",
+      "seconds": 0.89,
+      "cents": -5
+    },
+    {
+      "kind": "pizzicato",
+      "note": "A3",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_A3_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 69,
+      "file": "pizzicato-69.wav",
+      "seconds": 0.908,
+      "cents": 5
+    },
+    {
+      "kind": "pizzicato",
+      "note": "C4",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_C4_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 72,
+      "file": "pizzicato-72.wav",
+      "seconds": 0.581,
+      "cents": 0
+    },
+    {
+      "kind": "pizzicato",
+      "note": "E4",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_E4_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 76,
+      "file": "pizzicato-76.wav",
+      "seconds": 0.832,
+      "cents": -7
+    },
+    {
+      "kind": "pizzicato",
+      "note": "G4",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_G4_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 79,
+      "file": "pizzicato-79.wav",
+      "seconds": 0.587,
+      "cents": 0
+    },
+    {
+      "kind": "pizzicato",
+      "note": "B4",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_B4_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 83,
+      "file": "pizzicato-83.wav",
+      "seconds": 0.554,
+      "cents": -12
+    },
+    {
+      "kind": "pizzicato",
+      "note": "D5",
+      "path": "Strings/Violin Section/Pizz/VlnEns_Pizz_D5_v2_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 86,
+      "file": "pizzicato-86.wav",
+      "seconds": 0.498,
+      "cents": 0
+    }
+  ],
+  "upright": [
+    {
+      "kind": "upright",
+      "note": "D1",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_D1_v1_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 38,
+      "file": "upright-38.wav",
+      "seconds": 2.5,
+      "cents": 17
+    },
+    {
+      "kind": "upright",
+      "note": "F#1",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_F#1_v1_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 42,
+      "file": "upright-42.wav",
+      "seconds": 2.5,
+      "cents": 4
+    },
+    {
+      "kind": "upright",
+      "note": "A1",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_A1_v1_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 45,
+      "file": "upright-45.wav",
+      "seconds": 2.5,
+      "cents": 16
+    },
+    {
+      "kind": "upright",
+      "note": "C#2",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_C#2_v1_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 49,
+      "file": "upright-49.wav",
+      "seconds": 2.5,
+      "cents": 4
+    },
+    {
+      "kind": "upright",
+      "note": "E2",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_E2_v1_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 52,
+      "file": "upright-52.wav",
+      "seconds": 2.311,
+      "cents": 0
+    },
+    {
+      "kind": "upright",
+      "note": "G#2",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_G#2_v1_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 56,
+      "file": "upright-56.wav",
+      "seconds": 2.069,
+      "cents": 0
+    },
+    {
+      "kind": "upright",
+      "note": "B2",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_B2_v1_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 59,
+      "file": "upright-59.wav",
+      "seconds": 2.273,
+      "cents": -10
+    },
+    {
+      "kind": "upright",
+      "note": "E0",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_E0_v3_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 28,
+      "file": "upright-28.wav",
+      "seconds": 2.5,
+      "cents": -3
+    },
+    {
+      "kind": "upright",
+      "note": "G0",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_G0_v3_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 31,
+      "file": "upright-31.wav",
+      "seconds": 2.5,
+      "cents": -24
+    },
+    {
+      "kind": "upright",
+      "note": "A#0",
+      "path": "Strings/Solo Contrabass/Pizz/BKCtbss_Pizz_A#0_v3_rr1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 34,
+      "file": "upright-34.wav",
+      "seconds": 2.231,
+      "cents": 0
+    }
+  ],
+  "horn": [
+    {
+      "kind": "horn",
+      "note": "C1",
+      "path": "Brass/F Horn/sus/MOHorn_sus_C1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 36,
+      "file": "horn-36.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "horn",
+      "note": "D#1",
+      "path": "Brass/F Horn/sus/MOHorn_sus_D#1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 39,
+      "file": "horn-39.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "horn",
+      "note": "G1",
+      "path": "Brass/F Horn/sus/MOHorn_sus_G1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 43,
+      "file": "horn-43.wav",
+      "seconds": 1.8,
+      "cents": 5
+    },
+    {
+      "kind": "horn",
+      "note": "A#1",
+      "path": "Brass/F Horn/sus/MOHorn_sus_A#1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 46,
+      "file": "horn-46.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "horn",
+      "note": "D2",
+      "path": "Brass/F Horn/sus/MOHorn_sus_D2_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 50,
+      "file": "horn-50.wav",
+      "seconds": 1.8,
+      "cents": -5
+    },
+    {
+      "kind": "horn",
+      "note": "F2",
+      "path": "Brass/F Horn/sus/MOHorn_sus_F2_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 53,
+      "file": "horn-53.wav",
+      "seconds": 1.8,
+      "cents": -5
+    },
+    {
+      "kind": "horn",
+      "note": "A2",
+      "path": "Brass/F Horn/sus/MOHorn_sus_A2_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 57,
+      "file": "horn-57.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "horn",
+      "note": "C3",
+      "path": "Brass/F Horn/sus/MOHorn_sus_C3_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 60,
+      "file": "horn-60.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "horn",
+      "note": "D4",
+      "path": "Brass/F Horn/sus/MOHorn_sus_D4_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 74,
+      "file": "horn-74.wav",
+      "seconds": 1.8,
+      "cents": 6
+    },
+    {
+      "kind": "horn",
+      "note": "F4",
+      "path": "Brass/F Horn/sus/MOHorn_sus_F4_v1_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 77,
+      "file": "horn-77.wav",
+      "seconds": 1.8,
+      "cents": 0
+    }
+  ],
+  "trombone": [
+    {
+      "kind": "trombone",
+      "note": "A#0",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_A#0_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 34,
+      "file": "trombone-34.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "C#1",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_C#1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 37,
+      "file": "trombone-37.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "F1",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_F1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 41,
+      "file": "trombone-41.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "A#1",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_A#1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 46,
+      "file": "trombone-46.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "D2",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_D2_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 50,
+      "file": "trombone-50.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "F2",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_F2_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 53,
+      "file": "trombone-53.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "C3",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_C3_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 60,
+      "file": "trombone-60.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "D#3",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_D#3_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 63,
+      "file": "trombone-63.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "trombone",
+      "note": "F3",
+      "path": "Brass/Tenor Trombone/sus/tenortbn_sus_F3_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 65,
+      "file": "trombone-65.wav",
+      "seconds": 1.8,
+      "cents": 0
+    }
+  ],
+  "bassoon": [
+    {
+      "kind": "bassoon",
+      "note": "A#0",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_A#0_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 34,
+      "file": "bassoon-34.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "C#1",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_C#1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 37,
+      "file": "bassoon-37.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "F1",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_F1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 41,
+      "file": "bassoon-41.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "A1",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_A1_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 45,
+      "file": "bassoon-45.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "C2",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_C2_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 48,
+      "file": "bassoon-48.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "G2",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_G2_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 55,
+      "file": "bassoon-55.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "C3",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_C3_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 60,
+      "file": "bassoon-60.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "G#3",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_G#3_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 68,
+      "file": "bassoon-68.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "C4",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_C4_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 72,
+      "file": "bassoon-72.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "bassoon",
+      "note": "D#4",
+      "path": "Woodwinds/Bassoon/sus/PSBassoon_D#4_v2_1.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 75,
+      "file": "bassoon-75.wav",
+      "seconds": 1.8,
+      "cents": 0
+    }
+  ],
+  "oboe": [
+    {
+      "kind": "oboe",
+      "note": "A#2",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_A#2_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 58,
+      "file": "oboe-58.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "oboe",
+      "note": "D3",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_D3_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 62,
+      "file": "oboe-62.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "oboe",
+      "note": "F3",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_F3_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 65,
+      "file": "oboe-65.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "oboe",
+      "note": "A#3",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_A#3_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 70,
+      "file": "oboe-70.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "oboe",
+      "note": "D4",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_D4_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 74,
+      "file": "oboe-74.wav",
+      "seconds": 1.8,
+      "cents": 4
+    },
+    {
+      "kind": "oboe",
+      "note": "F4",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_F4_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 77,
+      "file": "oboe-77.wav",
+      "seconds": 1.8,
+      "cents": 0
+    },
+    {
+      "kind": "oboe",
+      "note": "A#4",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_A#4_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 82,
+      "file": "oboe-82.wav",
+      "seconds": 1.8,
+      "cents": 6
+    },
+    {
+      "kind": "oboe",
+      "note": "D5",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_D5_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 86,
+      "file": "oboe-86.wav",
+      "seconds": 1.8,
+      "cents": -3
+    },
+    {
+      "kind": "oboe",
+      "note": "F5",
+      "path": "Woodwinds/Oboe/Vib/Oboe_Vib_F5_v3_Main.wav",
+      "revision": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "repository": "sgossner/VSCO-2-CE",
+      "midi": 89,
+      "file": "oboe-89.wav",
+      "seconds": 1.8,
+      "cents": -3
     }
   ]
 }

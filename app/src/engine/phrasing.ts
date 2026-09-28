@@ -1,12 +1,12 @@
 import type { Bank, BankKind, Pad, Pattern, Phrasing } from '../state/types'
 
-export const WIND_INSTRUMENTS = new Set(['Flute', 'Clarinet', 'Trumpet', 'Alto Saxophone'])
+export const WIND_INSTRUMENTS = new Set(['Flute', 'Clarinet', 'Trumpet', 'Alto Saxophone', 'Oboe', 'Bassoon', 'French Horn', 'Trombone', 'Harmonica'])
 export function isWind(bank: Bank): boolean { return bank.sound?.type === 'preset' && WIND_INSTRUMENTS.has(bank.sound.name) }
 
 export function bankPhrasing(pattern: Pattern, bank: Bank): Phrasing {
   const instrument = bank.sound?.type === 'preset' ? bank.sound.name : ''
-  const detached = isWind(bank) || bank.kind === 'bass' || ['Bass', 'Sub Bass'].includes(instrument)
-  const sustained = ['Organ', 'Pad', 'Lead', 'Velvet Strings'].includes(instrument)
+  const detached = isWind(bank) || bank.kind === 'bass' || ['Bass', 'Sub Bass', 'Upright Bass'].includes(instrument)
+  const sustained = ['Organ', 'Pipe Organ', 'Pad', 'Lead', 'Synth Brass', 'Velvet Strings', 'Cello'].includes(instrument)
   return pattern.phrasing?.[bank.kind] ?? {
     articulation: detached ? 'detached' : sustained ? 'connected' : 'natural',
     lengthSteps: 0,

@@ -3765,6 +3765,14 @@ button.list-item:hover .list-wave {
   margin: var(--s3) 0 6px;
 }
 
+.song-keys h3 {
+  margin: var(--s3) 0 4px;
+}
+
+.song-keys h4 {
+  margin: var(--s2) 0 6px;
+}
+
 .key-notes {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

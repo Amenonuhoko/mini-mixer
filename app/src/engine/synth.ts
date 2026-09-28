@@ -3,7 +3,7 @@ import { queuedRender } from './renderQueue'
 import { polishSample } from './samplePolish'
 
 export type SynthWaveform = OscillatorType
-type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar' | 'electricPiano' | 'mallet' | 'sub' | 'rubber' | 'bubble'
+type InstrumentVoice = 'piano' | 'bass' | 'lead' | 'pad' | 'pluck' | 'organ' | 'bell' | 'guitar' | 'electricPiano' | 'mallet' | 'sub' | 'rubber' | 'bubble' | 'musicbox' | 'steel'
 
 /**
  * The synth bank deliberately distinguishes an instrument's sound-producing
@@ -34,6 +34,8 @@ export interface InstrumentPreset {
   /** Frequency of key 0 (the root); each subsequent key is one semitone higher. */
   description?: string
   recordedKeys?: keyof typeof RECORDED_KEYS
+  /** Octaves the instrument sounds above the pad's written note — a glockenspiel or music box lives above the pad grid's register. */
+  octaveShift?: number
   rootHz: number
   patch: SynthPatch
 }
@@ -195,6 +197,31 @@ export const INSTRUMENT_PRESETS: InstrumentPreset[] = [
   { name: 'Chiptune', description: 'Bright square-wave arcade notes', rootHz: 261.63, patch: { voice: 'lead', waveform: 'square', attackSeconds: .003, decaySeconds: .12, sustainLevel: .28, releaseSeconds: .12, totalDurationSeconds: .65, lowpassHz: 5200 } },
   { name: 'Rubber Duck', description: 'A springy, nasal quack with a pitched body', rootHz: 261.63, patch: { voice: 'rubber', waveform: 'sine', attackSeconds: .004, decaySeconds: .2, sustainLevel: 0, releaseSeconds: .15, totalDurationSeconds: .85 } },
   { name: 'Bubble Keys', description: 'Bouncy water-drop notes and glassy tails', rootHz: 261.63, patch: { voice: 'bubble', waveform: 'sine', attackSeconds: .003, decaySeconds: .3, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.25 } },
+  { name: 'Harpsichord', recordedKeys: 'harpsichord', description: 'Recorded French harpsichord: plucked quills with a bright, quick decay', rootHz: 261.63, patch: { voice: 'pluck', waveform: 'sawtooth', attackSeconds: .001, decaySeconds: .5, sustainLevel: 0, releaseSeconds: .3, totalDurationSeconds: 2.2 } },
+  { name: 'Vibraphone', recordedKeys: 'vibraphone', description: 'Recorded vibraphone with soft mallets: mellow metal bars and a long shimmer', rootHz: 261.63, patch: { voice: 'mallet', waveform: 'sine', attackSeconds: .002, decaySeconds: 1.2, sustainLevel: 0, releaseSeconds: .5, totalDurationSeconds: 3.2 } },
+  { name: 'Glockenspiel', recordedKeys: 'glockenspiel', octaveShift: 1, description: 'Recorded glockenspiel: tiny bright bells, sounding an octave above the pads', rootHz: 523.25, patch: { voice: 'bell', waveform: 'sine', attackSeconds: .001, decaySeconds: .9, sustainLevel: 0, releaseSeconds: .4, totalDurationSeconds: 2.6 } },
+  { name: 'Kalimba', recordedKeys: 'kalimba', description: 'Recorded thumb piano: soft plucked tines, each retuned to its note', rootHz: 261.63, patch: { voice: 'mallet', waveform: 'sine', attackSeconds: .002, decaySeconds: .6, sustainLevel: 0, releaseSeconds: .3, totalDurationSeconds: 2 } },
+  { name: 'Pipe Organ', recordedKeys: 'pipeorgan', description: 'Recorded pipe organ, quiet manual: airy pipes that hold while the key is down', rootHz: 261.63, patch: { voice: 'organ', waveform: 'sine', attackSeconds: .03, decaySeconds: .1, sustainLevel: .9, releaseSeconds: .35, totalDurationSeconds: 2.4 } },
+  { name: 'Harmonica', recordedKeys: 'harmonica', description: 'Recorded chromatic harmonica: reedy sustained notes with breath', rootHz: 261.63, patch: { voice: 'lead', waveform: 'square', overtoneGain: .1, attackSeconds: .04, decaySeconds: .2, sustainLevel: .7, releaseSeconds: .4, totalDurationSeconds: 2.2, lowpassHz: 3000, vibratoHz: 5, vibratoCents: 6 } },
+  { name: 'Cello', recordedKeys: 'cello', description: 'Recorded cello section, bowed with vibrato: warm low strings', rootHz: 130.81, patch: { voice: 'pad', waveform: 'sawtooth', unisonDetuneCents: 7, attackSeconds: .2, decaySeconds: .4, sustainLevel: .55, releaseSeconds: .9, totalDurationSeconds: 3, lowpassHz: 1800, vibratoHz: 4.5, vibratoCents: 5 } },
+  { name: 'Pizzicato Strings', recordedKeys: 'pizzicato', description: 'Recorded string sections, plucked: short woody orchestral notes', rootHz: 261.63, patch: { voice: 'pluck', waveform: 'triangle', attackSeconds: .001, decaySeconds: .25, sustainLevel: 0, releaseSeconds: .2, totalDurationSeconds: 1.4 } },
+  { name: 'Upright Bass', recordedKeys: 'upright', description: 'Recorded double bass, plucked: round jazz low end with finger noise', rootHz: 65.41, patch: { voice: 'bass', waveform: 'sine', attackSeconds: .004, decaySeconds: .3, sustainLevel: .4, releaseSeconds: .4, totalDurationSeconds: 1.6, lowpassHz: 900 } },
+  { name: 'French Horn', recordedKeys: 'horn', description: 'Recorded French horn: rounded, noble brass that blends into chords', rootHz: 174.61, patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: .1, attackSeconds: .05, decaySeconds: .2, sustainLevel: .7, releaseSeconds: .45, totalDurationSeconds: 2.6, lowpassHz: 1800, vibratoHz: 4.8, vibratoCents: 4, filterMovement: .06 } },
+  { name: 'Trombone', recordedKeys: 'trombone', description: 'Recorded tenor trombone: broad brass with a soft-edged attack', rootHz: 116.54, patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: .16, attackSeconds: .04, decaySeconds: .18, sustainLevel: .68, releaseSeconds: .4, totalDurationSeconds: 2.5, lowpassHz: 2400, vibratoHz: 5, vibratoCents: 6, filterMovement: .08 } },
+  { name: 'Oboe', recordedKeys: 'oboe', description: 'Recorded oboe with vibrato: a reedy, singing double reed', rootHz: 261.63, patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: .2, attackSeconds: .04, decaySeconds: .2, sustainLevel: .7, releaseSeconds: .45, totalDurationSeconds: 2.6, lowpassHz: 3200, vibratoHz: 5.4, vibratoCents: 8, filterMovement: .06 } },
+  { name: 'Bassoon', recordedKeys: 'bassoon', description: 'Recorded bassoon: a woody, dry double reed in the low register', rootHz: 116.54, patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: .12, attackSeconds: .05, decaySeconds: .2, sustainLevel: .68, releaseSeconds: .45, totalDurationSeconds: 2.6, lowpassHz: 2000, vibratoHz: 4.9, vibratoCents: 5, filterMovement: .06 } },
+  { name: 'Synth Brass', description: 'Stacked detuned saws with a slow filter swell, the classic synth horn section', rootHz: 261.63, patch: { voice: 'lead', waveform: 'sawtooth', overtoneGain: .15, unisonDetuneCents: 9, attackSeconds: .06, decaySeconds: .25, sustainLevel: .75, releaseSeconds: .3, totalDurationSeconds: 2.2, lowpassHz: 2600, vibratoHz: 5.6, vibratoCents: 5, filterMovement: .22 } },
+  { name: 'Music Box', octaveShift: 1, description: 'Tiny plucked comb tines with a bright ping, an octave up', rootHz: 523.25, patch: { voice: 'musicbox', waveform: 'sine', attackSeconds: .001, decaySeconds: .6, sustainLevel: 0, releaseSeconds: .3, totalDurationSeconds: 1.8 } },
+  { name: 'Steel Drum', description: 'Hammered steel pan with a ringing bloom and a little wobble', rootHz: 261.63, patch: { voice: 'steel', waveform: 'sine', attackSeconds: .002, decaySeconds: .5, sustainLevel: 0, releaseSeconds: .3, totalDurationSeconds: 1.6 } },
+]
+
+/** How the sound picker groups the presets. Every preset belongs to exactly one group (see synth.test.ts). */
+export const INSTRUMENT_GROUPS: { label: string; names: string[] }[] = [
+  { label: 'Keys', names: ['Piano', 'Electric Piano', 'Harpsichord', 'Organ', 'Pipe Organ', 'Bell', 'Glockenspiel', 'Marimba', 'Vibraphone', 'Kalimba'] },
+  { label: 'Strings', names: ['Guitar', 'Pluck', 'Pizzicato Strings', 'Bass', 'Upright Bass', 'Velvet Strings', 'Cello'] },
+  { label: 'Winds', names: ['Alto Saxophone', 'Trumpet', 'French Horn', 'Trombone', 'Flute', 'Oboe', 'Clarinet', 'Bassoon', 'Harmonica'] },
+  { label: 'Synths', names: ['Lead', 'Pad', 'Synth Brass', 'Sub Bass', 'Chiptune'] },
+  { label: 'Playful', names: ['Rubber Duck', 'Bubble Keys', 'Music Box', 'Steel Drum'] },
 ]
 
 function createRenderedBuffer(durationSeconds: number): AudioBuffer {
@@ -450,6 +477,11 @@ function renderGenericSynth(frequencyHz: number, patch: SynthPatch): Promise<Aud
 }
 
 
+/** A partial's amplitude, or silence when it would sit above the render's Nyquist frequency. */
+function partial(hz: number, ratio: number, amplitude: number): number {
+  return hz * ratio < 44100 * .45 ? amplitude : 0
+}
+
 /** Small pre-rendered models: no oscillators or modulation run during playback. */
 async function renderCharacter(hz: number, patch: SynthPatch): Promise<AudioBuffer> {
   const buffer = createRenderedBuffer(patch.totalDurationSeconds)
@@ -458,13 +490,17 @@ async function renderCharacter(hz: number, patch: SynthPatch): Promise<AudioBuff
   for (let i = 0; i < data.length; i++) {
     if (i > 0 && i % 8192 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0))
     const t = i / buffer.sampleRate
-    const bend = patch.voice === 'bubble' ? 1 + .5 * Math.exp(-t * 35) : patch.voice === 'rubber' ? 1 + .16 * Math.exp(-t * 22) : 1
+    // A steel pan note sags slightly as the hammer lands, then rings true.
+    const bend = patch.voice === 'bubble' ? 1 + .5 * Math.exp(-t * 35) : patch.voice === 'rubber' ? 1 + .16 * Math.exp(-t * 22) : patch.voice === 'steel' ? 1 - .02 * Math.exp(-t * 30) : 1
     phase += 2 * Math.PI * hz * bend / buffer.sampleRate
     let value = 0
     if (patch.voice === 'mallet') value = Math.sin(phase) * Math.exp(-t * 5) + .32 * Math.sin(phase * 4) * Math.exp(-t * 16) + .07 * Math.sin(phase * 9.2) * Math.exp(-t * 35)
     if (patch.voice === 'sub') value = (Math.sin(phase) + .12 * Math.sin(phase * 2)) * (1 - Math.exp(-t * 150)) * Math.exp(-t * 2.5)
     if (patch.voice === 'rubber') value = Math.sin(phase + 2 * Math.exp(-t * 5) * Math.sin(phase * 2)) * (1 - Math.exp(-t * 200)) * Math.exp(-t * 6)
     if (patch.voice === 'bubble') value = (Math.sin(phase) + .18 * Math.sin(phase * 2.76) * Math.exp(-t * 10)) * Math.exp(-t * 5)
+    // Comb-tine and pan partials are inharmonic; those above Nyquist are left out rather than folded back.
+    if (patch.voice === 'musicbox') value = Math.sin(phase) * Math.exp(-t * 3.5) + partial(hz, 3.97, .45) * Math.sin(phase * 3.97) * Math.exp(-t * 9) + partial(hz, 8.9, .16) * Math.sin(phase * 8.9) * Math.exp(-t * 20) + (Math.random() * 2 - 1) * .03 * Math.exp(-t / .0015)
+    if (patch.voice === 'steel') value = (Math.sin(phase) * Math.exp(-t * 2.2) + partial(hz, 2, .55) * Math.sin(phase * 2) * Math.exp(-t * 3.5) + partial(hz, 3, .3) * Math.sin(phase * 3) * Math.exp(-t * 5) + partial(hz, 4.02, .12) * Math.sin(phase * 4.02) * Math.exp(-t * 7)) * (1 - Math.exp(-t * 400)) + (Math.random() * 2 - 1) * .04 * Math.exp(-t / .004)
     data[i] = value
   }
   return normalize(buffer)
@@ -479,6 +515,8 @@ export async function renderSynthNote(frequencyHz: number, patch: SynthPatch): P
     case 'sub':
     case 'rubber':
     case 'bubble':
+    case 'musicbox':
+    case 'steel':
       return renderCharacter(frequencyHz, patch)
     case 'piano':
       return renderPiano(frequencyHz, patch.totalDurationSeconds)
@@ -499,9 +537,10 @@ export async function renderSynthNote(frequencyHz: number, patch: SynthPatch): P
 }
 
 /**
- * Bakes a pitch shift permanently into a new buffer via an offline render.
- * Downward shifts need a longer render than their source so their release is
- * never cut short; upward shifts retain the source-length capture behavior.
+ * Bakes a pitch shift (whole or fractional semitones) permanently into a new
+ * buffer via an offline render. Downward shifts need a longer render than
+ * their source so their release is never cut short; upward shifts retain the
+ * source-length capture behavior.
  */
 export async function renderPitchShiftedCopy(source: AudioBuffer, semitones: number): Promise<AudioBuffer> {
   if (semitones === 0) return source
@@ -516,7 +555,18 @@ export async function renderPitchShiftedCopy(source: AudioBuffer, semitones: num
   return ctx.startRendering()
 }
 
-type RecordedSourceZone = { midi: number; file: string }
+type RecordedSourceZone = { midi: number; file: string; cents?: number }
+
+/**
+ * Semitones to pitch a zone by for a target note. A zone's measured tuning
+ * offset (how far the recording sits from equal temperament, in cents) is
+ * cancelled here, so notes built from different zones agree with each other
+ * and with the synth voices. Offsets under 3 cents were dropped at build
+ * time, so an exact zone plays untouched.
+ */
+export function zoneShiftSemitones(targetMidi: number, zone: RecordedSourceZone): number {
+  return targetMidi - zone.midi - (zone.cents ?? 0) / 100
+}
 
 async function decodeRemoteAudio(url: string): Promise<AudioBuffer> {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
@@ -571,21 +621,25 @@ function midiToFrequency(midi: number): number {
 
 /**
  * Renders one buffer per requested MIDI note in a preset's voice. Presets with
- * Real recordings pitch the nearest zone. Intentionally synthetic voices use
- * the built-in model; unavailable recordings are reported instead of substituted.
+ * Real recordings pitch the nearest zone, cancelling its measured tuning
+ * offset. Intentionally synthetic voices use the built-in model; unavailable
+ * recordings are reported instead of substituted. Presets that sound above the
+ * pad grid's register render each note the preset's octaves up.
  */
 export async function renderPresetNotes(preset: InstrumentPreset, midis: number[]): Promise<Map<number, AudioBuffer>> {
   const unique = [...new Set(midis)]
+  const sounding = (midi: number) => midi + 12 * (preset.octaveShift ?? 0)
   try {
     const recorded = await recordedSourceFor(preset)
     if (recorded) {
       return new Map(
         await Promise.all(
           unique.map((midi) => queuedRender(async () => {
-            const zone = nearestZone(midi, recorded.zones)
+            const zone = nearestZone(sounding(midi), recorded.zones)
             const url = recorded.url(zone.file)
             const source = await cached(zoneBufferCache, url, () => decodeRemoteAudio(url))
-            return [midi, midi === zone.midi ? source : normalize(await renderPitchShiftedCopy(source, midi - zone.midi))] as const
+            const shift = zoneShiftSemitones(sounding(midi), zone)
+            return [midi, shift === 0 ? source : normalize(await renderPitchShiftedCopy(source, shift))] as const
           })),
         ),
       )
@@ -594,7 +648,7 @@ export async function renderPresetNotes(preset: InstrumentPreset, midis: number[
     throw new Error(`Could not load the real ${preset.name} recordings. Check your connection and retry; your current sound has been kept.`, { cause: error })
   }
   return new Map(
-    await Promise.all(unique.map((midi) => queuedRender(async () => [midi, await renderSynthNote(midiToFrequency(midi), preset.patch)] as const))),
+    await Promise.all(unique.map((midi) => queuedRender(async () => [midi, await renderSynthNote(midiToFrequency(sounding(midi)), preset.patch)] as const))),
   )
 }
 
