@@ -111,6 +111,15 @@ export const PadsIcon = (p: IconProps) => (
   </Svg>
 )
 
+/** Both: the sequencer above, the pads below — the docked split of a wide screen. */
+export const SplitIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="3.5" width="17" height="6" rx="1.5" />
+    <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+    <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+  </Svg>
+)
+
 export const SeqIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 6h3M9 6h3M15 6h6M3 12h6M12 12h3M18 12h3M3 18h9M15 18h3" />

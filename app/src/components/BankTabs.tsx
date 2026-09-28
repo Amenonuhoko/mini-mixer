@@ -20,7 +20,7 @@ export function BankTabs() {
             type="button"
             role="tab"
             aria-selected={active}
-            className={active ? 'segment on' : 'segment'}
+            className={`segment bank-${bank.kind}${active ? ' on' : ''}`}
             onClick={() => dispatch({ type: 'SET_ACTIVE_BANK', bankId: bank.id })}
           >
             {BANK_NAMES[bank.kind]}

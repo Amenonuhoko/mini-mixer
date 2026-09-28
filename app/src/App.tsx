@@ -16,6 +16,7 @@ import { useAutosave } from './hooks/useAutosave'
 import { useBeatEngine } from './hooks/useBeatEngine'
 import { useIsLandscapeLayout } from './hooks/useIsLandscapeLayout'
 import { useIsWideScreen } from './hooks/useIsWideScreen'
+import { useTransportKeys } from './hooks/useTransportKeys'
 import { AppStateProvider, useAppState } from './state/AppStateContext'
 import { EngineProvider, useEngine } from './state/EngineContext'
 import { NavigationProvider, useNavigation } from './state/NavigationContext'
@@ -28,11 +29,12 @@ function EngineBridge({ children }: { children: ReactNode }) {
 
 /**
  * Above the wide-screen breakpoint, Pads and Sequencer are shown together
- * side by side instead of as separate pages — they're the two screens you go
- * back and forth between while actually playing/building a beat, unlike
- * Library, which stays a full-width page even when wide since it's more of
- * an occasional-visit browsing screen. The nav tabs still work as before;
- * on a wide screen, switching to either "Pads" or "Sequencer" shows both.
+ * (the docked split) instead of as separate pages — they're the two screens
+ * you go back and forth between while actually playing/building a beat,
+ * unlike Library, which stays a full-width page even when wide since it's
+ * more of an occasional-visit browsing screen. There the Pads and Seq tabs
+ * give one of them the whole window instead, and the Both tab brings the
+ * split back (see StudioView in NavigationContext); a phone never sees this.
  *
  * A landscape phone or an ultra-wide/short desktop window (see
  * useIsLandscapeLayout) gets a different combined arrangement instead of
@@ -49,11 +51,27 @@ interface CurrentPageProps {
 }
 
 function CurrentPage({ onBounced }: CurrentPageProps) {
-  const { page } = useNavigation()
+  const { page, studioView } = useNavigation()
   const isWide = useIsWideScreen()
   const isLandscape = useIsLandscapeLayout()
 
   if (page === 'pads' || page === 'sequencer') {
+    // A wide screen can also give one of the two the whole window (the
+    // Pads / Seq tabs, with Both to return) — see StudioView.
+    if ((isWide || isLandscape) && studioView === 'pads') {
+      return (
+        <div className="studio-solo studio-solo-pads">
+          <PadsPage onRecorded={onBounced} />
+        </div>
+      )
+    }
+    if ((isWide || isLandscape) && studioView === 'sequencer') {
+      return (
+        <div className="studio-solo studio-solo-sequencer">
+          <Sequencer onBounced={onBounced} />
+        </div>
+      )
+    }
     if (isLandscape) {
       return (
         <div className="landscape-stack">
@@ -96,6 +114,7 @@ function Shell() {
   const shellRef = useRef<HTMLElement>(null)
   const swipeStart = useRef<{ x: number; y: number; identifier: number; startedAt: number } | null>(null)
   useAutosave(state, dispatch, engine)
+  useTransportKeys()
 
   const isWide = useIsWideScreen()
   const isLandscape = useIsLandscapeLayout()

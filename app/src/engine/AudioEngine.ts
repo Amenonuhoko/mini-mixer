@@ -39,6 +39,13 @@ const METER_FFT_SIZE = 256
 /** Called when a pad instance is scheduled to sound; `when` is on the AudioContext clock (may be slightly in the future for sequencer steps). */
 export type PadHitListener = (padId: string, when: number) => void
 
+/** The mix split three ways for the light show, each 0–1: the floor (kick and bass), the body (snares, chords, voices), the air (hats and sparkle). */
+export interface MasterBands {
+  low: number
+  mid: number
+  high: number
+}
+
 export interface BeatPhase {
   /** 0 at the downbeat of the current beat, rising toward 1 just before the next. */
   phase: number
@@ -133,6 +140,7 @@ export class AudioEngine {
   private masterMeter: AnalyserNode | null = null
   private meterSink: GainNode | null = null
   private readonly meterScratch = new Float32Array(METER_FFT_SIZE)
+  private readonly bandScratch = new Uint8Array(METER_FFT_SIZE / 2)
   private readonly hitListeners = new Set<PadHitListener>()
   /** Audio-clock time of the most recent beat the scheduler reported — see markBeat(). */
   private lastBeatTime: number | null = null
@@ -234,6 +242,9 @@ export class AudioEngine {
       this.masterStage.output.connect(this.masterOutput)
       this.masterOutput.connect(ctx.destination)
       this.masterMeter = this.createMeter(ctx)
+      // The master meter also feeds the spectrum bands; less smoothing than
+      // the default so a kick reads as a thump rather than a swell.
+      this.masterMeter.smoothingTimeConstant = 0.55
       this.masterBus.connect(this.masterMeter)
     }
     return this.masterBus
@@ -284,6 +295,41 @@ export class AudioEngine {
   getMasterLevel(): number {
     if (!this.ctx) return 0
     return this.readMeter(this.masterMeter)
+  }
+
+  /**
+   * The mix's energy in three bands right now (0–1 each) — what a light show
+   * reacts to beyond overall loudness: the floor thumps with the kick, the
+   * mesh with the body of the mix, the air with hats. One 128-bin read of the
+   * master analyser; never creates an AudioContext.
+   */
+  getMasterBands(): MasterBands {
+    const meter = this.masterMeter
+    if (!this.ctx || !meter) return { low: 0, mid: 0, high: 0 }
+    const bins = this.bandScratch
+    meter.getByteFrequencyData(bins)
+    // Bin width is sampleRate / fftSize (~187 Hz at 48 kHz): the first two bins
+    // hold kick and bass, up to ~2.2 kHz is the body, above that the air.
+    const midEnd = Math.min(bins.length, 12)
+    let low = 0
+    for (let i = 0; i < 2; i++) low = Math.max(low, bins[i]!)
+    let mid = 0
+    for (let i = 2; i < midEnd; i++) mid += bins[i]!
+    let high = 0
+    for (let i = midEnd; i < bins.length; i++) high += bins[i]!
+    // Byte magnitudes sit on a dB scale that leaves most music in the upper
+    // half; re-centre each band so a normal mix moves through the whole range.
+    const shape = (value: number, floor: number) => Math.min(1, Math.max(0, (value - floor) / (255 - floor)))
+    return {
+      low: shape(low, 120),
+      mid: shape(mid / Math.max(1, midEnd - 2), 70),
+      high: shape((high / Math.max(1, bins.length - midEnd)) * 1.6, 40),
+    }
+  }
+
+  /** How long one sequencer step (a 16th) lasts at the current tempo, in seconds. */
+  getStepSeconds(): number {
+    return 60 / this.bpm / 4
   }
 
   /** Subscribe to every pad hit (manual, loop start, or sequencer step). Returns an unsubscribe function. */

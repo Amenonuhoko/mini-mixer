@@ -2,6 +2,24 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 
 export type Page = 'pads' | 'sequencer' | 'song' | 'library'
 
+/**
+ * How a screen wide enough for both shows the studio (Pads and Seq): the
+ * docked split, or one of them alone with the whole window to itself.
+ * Meaningless on a phone, which only ever shows one page.
+ */
+export type StudioView = 'both' | 'pads' | 'sequencer'
+
+const STUDIO_VIEW_KEY = 'beat-maker:studio-view'
+
+function readStudioView(): StudioView {
+  try {
+    const stored = localStorage.getItem(STUDIO_VIEW_KEY)
+    return stored === 'pads' || stored === 'sequencer' || stored === 'both' ? stored : 'both'
+  } catch {
+    return 'both'
+  }
+}
+
 interface NavigationValue {
   page: Page
   /** Non-null whenever the pad edit popup is open — independent of `page`, since it's an overlay, not a destination. */
@@ -12,6 +30,9 @@ interface NavigationValue {
   goToLibrary: () => void
   goToEditPad: (padId: string) => void
   goBackFromEdit: () => void
+  /** The studio's arrangement on a wide screen — see StudioView. Remembered across reloads. */
+  studioView: StudioView
+  setStudioView: (view: StudioView) => void
   /**
    * The pad you're working with, shared by the Pads grid and the Sequencer —
    * pick a pad on one and the other shows the same one, so going back and
@@ -43,6 +64,15 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
   const [beatStarterOpen, setBeatStarterOpen] = useState(true)
   const [beatStarts, setBeatStarts] = useState(0)
+  const [studioView, setStudioViewState] = useState<StudioView>(readStudioView)
+  const setStudioView = (view: StudioView) => {
+    setStudioViewState(view)
+    try {
+      localStorage.setItem(STUDIO_VIEW_KEY, view)
+    } catch {
+      // Private mode or storage full: the choice still holds for this session.
+    }
+  }
 
   const value: NavigationValue = {
     page,
@@ -53,6 +83,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     goToLibrary: () => setPage('library'),
     goToEditPad: (padId: string) => setEditingPadId(padId),
     goBackFromEdit: () => setEditingPadId(null),
+    studioView,
+    setStudioView,
     selectedPadId,
     selectPad: setSelectedPadId,
     beatStarterOpen,

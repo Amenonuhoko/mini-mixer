@@ -6,12 +6,15 @@ import { playScope } from '../utils/playScope'
 import { TempoControl } from './TempoControl'
 import { GearIcon, LoopIcon, MetronomeIcon, OnceIcon, PanicIcon, VolumeIcon } from './icons'
 
+/** The bar counter's four LEDs — LightShow lights the one being heard. */
+const BEATS = [0, 1, 2, 3]
+
 interface TransportStripProps {
   onOpenSettings: () => void
 }
 
 /**
- * The always-visible top strip: the beat light, tempo and settings (where
+ * The always-visible top strip: the bar counter, tempo and settings (where
  * loop-once vs. continuous also lives). The controls pressed while playing —
  * metronome, master level and panic — sit around Play in the tab bar (see
  * TransportCluster), under the thumb.
@@ -20,9 +23,20 @@ export function TransportStrip({ onOpenSettings }: TransportStripProps) {
   const { state, dispatch } = useAppState()
   return (
     <header className="transport">
-      <span className="beat-led" data-beat aria-hidden="true" />
+      <span className="beat-leds" aria-hidden="true">
+        {BEATS.map((beat) => (
+          <span key={beat} className="beat-led" data-beat={beat} />
+        ))}
+      </span>
 
       <TempoControl bpm={state.transport.bpm} onChange={(next) => dispatch({ type: 'SET_BPM', bpm: next })} />
+
+      {/* The keyboard, for mouse-and-keyboard screens: the pads print their own keys. */}
+      <span className="key-legend" aria-hidden="true">
+        <span className="key-legend-item"><kbd>Space</kbd> play</span>
+        <span className="key-legend-item"><kbd>←</kbd><kbd>→</kbd> bank</span>
+        <span className="key-legend-item"><kbd>Q</kbd><kbd>A</kbd><kbd>Z</kbd> rows pads</span>
+      </span>
 
       <div className="transport-tools">
         <button type="button" className="icon-btn" onClick={onOpenSettings} aria-label="Settings" title="Settings">

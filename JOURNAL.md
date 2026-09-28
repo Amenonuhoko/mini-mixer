@@ -2257,3 +2257,67 @@ The user found the compact-rows version still too busy. Chosen direction: style 
 
 The user asked to see the whole song in sequence (chose a full editable grid over an overview map), then to start from any section and loop one. Seq gets a Whole song toggle: segments = song sections in order, each rendering its pattern's steps once (repeats labelled, not drawn — keeps the grid a sane width and edits unambiguous). `SequencerRow` takes optional per-section segments; cells carry `data-section`, so taps and paint strokes route to that section's pattern (paint keys include the section). The playhead (LightShow, straight on the DOM) is scoped to `[data-section=<current>]` via the grid's `data-current-section`, since the same step index exists in every segment. Each heading has ▶ (AUDITION_SONG_SECTION rest) and ⟳ (loop; toggles off). Entering the view switches Play to song mode; leaving goes back to the pattern. Verified with a phone suite (order and repeats, in-place edits reaching shared patterns but not others, ▶ and ⟳, playhead in one section only, column alignment on phone and desktop) plus every existing suite.
 
+
+
+## 2026-09-27 — The light show becomes an experience: a colour per instrument, a room that hears the mix, a beam, a heartbeat
+
+### Context
+The user asked for a pass at the visuals: upgrade the light show and the feel, make it an experience. Until now every light was ice-blue, the background swelled with overall loudness only, the playhead hopped cell to cell, and Play was a static button.
+
+### Decision(s)
+- **Every instrument has its own light.** Drums stay the ice the UI is made of; bass is violet, chords mint, melody rose. A `.bank-<kind>` class on the pad grid, each sequencer bank section, each bank tab and the light field sets `--bank-rgb` once; pad glows, hit blooms, pad numbers, waveforms, the selected pad, lit steps, the white-hot playhead step's halo, row lights, bank names and the tab dots all draw from it. Amber keeps its meaning: active, armed, looping, the playhead, home pads.
+- **The room hears the mix in three bands.** `AudioEngine.getMasterBands()` reads the existing master analyser's spectrum once per frame (128 bins, smoothing lowered to 0.55 so a kick thumps rather than swells): the low band lights a new stage floor in the active bank's colour, the mids drive the hex mesh, the highs lift the light shaft. Each band has a fast attack and its own release, the floor's a touch longer so a kick has weight.
+- **The playhead sweeps.** A `.playhead-beam` column inside the sequencer grid glides to the next step with one Web Animations transform per step (duration = one 16th from `getStepSeconds()`), jumps on a bar wrap or pattern change, and breathes with the beat. Between steps it costs nothing.
+- **The transport has a heartbeat.** Play carries a halo LightShow lights on each beat while something is keeping time, and a CSS ring runs once out across the bar as `.on` arrives. The single beat LED is now a four-LED bar counter, the downbeat amber, walking 1-2-3-4 off the playhead while playing and off the free-running beat while idle.
+- **Feel.** Pages rise in over 200 ms; pads drop in 45 ms and spring back over 220 ms; a step tapped on pops under the finger.
+
+### Alternatives considered
+- Colouring the chrome (borders, module edges) per bank was rejected: the design system's rule is that pads are the light show and everything else stays calm. Only light-carrying layers took the hue.
+- Per-frame interpolation of the beam from the beat phase was rejected in favour of one WAAPI glide per step: no layout reads per frame, and it stays on the compositor.
+- A drifting mesh animation was left out — a fullscreen transform animation running forever costs battery for little.
+
+### Reasoning
+The 2026-09 light-show rule still holds: only opacity writes on dedicated layers, WAAPI for one-shots, nothing that restyles pads per frame. This pass adds one spectrum read, three opacity writes (floor, halo, beam) and three more LEDs per frame, and one `offsetLeft` read per step. Reduced motion zeroes the beat pulse (so the halo, LEDs and floor pulse go still), makes the beam jump instead of glide, and the global rule removes the ring, page and step animations.
+
+### Verification
+Types, lint (the three pre-existing fast-refresh warnings only), all 220 unit tests and the production build pass. Driven headless in Chromium on a 390×844 phone viewport with a generated Reggae beat playing: the beam mid-glide toward the playhead cell, beat 3's LED lit, the floor at 0.89 on a kick, the field carrying the melody bank's class; screenshots of Seq playing and of each bank's pads confirmed violet/mint/rose lights, coloured tab dots and a tinted floor with amber semantics intact. No console errors from the app.
+
+### Open questions / carried forward
+- A haptic tick on manual pad hits (`navigator.vibrate` on Android) would complete the feel; it wants a Settings toggle, so it was left for its own pass.
+- Bank colour switches are instantaneous; a registered `@property` could let the floor cross-fade between banks.
+
+## 2026-09-27 — Desktop: a workstation with a keyboard
+
+### Context
+The user asked for an upgrade to the desktop experience. On a desktop window the app was the phone app made wide: the page scrolled as one, so with a long sequencer the pads and Make a beat sat below the fold; the phone tab bar stretched across the whole window; and the keyboard did nothing — no way to play a pad or start the transport without the mouse.
+
+### Decision(s)
+- **The keyboard plays the pads.** Keys are matched by physical position (`KeyboardEvent.code`), so the map holds on any layout: the four letter/number rows are the bottom four rows of the pad grid, bottom to bottom — Z X C… under the lowest row, A S D… above it, then Q W E…, then 1 2 3…. A 3×3 kit sits under Q/A/Z; a melodic bank's lower octave is on the lower row of keys; a grid wider than ten or taller than four rows leaves the rest to the mouse (`utils/keyboard.ts`, unit-tested). Each pad button registers a press/release pair with the grid, and one window listener routes keys to them; a key is its own input id (negative, so it can never collide with a pointer), released on keyup or on losing the window. The press runs the same `startHit` / `endHit` the pointer handlers now share — Gate, One-shot, loop mode, the performer, step record, all identical. A held pad shows it through a `data-held` attribute React doesn't manage, so the re-render that selecting it causes can't wipe the look. Filled pads print their key where there's a mouse and keyboard (`(hover: hover) and (pointer: fine)`), never on touch.
+- **Space and the arrows.** Space plays and stops through `useTogglePlayback`, the one toggle the Play button now uses too (its default is prevented so a focused button doesn't fire as well; Enter still activates buttons). ← → step through the banks while the pads or sequencer are on screen. Nothing fires while typing, adjusting a select or slider, or with any sheet or popover open (`keysOwnedElsewhere`), and Ctrl / Cmd / Alt chords pass straight through to the browser.
+- **A workstation, not a long page.** Above 900 px the split fills the window: the sequencer scrolls in its own pane and takes whatever the dock beneath leaves; the dock (pads left, Make a beat right) holds at most 62 % of the height, each side scrolling within itself past that — the pads' play controls stay pinned, as they do on a phone. Desktop pads are a little wider than tall (1.3, capped at 78 px), like a drum rack's cells, so a 3×3 kit fits its pane on a 900 px-tall window. Measured at 1440×900 with a generated Trap beat and Make a beat fully open: sequencer pane 279 px, pads 93×71 in a pane that fits, Make a beat scrolling within 465 px, the shell itself never scrolling. Folding Make a beat hands its room to the sequencer.
+- **Chrome.** The tab bar becomes a 760 px console dock centred at the bottom, rounded, with the room lit either side. The transport strip's spare middle names the keys on mouse-and-keyboard screens; the pads name their own. The mouse wheel over the BPM readout nudges the tempo a BPM per click (ten with Shift), accumulated so a trackpad can't race it. Filled pads glow on hover in their bank's light.
+
+### Alternatives considered
+- Pads down the whole left edge with the sequencer beside them: a 32-step pattern would then scroll sideways at 1440 px, which fits across the window today.
+- Making the dock a fixed height: Make a beat and a 3×3 kit each want more than half of a 900 px window, so a share of the height with panes that scroll past it keeps both usable and never pushes anything below the fold.
+- Haptics and a shortcuts sheet: still worth a pass of their own.
+
+### Verification
+Types, lint (the same three pre-existing warnings), 226 unit tests (six new for the key map and the focus guard) and the build pass. Driven headless in Chromium at 1440×900 with a generated beat: Space flips the transport and stops it; holding Z presses the bottom-left pad (Cowbell) and lights its glow to 0.32, release clears it; → and ← move Drums → Bass → Drums; with a select focused, Space and Z do nothing; one wheel click takes 147 to 148 BPM; the docked layout numbers above. At 390×844 the legend and hints are hidden, the tab bar is full width, pads are square and nothing scrolls sideways. No console errors from the app.
+
+## 2026-09-27 — Pads alone, Seq alone, or Both: the studio's three views on a wide screen
+
+### Context
+On a wide screen the Pads and Seq tabs both lit the docked split; there was no way to give one of them the whole window. The user asked to switch from only pads to only sequencer.
+
+### Decision(s)
+- A `StudioView` in NavigationContext — `'both' | 'pads' | 'sequencer'` — remembered in localStorage. On a screen that can show both (the wide split or the landscape stack), the Pads tab shows the pads alone and the Seq tab the sequencer alone; a **Both** tab between them, present only there, restores the split. From Song or Library, Both lands in the split; Pads and Seq lit together mean the split, one lit means it has the window. A phone never sees the Both tab and behaves as before.
+- Pads alone are a performance surface: square again (the split's drum-rack cells apply only inside `.wide-split`), centred at up to 720 px wide — 168 px pads at 1440 — rather than stretched across the window. The sequencer alone brings Make a beat with it, as on a phone, and the shell scrolls as a page again; the docked panes belong to Both.
+- The tab bar is now two mirrored groups either side of Play (`1fr auto 1fr`, the left group justified to its end, the right to its start), so Play stays dead centre whether the left group holds two tabs or three. On a phone the groups shrink exactly as the old flat grid did (34 px tabs at 360 px — the "Library" label overflowing there by 8 px is pre-existing and unchanged).
+
+### Verification
+Types, lint (the same three warnings), 226 tests and the build pass. Driven headless at 1440×900: Pads → pads only, 168 px squares, Play centred, no shell scroll; Seq → sequencer and Make a beat only; the choice survives a reload; Both → the split with all three studio tabs lit; Song then Both → the split. At 360×780 the tabs are Pads · Seq · Song · Library, Play is centred, no sideways scroll. A faint rectangle seen behind the solo pads turned out, by pixel comparison with the light field hidden, to be the module's own glow over the hex mesh — not an element, nothing to fix.
+
+## 2026-09-27 — Make a beat below the grid in the wide Seq view
+
+The user asked for Make a beat below the sequencer. In the wide screen's Seq-alone view the sequencer column now leads with the grid and Make a beat follows it (a CSS `order` on `.studio-solo-sequencer`, so the phone keeps its documented order: Make a beat first, a visible first step). The docked Both view is unchanged — there Make a beat sits beside the pads. Verified headless: at 1440×900 the grid ends at 551 px and Make a beat starts at 563; at 390×844 Make a beat still precedes the grid. Types, build and 226 tests pass.
