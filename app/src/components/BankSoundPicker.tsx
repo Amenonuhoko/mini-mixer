@@ -1,5 +1,5 @@
 import { DRUM_KITS } from '../engine/drumSynth'
-import { INSTRUMENT_PRESETS, usesRecordings } from '../engine/synth'
+import { INSTRUMENT_GROUPS, INSTRUMENT_PRESETS, usesRecordings } from '../engine/synth'
 import { useBankBuilder } from '../hooks/useBankBuilder'
 import { keyName } from '../music/theory'
 import { useAppState } from '../state/AppStateContext'
@@ -10,16 +10,6 @@ import { instrumentIconForName } from '../utils/instrumentIcon'
 import { Overlay } from './Overlay'
 import { Stepper } from './Stepper'
 
-const PRESET_GROUPS = [
-  { label: 'Keys', names: ['Piano', 'Electric Piano', 'Organ', 'Bell', 'Marimba'] },
-  { label: 'Strings', names: ['Guitar', 'Pluck', 'Bass', 'Velvet Strings'] },
-  { label: 'Winds', names: ['Alto Saxophone', 'Trumpet', 'Flute', 'Clarinet'] },
-  { label: 'Synths', names: ['Lead', 'Pad', 'Sub Bass', 'Chiptune'] },
-  { label: 'Playful', names: ['Rubber Duck', 'Bubble Keys'] },
-].map(({ label, names }) => ({
-  label,
-  names: names.filter((name) => INSTRUMENT_PRESETS.some((preset) => preset.name === name)),
-}))
 
 interface Choice {
   id: string
@@ -114,7 +104,7 @@ export function BankSoundPicker({ bank, onClose }: BankSoundPickerProps) {
         </section>
       ) : (
         <>
-          {PRESET_GROUPS.map(({ label, names }) => (
+          {INSTRUMENT_GROUPS.map(({ label, names }) => (
             <section key={label} className="sheet-section" aria-label={label}>
               <h3 className="label">{label}</h3>
               {renderChoices(names.map(presetChoice))}

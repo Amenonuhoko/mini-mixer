@@ -431,6 +431,8 @@ Changes audition immediately with global Keep / Undo. Undo restores the original
 
 ### Recorded keys and deeper variations
 
+Second expansion (35 presets): Harpsichord, Vibraphone, Glockenspiel, Kalimba, Pipe Organ, Harmonica, Cello, Pizzicato Strings, Upright Bass, French Horn, Trombone, Oboe and Bassoon are recorded packs (235 zones in all), Synth Brass, Music Box and Steel Drum are models. Every recorded zone carries a measured tuning offset (`cents` in `RECORDED_KEYS`) that the renderer cancels when it pitches the zone, so notes from different zones agree; `octaveShift` lets the Glockenspiel and Music Box sound above the pads; `INSTRUMENT_GROUPS` in synth.ts is the picker's grouping. See public/instruments/README.md.
+
 Piano now uses 13 recorded Steinway zones and Marimba uses 10 recorded strikes from the CC0 VCSL library. The compact, mono WAV subset is 7.91 MB total, loaded on demand from the app host. Provenance, upstream revision and license are included in public/instruments. The sound chooser labels Real recording vs Synth voice. A recorded-source failure keeps the current bank and displays a retry message rather than silently using a synthetic substitute. Existing projects keep saved audio; reselect Piano or Marimba to rebuild their sound.
 
 Variation locks are saved with each pattern. New take uses the style generator for generated layers and seeded within-beat rearrangement for manual layers. Related song parts have role-specific density and rhythms; Evolve repeated sections produces independent versions of repeated names. Optional fills, pauses and bass dropouts are placed on the last repeat only; no-op transitions are skipped. Keep/Undo preserves the audition workflow and song duration.
