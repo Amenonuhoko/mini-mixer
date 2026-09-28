@@ -120,6 +120,16 @@ export const SplitIcon = (p: IconProps) => (
   </Svg>
 )
 
+/** Diagonal arrows out of a frame: give this panel the whole window. */
+export const ExpandIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 4h6v6" />
+    <path d="M20 4l-7 7" />
+    <path d="M10 20H4v-6" />
+    <path d="M4 20l7-7" />
+  </Svg>
+)
+
 export const SeqIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 6h3M9 6h3M15 6h6M3 12h6M12 12h3M18 12h3M3 18h9M15 18h3" />

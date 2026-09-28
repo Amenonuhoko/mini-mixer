@@ -361,6 +361,16 @@ button:disabled {
   margin-left: auto;
 }
 
+/* The panel's own window control on a combined-view screen (StudioViewToggle): at the header's far end. */
+.studio-view-toggle {
+  margin-left: auto;
+  flex: none;
+}
+
+.module-head-tools > .studio-view-toggle {
+  margin-left: 4px;
+}
+
 /* --------------------------------------------------------------------------
    Primitives: buttons
    -------------------------------------------------------------------------- */
@@ -2983,7 +2993,10 @@ button.list-item:hover .list-wave {
 
   .wide-split > .sequencer-column { grid-area: seq; }
   .wide-split > .pads-page { grid-area: pads; }
-  .wide-split > .beat-starter { grid-area: beat; }
+  .wide-split > .beat-dock { grid-area: beat; min-width: 0; }
+
+  /* Make a beat is a small form: docked beside the pads it keeps a form's width, and the room shows past it on a big monitor. */
+  .beat-dock > .beat-starter { max-width: 720px; }
 
   /* A workstation, not a long page: the split fills the window. The sequencer
      scrolls in its own pane and takes whatever the dock beneath it leaves; the
@@ -2998,7 +3011,7 @@ button.list-item:hover .list-wave {
   }
 
   .wide-split > .pads-page,
-  .wide-split > .beat-starter {
+  .wide-split > .beat-dock {
     min-height: 0;
     max-height: 100%;
     overflow-y: auto;
@@ -3027,9 +3040,10 @@ button.list-item:hover .list-wave {
     margin: 0 auto;
   }
 
-  /* The sequencer alone leads with the grid; Make a beat follows it (a phone still leads with Make a beat — see .beat-starter). */
+  /* The sequencer alone leads with the grid; Make a beat follows it (a phone still leads with Make a beat — see .beat-starter), at a form's width under the grid's left edge. */
   .studio-solo-sequencer .sequencer-column > .beat-starter {
     order: 1;
+    max-width: 720px;
   }
 
   .wide-split > .sequencer-column {
@@ -3112,7 +3126,7 @@ button.list-item:hover .list-wave {
 
 .landscape-stack > .sequencer-column { grid-area: seq; }
 .landscape-stack > .pads-page { grid-area: pads; min-width: 0; }
-.landscape-stack > .beat-starter { grid-area: beat; min-width: 0; }
+.landscape-stack > .beat-dock { grid-area: beat; min-width: 0; }
 
 @media (min-aspect-ratio: 2/1) {
   .app-shell.app-shell-landscape {
@@ -3275,6 +3289,15 @@ button.list-item:hover .list-wave {
 
 .pad-grid > .module-head .bank-tabs {
   flex: 1 1 100%;
+}
+
+/* With the window control beside them (a combined-view screen), the bank tabs share the row instead of pushing it underneath. */
+.pad-grid > .module-head:has(.studio-view-toggle) {
+  flex-wrap: nowrap;
+}
+
+.pad-grid > .module-head:has(.studio-view-toggle) .bank-tabs {
+  flex: 1 1 auto;
 }
 
 .bank-strip .pad-fx-anchor,

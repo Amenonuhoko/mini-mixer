@@ -32,9 +32,9 @@ function EngineBridge({ children }: { children: ReactNode }) {
  * (the docked split) instead of as separate pages — they're the two screens
  * you go back and forth between while actually playing/building a beat,
  * unlike Library, which stays a full-width page even when wide since it's
- * more of an occasional-visit browsing screen. There the Pads and Seq tabs
- * give one of them the whole window instead, and the Both tab brings the
- * split back (see StudioView in NavigationContext); a phone never sees this.
+ * more of an occasional-visit browsing screen. Each panel's header can give
+ * it the whole window and bring the other back (StudioViewToggle, see
+ * StudioView in NavigationContext); a phone never sees this.
  *
  * A landscape phone or an ultra-wide/short desktop window (see
  * useIsLandscapeLayout) gets a different combined arrangement instead of
@@ -57,7 +57,7 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
 
   if (page === 'pads' || page === 'sequencer') {
     // A wide screen can also give one of the two the whole window (the
-    // Pads / Seq tabs, with Both to return) — see StudioView.
+    // toggle in each panel's header) — see StudioView.
     if ((isWide || isLandscape) && studioView === 'pads') {
       return (
         <div className="studio-solo studio-solo-pads">
@@ -77,7 +77,9 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
         <div className="landscape-stack">
           <Sequencer onBounced={onBounced} withBeatStarter={false} />
           <PadsPage onRecorded={onBounced} />
-          <PatternBeatStarter />
+          <div className="beat-dock">
+            <PatternBeatStarter />
+          </div>
         </div>
       )
     }
@@ -86,7 +88,9 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
         <div className="wide-split">
           <Sequencer onBounced={onBounced} withBeatStarter={false} />
           <PadsPage onRecorded={onBounced} />
-          <PatternBeatStarter />
+          <div className="beat-dock">
+            <PatternBeatStarter />
+          </div>
         </div>
       )
     }

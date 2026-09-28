@@ -17,6 +17,7 @@ import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
 import { StepsMenu } from './StepsMenu'
 import { Stepper } from './Stepper'
+import { StudioViewToggle } from './StudioViewToggle'
 import { PatternBeatStarter } from './BeatStarter'
 import { styleById } from '../styles/library'
 
@@ -434,8 +435,8 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
             {state.transport.isPlaying ? 'Looping' : 'Loop ready'} {editingSection.name}
           </span>
         )}
-        {!songView && (
         <div className="module-head-tools">
+          {!songView && (
           <Stepper
             label="Steps"
             value={pattern.stepCount}
@@ -447,8 +448,9 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
             decrementTitle="Remove the last four steps"
             incrementTitle="Add four steps"
           />
+          )}
+          <StudioViewToggle panel="sequencer" />
         </div>
-        )}
       </header>
 
       <div className="toolbar" role="toolbar" aria-label="Sequence tools">

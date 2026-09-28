@@ -2346,3 +2346,16 @@ The user asked for a couple more moods and then the basic keys, for when you wan
 ## 2026-09-28 — Make a beat: more breathing room
 
 The user found the Make a beat panel cramped on the phone (the style box tight against the edge, the rows close together). Its padding grew from 14 px to 16 px at the sides and 18/20 px top and bottom, the row gap from 10 px to 14 px, the style box's inner padding to 10 × 12 px, and the part-chip and Vary gaps to 8 px. Checked at 390 px wide in headless Chromium.
+
+## 2026-09-28 — The window control moves into each panel; Make a beat keeps a form's width
+
+### Context
+On a wide screen the bottom bar had grown a Both tab, and the Pads / Seq tabs doubled as view switches. The user wanted the toggle for the Seq view and the Pads view in their respective views, not in the bottom bar, and found Make a beat on an ultra-wide monitor ugly.
+
+### Decision(s)
+- `StudioViewToggle`, one icon button at the end of each panel's header (after the steps stepper in Seq, beside the bank tabs in Pads): ⤢ gives that panel the whole window, the split icon brings the other back. Rendered only on a combined-view screen (wide or landscape), so a phone is unchanged. The bottom bar is the four page tabs again; a tab still reveals what it names — tapping Pads while the sequencer has the window returns to both.
+- Make a beat looked bad on a big monitor for two reasons. The docked split's scroll rule (`padding: 2px; margin: -2px`, room for the edge light inside an `overflow: auto` box) targeted the panel itself, so it lost its own padding at every desktop width; the panel now sits inside a `.beat-dock` wrapper that takes that rule. And the panel was handed all the width left of the pads (1,200 px on a 1,894 px window), stretching the style box and part chips; it is capped at 720 px, docked and in the Seq-alone view alike, and the room shows past it, as it does either side of the solo pads.
+- The bank tabs used to claim the whole header row; with the toggle beside them (`:has`) they share it.
+
+### Verification
+Types, lint (the same three warnings), 232 tests and the build pass. Headless at 1894×1036 and 1440×900: tabs Pads · Seq · Song · Library; two toggles in Both, the beat panel 720 px wide with its 18/16/20 px padding; the Seq toggle gives the sequencer the window (one toggle left, Make a beat under the grid), again brings both back; the Pads toggle centres the pads at 720 px; the Seq tab from there returns to both.

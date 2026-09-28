@@ -15,6 +15,7 @@ import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
 import { BankSoundPicker } from './BankSoundPicker'
 import { BankTabs } from './BankTabs'
+import { StudioViewToggle } from './StudioViewToggle'
 import { KeySheet } from './KeySheet'
 import { RecordDotIcon } from './icons'
 import { PadModeSwitch } from './PadModeSwitch'
@@ -181,6 +182,7 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
     <section className={`module pad-grid bank-${bank.kind}`} aria-label="Pads">
       <header className="module-head">
         <BankTabs />
+        <StudioViewToggle panel="pads" />
       </header>
       <div className="bank-strip">
         <button type="button" className="bank-sound" onClick={() => setSheet('sound')} title="Change this bank’s sound">
