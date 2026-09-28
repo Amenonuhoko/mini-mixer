@@ -4,28 +4,31 @@
       <stop offset="0" stop-color="#0d2029"/>
       <stop offset="1" stop-color="#04070a"/>
     </radialGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>
+    <linearGradient id="cyan" x1="0" y1="80" x2="0" y2="434" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b8edff"/>
+      <stop offset="1" stop-color="#7ad2f3"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="204" x2="0" y2="308" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffc98f"/>
+      <stop offset="1" stop-color="#ffa75a"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter>
+    <path id="stems" d="M164 382V136Q164 128 171.9 126.6L426.1 81.4Q434 80 434 88V256H416V135.2Q416 125.2 406.2 127L191.8 165Q182 166.8 182 176.8V382Z"/>
+    <path id="low" d="M102 330H178A4 4 0 0 1 182 334V410A24 24 0 0 1 158 434H102A24 24 0 0 1 78 410V354A24 24 0 0 1 102 330Z"/>
+    <path id="high" d="M354 204H430A4 4 0 0 1 434 208V284A24 24 0 0 1 410 308H354A24 24 0 0 1 330 284V228A24 24 0 0 1 354 204Z"/>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
   <g id="mark">
-    <g opacity="0.5" stroke="#8cdefa" stroke-width="4">
-      <rect x="80" y="80" width="100" height="100" rx="20" fill="#0c161d" stroke-opacity="0.32"/>
-      <rect x="206" y="80" width="100" height="100" rx="20" fill="#0c161d" stroke-opacity="0.32"/>
-      <rect x="332" y="80" width="100" height="100" rx="20" fill="#0c161d" stroke-opacity="0.32"/>
-      <rect x="80" y="206" width="100" height="100" rx="20" fill="#0c161d" stroke-opacity="0.32"/>
-      <rect x="206" y="206" width="100" height="100" rx="20" fill="#0c161d" stroke-opacity="0.32"/>
-      <rect x="206" y="332" width="100" height="100" rx="20" fill="#8cdefa" fill-opacity="0.22" stroke-opacity="0.55"/>
-      <rect x="332" y="332" width="100" height="100" rx="20" fill="#0c161d" stroke-opacity="0.32"/>
+    <g opacity="0.6" fill="#0c161d" stroke="#8cdefa" stroke-opacity="0.32" stroke-width="3">
+      <rect x="206" y="206" width="100" height="100" rx="22"/>
+      <rect x="206" y="332" width="100" height="100" rx="22" fill="#8cdefa" fill-opacity="0.2" stroke-opacity="0.6"/>
+      <rect x="332" y="332" width="100" height="100" rx="22"/>
     </g>
-    <g filter="url(#glow)" opacity="0.55">
-      <path d="M170 380V140M422 256V96" stroke="#8cdefa" stroke-width="24" stroke-linecap="round"/>
-      <path d="M161 131L431 81V131L161 181Z" fill="#8cdefa" stroke="#8cdefa" stroke-width="6" stroke-linejoin="round"/>
-      <rect x="78" y="330" width="104" height="104" rx="20" fill="#8cdefa"/>
-      <rect x="330" y="204" width="104" height="104" rx="20" fill="#ffb469"/>
+    <g filter="url(#glow)" opacity="0.45">
+      <use href="#stems" fill="#8cdefa"/><use href="#low" fill="#8cdefa"/><use href="#high" fill="#ffb469"/>
     </g>
-    <path d="M170 380V140M422 256V96" stroke="#8cdefa" stroke-width="24" stroke-linecap="round"/>
-    <path d="M161 131L431 81V131L161 181Z" fill="#8cdefa" stroke="#8cdefa" stroke-width="6" stroke-linejoin="round"/>
-    <rect x="78" y="330" width="104" height="104" rx="20" fill="#8cdefa"/>
-    <rect x="330" y="204" width="104" height="104" rx="20" fill="#ffb469"/>
+    <use href="#stems" fill="url(#cyan)"/>
+    <use href="#low" fill="url(#cyan)"/>
+    <use href="#high" fill="url(#orange)"/>
   </g>
 </svg>
