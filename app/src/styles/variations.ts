@@ -8,7 +8,7 @@ export type VariationKind = 'sparser' | 'busier' | 'syncopated' | 'fill' | 'buil
 export const VARIATIONS: { id: VariationKind; label: string }[] = [
   { id: 'sparser', label: 'Sparser' }, { id: 'busier', label: 'Busier' },
   { id: 'syncopated', label: 'More syncopated' }, { id: 'new-take', label: 'New take' },
-  { id: 'fill', label: 'Add a fill' }, { id: 'crash', label: 'Opening crash' },
+  { id: 'fill', label: 'Add a fill' }, { id: 'build', label: 'Snare build' }, { id: 'crash', label: 'Opening crash' },
   { id: 'pause', label: 'Short pause' }, { id: 'bass-drop', label: 'Bass dropout' },
 ]
 

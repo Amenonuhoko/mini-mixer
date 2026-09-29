@@ -5,13 +5,14 @@ import { useNavigation } from '../state/NavigationContext'
 import { useEngine } from '../state/EngineContext'
 import { BANK_KINDS, BANK_NAMES, getBank } from '../state/banks'
 import type { BankKind } from '../state/types'
-import { progressionNames } from '../styles/generator'
 import { STYLES, styleById } from '../styles/library'
 import { newSeed } from '../styles/random'
 import type { StyleDef } from '../styles/types'
 import { VARIATIONS, varyPattern, type VariationKind } from '../styles/variations'
+import { BeatSettings } from './BeatSettings'
 import { ConfirmDialog } from './ConfirmDialog'
-import { DiceIcon, LockIcon } from './icons'
+import { CloseIcon, DiceIcon, LockIcon } from './icons'
+import { PartControls } from './PartControls'
 
 /** The style menu's action: a different random style on every pick. */
 const SURPRISE = 'surprise'
@@ -22,18 +23,35 @@ function randomStyle(avoid: string[] = []): StyleDef {
   return from[Math.floor(Math.random() * from.length)]!
 }
 
-/** Vary reshapes the notes already there; endings live in Song → Ending / transition. */
-const VARY = VARIATIONS.filter((item) => item.id === 'sparser' || item.id === 'busier' || item.id === 'syncopated')
+/** Vary: moves that reshape the notes already there, and moments dropped into the end of the loop (the Song's Ending sheet uses the same ones). */
+const RESHAPE = VARIATIONS.filter((item) => ['sparser', 'busier', 'syncopated', 'new-take'].includes(item.id))
+const MOMENTS = VARIATIONS.filter((item) => ['fill', 'build', 'crash', 'pause', 'bass-drop'].includes(item.id))
+
+/** A titled group that folds down to its title. */
+function Group({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return (
+    <section className="beat-group" aria-label={title}>
+      <button type="button" className="beat-group-head" aria-expanded={open} onClick={onToggle}>
+        <span className="label">{title}</span>
+        <span className="beat-fold-chevron" aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && children}
+    </section>
+  )
+}
 
 /** The style menu's value when parts differ: Generate keeps each part in its own style. */
 const OWN = 'own'
 
 /**
  * Make a beat, at the top of the sequencer (foldable down to its title):
- * a style menu and Generate, the four parts (🎲 to shuffle just that one
- * instrument, 🔒 to keep it so Generate and Vary leave it alone), and a small
- * Vary row. Each part's own style, takes and feel live on its bank header in
- * Seq (PartSheet).
+ * a style menu and Generate; the four parts (🎲 to shuffle just that one
+ * instrument, ⋯ for all of its settings — style, take, Busy, Keys / Kit,
+ * sound, phrasing, clear — and 🔒 to keep it so Generate and Vary leave it
+ * alone); Vary, every reshaping move and end-of-loop moment; and the beat's
+ * own settings — tempo, length, mood and key, chords, Busy and Keys / Kit for
+ * every part, clear (BeatSettings). The same part settings are on each bank
+ * header in Seq (PartSheet).
  *
  * Generate writes every unlocked part in the chosen style — 🎲 Surprise me
  * picks one at random, and when the parts are in different styles it keeps
@@ -46,10 +64,12 @@ export function BeatStarter() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { goToSong, beatStarterOpen: open, setBeatStarterOpen, markBeatStarted } = useNavigation()
-  const { busy, error, startBeat, regenerateLayers, hearBeat, newChords } = useGroove()
+  const { busy, error, startBeat, regenerateLayers, hearBeat } = useGroove()
   const [choice, setChoice] = useState<string | null>(null)
   const [pendingStyle, setPendingStyle] = useState<{ style: StyleDef; surprise: boolean } | null>(null)
   const [pendingShuffle, setPendingShuffle] = useState<BankKind | null>(null)
+  const [openPart, setOpenPart] = useState<BankKind | null>(null)
+  const [groups, setGroups] = useState({ vary: true, beat: true })
   const [notice, setNotice] = useState('')
   const pattern = state.patterns.find((item) => item.id === state.activePatternId)
   const locked = pattern?.variationLocks ?? []
@@ -185,7 +205,7 @@ export function BeatStarter() {
           const isLocked = locked.includes(kind)
           const shuffling = busy === `layers:${kind}`
           return (
-            <div key={kind} className={isLocked ? 'beat-part locked' : live(kind) ? 'beat-part on' : 'beat-part'}>
+            <div key={kind} className={[isLocked ? 'beat-part locked' : live(kind) ? 'beat-part on' : 'beat-part', openPart === kind ? 'open' : ''].filter(Boolean).join(' ')}>
               <button
                 type="button"
                 className="beat-part-shuffle"
@@ -196,6 +216,16 @@ export function BeatStarter() {
               >
                 <DiceIcon size={14} />
                 {shuffling ? 'Building…' : BANK_NAMES[kind]}
+              </button>
+              <button
+                type="button"
+                className="beat-part-more"
+                aria-expanded={openPart === kind}
+                aria-label={`${BANK_NAMES[kind]} options`}
+                title={`${BANK_NAMES[kind]}: style, take, Busy, Keys / Kit, sound, phrasing, clear`}
+                onClick={() => setOpenPart(openPart === kind ? null : kind)}
+              >
+                ⋯
               </button>
               <button
                 type="button"
@@ -211,34 +241,43 @@ export function BeatStarter() {
           )
         })}
       </div>
-      {hasSteps && (
-        <div className="beat-tweaks" role="group" aria-label="Vary the unlocked parts">
-          <span className="label label-dim">Vary</span>
-          {VARY.map((item) => (
-            <button
-              type="button"
-              className="chip-btn"
-              key={item.id}
-              disabled={busy !== null || unlocked.length === 0 || !!state.variationPreview}
-              onClick={() => vary(item.id)}
-            >
-              {item.label}
+      {openPart && (
+        <section className="part-detail" aria-label={`${BANK_NAMES[openPart]} settings`}>
+          <header className="part-detail-head">
+            <strong>{BANK_NAMES[openPart]}</strong>
+            <span className="muted">
+              {state.groove?.layers[openPart] && live(openPart) ? `${styleById(state.groove.layers[openPart]!.styleId)?.name ?? ''} · take ${state.groove.layers[openPart]!.take + 1}` : 'Nothing here yet — pick a style'}
+            </span>
+            <button type="button" className="icon-btn" onClick={() => setOpenPart(null)} aria-label={`Close ${BANK_NAMES[openPart]} settings`}>
+              <CloseIcon size={12} />
             </button>
-          ))}
-          {state.groove && (
-            <button
-              type="button"
-              className="chip-btn"
-              onClick={() => void newChords()}
-              disabled={busy !== null}
-              aria-label="New chords"
-              title={`Chords now: ${progressionNames(state.key, state.groove.progression).join(' · ')} — every style layer follows a new progression`}
-            >
-              New chords
-            </button>
-          )}
-        </div>
+          </header>
+          <PartControls kind={openPart} extras />
+        </section>
       )}
+      {hasSteps && (
+        <Group title="Vary" open={groups.vary} onToggle={() => setGroups((current) => ({ ...current, vary: !current.vary }))}>
+          {[{ label: 'Reshape', items: RESHAPE }, { label: 'Moments', items: MOMENTS }].map((group) => (
+            <div className="beat-tweaks" role="group" aria-label={`${group.label} the unlocked parts`} key={group.label}>
+              <span className="label label-dim">{group.label}</span>
+              {group.items.map((item) => (
+                <button
+                  type="button"
+                  className="chip-btn"
+                  key={item.id}
+                  disabled={busy !== null || unlocked.length === 0 || !!state.variationPreview}
+                  onClick={() => vary(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </Group>
+      )}
+      <Group title="Beat" open={groups.beat} onToggle={() => setGroups((current) => ({ ...current, beat: !current.beat }))}>
+        <BeatSettings locked={locked} hear={hearBeat} />
+      </Group>
       {notice && (
         <p className="muted beat-notice" role="status">
           {notice}

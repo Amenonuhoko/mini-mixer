@@ -42,6 +42,12 @@ export function bankHasSteps(state: AppState, bank: Bank): boolean {
   return !!pattern && bank.padIds.some((padId) => (pattern.steps[padId] ?? []).some((cell) => cell !== null))
 }
 
+/** The style a beat's chords come from: the chords layer's, else any layer's, else the first in the library. */
+export function beatStyle(groove: Groove): StyleDef {
+  const styleId = groove.layers.chords?.styleId ?? Object.values(groove.layers)[0]?.styleId
+  return (styleId && styleById(styleId)) || STYLES[0]!
+}
+
 /** A fresh beat in a style: a new seed, the style's length and one of its progressions, no layers yet. */
 export function newGroove(style: StyleDef, seed = newSeed()): Groove {
   return { seed, bars: style.bars, progression: pickProgression(style, seed), layers: {} }
@@ -101,7 +107,11 @@ function subscribeBusy(listener: () => void) {
  *   rolls a new take). A bank without a suitable sound gets the style's; a
  *   sound already there is kept.
  * - newTake / setIntensity / clearLayer: reroll, thin out or fill in, remove.
- * - newChords: a new progression — every preset layer is rewritten to follow.
+ * - newChords / setChords: a new or a chosen progression — every preset layer
+ *   is rewritten to follow.
+ * - setLength: 1, 2 or 4 bars — every layer is rewritten over the new length.
+ * - setIntensityFor / setRangeFor / clearLayers: the same as the one-part
+ *   versions, for several parts in one update.
  */
 export function useGroove() {
   const { state, dispatch } = useAppState()
@@ -241,13 +251,30 @@ export function useGroove() {
   /** How many of the bank's keys (or drums) the layer spreads across: 0 the style's own … 1 all of them. */
   const setRange = (kind: BankKind, range: number) => rewrite(kind, { range: Math.max(0, Math.min(1, range)) })
 
-  const clearLayer = (kind: BankKind) => {
+  /** Takes parts out: their steps and their layers, in one groove update. Works on steps you drew too. */
+  const clearLayers = (kinds: BankKind[]) => {
     const groove = state.groove
     const pattern = state.patterns.find((item) => item.id === state.activePatternId)
-    if (!groove || !pattern || busyJob) return
-    dispatch({ type: 'WRITE_BANK_PATTERN', bankId: getBank(state, kind).id, patternId: pattern.id, stepsByPadIndex: {}, minStepCount: pattern.stepCount })
-    const { [kind]: _removed, ...layers } = groove.layers
+    if (!pattern || busyJob) return
+    for (const kind of kinds) dispatch({ type: 'WRITE_BANK_PATTERN', bankId: getBank(state, kind).id, patternId: pattern.id, stepsByPadIndex: {}, minStepCount: pattern.stepCount })
+    if (!groove) return
+    const layers = { ...groove.layers }
+    for (const kind of kinds) delete layers[kind]
     dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers } })
+  }
+
+  const clearLayer = (kind: BankKind) => clearLayers([kind])
+
+  /** Writes every preset layer to follow `progression` — one groove update. */
+  const followProgression = (groove: Groove, progression: number[]) => {
+    const next: Groove = { ...groove, progression }
+    for (const kind of BANK_KINDS) {
+      const layer = next.layers[kind]
+      if (!layer) continue
+      const bank = getBank(state, kind)
+      writeLayer(state, dispatch, next, bank, layer, bank.sound, visibleBankPads(state, bank))
+    }
+    dispatch({ type: 'SET_GROOVE', groove: next })
   }
 
   /** A different progression from the chords layer's style (else any layer's), and every preset layer rewritten to follow it. */
@@ -255,19 +282,62 @@ export function useGroove() {
     run('chords:progression', () => {
       const groove = state.groove
       if (!groove) return
-      const styleId = groove.layers.chords?.styleId ?? Object.values(groove.layers)[0]?.styleId
-      const style = (styleId && styleById(styleId)) || STYLES[0]!
+      const style = beatStyle(groove)
       const options = style.progressions.filter((progression) => progression.join() !== groove.progression.join())
       const pool = options.length > 0 ? options : style.progressions
-      const next: Groove = { ...groove, progression: pool[Math.floor(Math.random() * pool.length)]! }
+      followProgression(groove, pool[Math.floor(Math.random() * pool.length)]!)
+    })
+
+  /** A chosen progression, every preset layer rewritten to follow it. */
+  const setChords = (progression: number[]) =>
+    run('chords:progression', () => {
+      if (state.groove) followProgression(state.groove, progression)
+    })
+
+  /**
+   * The beat's length: every layer is rewritten over the new number of bars
+   * (the chords spread across it). Starts the pattern over, so it is for a
+   * fully generated beat — nothing locked, nothing drawn by hand.
+   */
+  const setLength = (bars: 1 | 2 | 4) =>
+    run('length', () => {
+      const groove = state.groove
+      const pattern = state.patterns.find((item) => item.id === state.activePatternId)
+      if (!groove || !pattern || groove.bars === bars) return
+      engine.setSequencerPlaybackEnabled(false)
+      engine.stopAllSounds()
+      dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
+      const next: Groove = { ...groove, bars }
+      dispatch({ type: 'START_PATTERN', patternId: pattern.id, stepCount: bars * 16 })
+      const fresh = { ...state, patterns: state.patterns.map((item) => (item.id === pattern.id ? { ...item, stepCount: bars * 16 } : item)) }
       for (const kind of BANK_KINDS) {
         const layer = next.layers[kind]
         if (!layer) continue
         const bank = getBank(state, kind)
-        writeLayer(state, dispatch, next, bank, layer, bank.sound, visibleBankPads(state, bank))
+        writeLayer(fresh, dispatch, next, bank, layer, bank.sound, visibleBankPads(state, bank))
       }
       dispatch({ type: 'SET_GROOVE', groove: next })
     })
+
+  /** Rewrites several layers at once — one groove update, so none is lost to a stale snapshot (a slider for every part at a time). */
+  const rewriteMany = (kinds: BankKind[], change: Partial<GrooveLayer>) => {
+    const groove = state.groove
+    if (!groove || busyJob) return
+    const layers = { ...groove.layers }
+    for (const kind of kinds) {
+      const current = layers[kind]
+      if (!current) continue
+      const layer = { ...current, ...change }
+      const bank = getBank(state, kind)
+      writeLayer(state, dispatch, groove, bank, layer, bank.sound, visibleBankPads(state, bank))
+      layers[kind] = layer
+    }
+    dispatch({ type: 'SET_GROOVE', groove: { ...groove, layers } })
+  }
+
+  const setIntensityFor = (kinds: BankKind[], intensity: number) => rewriteMany(kinds, { intensity: Math.max(0, Math.min(1, intensity)) })
+
+  const setRangeFor = (kinds: BankKind[], range: number) => rewriteMany(kinds, { range: Math.max(0, Math.min(1, range)) })
 
   const hearBeat = () => {
     engine.getContext()
@@ -298,5 +368,5 @@ export function useGroove() {
     hearBeat()
   })
 
-  return { busy, error, hearBeat, varyBeat, startBeat, regenerateLayers, setLayerStyle, newTake, setIntensity, setRange, clearLayer, newChords }
+  return { busy, error, hearBeat, varyBeat, startBeat, regenerateLayers, setLayerStyle, newTake, setIntensity, setRange, setIntensityFor, setRangeFor, clearLayer, clearLayers, newChords, setChords, setLength }
 }

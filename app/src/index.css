@@ -4006,11 +4006,29 @@ button.list-item:hover .list-wave {
 .beat-part.locked { border-color: var(--orange); color: var(--orange); background: rgb(var(--orange-rgb) / 0.1); }
 .beat-part button { display: inline-flex; align-items: center; justify-content: center; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; white-space: nowrap; }
 .beat-part-shuffle { flex: 1 1 auto; min-width: 0; gap: 8px; padding: 0 8px; border-radius: calc(var(--r-md) - 1px) 0 0 calc(var(--r-md) - 1px); }
-.beat-part-lock { flex: 0 0 44px; border-left: 1px solid var(--line); border-radius: 0 calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0; }
+.beat-part-lock { flex: 0 0 40px; border-left: 1px solid var(--line); border-radius: 0 calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0; }
 .beat-part.locked .beat-part-lock { border-left-color: rgb(var(--orange-rgb) / 0.5); }
 .beat-part-shuffle:hover:not(:disabled), .beat-part-lock:hover { background: rgb(var(--cyan-rgb) / 0.08); color: var(--cyan); }
 .beat-part.locked .beat-part-lock:hover { background: rgb(var(--orange-rgb) / 0.12); color: var(--orange); }
 .beat-part-shuffle:disabled { opacity: 0.4; }
+.beat-part-more { flex: 0 0 36px; border-left: 1px solid var(--line); font-size: 16px; letter-spacing: 0; }
+.beat-part.locked .beat-part-more { border-left-color: rgb(var(--orange-rgb) / 0.5); }
+.beat-part-more:hover, .beat-part-more[aria-expanded='true'] { background: rgb(var(--cyan-rgb) / 0.1); color: var(--cyan); }
+.beat-part.open { border-color: var(--cyan); }
+/* One part's full settings, opened under the parts (PartControls), and the folding groups below: Vary and the beat's own settings. */
+.part-detail { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgb(4 10 15 / 0.35); }
+.part-detail-head { display: flex; align-items: center; gap: 10px; }
+.part-detail-head strong { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); }
+.part-detail-head .muted { flex: 1 1 auto; min-width: 0; font-size: var(--fs-xs); }
+.part-sheet-more { display: flex; flex-wrap: wrap; gap: 8px; }
+.part-sheet-more .btn { flex: 1 1 auto; justify-content: center; gap: 8px; }
+.beat-group { display: grid; gap: 12px; }
+.beat-group-head { display: flex; align-items: center; justify-content: space-between; min-height: 32px; padding-top: 8px; border-top: 1px solid var(--line); }
+.beat-settings { display: grid; gap: 14px; }
+.beat-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.beat-row > .label { flex: 0 0 60px; }
+.beat-row-control { display: flex; flex: 1 1 200px; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.beat-starter .beat-progression { flex: 1 1 160px; min-width: 0; min-height: 40px; }
 /* A part's own style and feel, from its bank header (PartSheet). */
 .part-sheet { display: grid; gap: 14px; }
 .part-sheet-style { display: flex; gap: 8px; }
