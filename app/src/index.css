@@ -3995,10 +3995,22 @@ button.list-item:hover .list-wave {
 .beat-main { display: flex; gap: 10px; }
 .beat-starter .beat-style-all { flex: 1 1 auto; min-width: 0; min-height: 44px; }
 .beat-main .beat-generate { flex: 0 0 auto; padding: 0 18px; }
-.beat-parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.beat-part { justify-content: center; gap: 5px; min-height: 40px; padding: 0 4px; }
+/* Each instrument: 🎲 gives just that part a new pattern, 🔒 keeps it through Generate and Vary. Two across on a phone, four in the wide dock. */
+.beat-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 8px; }
+.beat-part {
+  display: flex; align-items: stretch; min-height: 40px; border: 1px solid var(--line); border-radius: var(--r-md);
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim);
+  transition: border-color var(--fast), color var(--fast), background var(--fast);
+}
 .beat-part.on { color: var(--cyan); }
 .beat-part.locked { border-color: var(--orange); color: var(--orange); background: rgb(var(--orange-rgb) / 0.1); }
+.beat-part button { display: inline-flex; align-items: center; justify-content: center; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; white-space: nowrap; }
+.beat-part-shuffle { flex: 1 1 auto; min-width: 0; gap: 8px; padding: 0 8px; border-radius: calc(var(--r-md) - 1px) 0 0 calc(var(--r-md) - 1px); }
+.beat-part-lock { flex: 0 0 44px; border-left: 1px solid var(--line); border-radius: 0 calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0; }
+.beat-part.locked .beat-part-lock { border-left-color: rgb(var(--orange-rgb) / 0.5); }
+.beat-part-shuffle:hover:not(:disabled), .beat-part-lock:hover { background: rgb(var(--cyan-rgb) / 0.08); color: var(--cyan); }
+.beat-part.locked .beat-part-lock:hover { background: rgb(var(--orange-rgb) / 0.12); color: var(--orange); }
+.beat-part-shuffle:disabled { opacity: 0.4; }
 /* A part's own style and feel, from its bank header (PartSheet). */
 .part-sheet { display: grid; gap: 14px; }
 .part-sheet-style { display: flex; gap: 8px; }
@@ -4006,7 +4018,7 @@ button.list-item:hover .list-wave {
 .part-sheet-slider { display: grid; gap: 4px; }
 .part-sheet-slider .slider { height: 36px; }
 .beat-generate { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; background: var(--cyan); color: #08232a; font-weight: 700; }
-.beat-tweaks { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; padding-block: 2px; overflow-x: auto; scrollbar-width: none; }
+.beat-tweaks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-block: 2px; }
 .beat-tweaks .label { flex: none; }
 .beat-notice { color: var(--text-dim); }
 .fx-preset-description { display: block; font-size: 10px; line-height: 1.3; font-weight: normal; color: var(--text-faint); margin-top: 3px; }

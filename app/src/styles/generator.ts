@@ -162,6 +162,27 @@ const ROLE_MATCH: Record<DrumRole, { names: string[]; kinds: DrumVoiceKind[] }> 
 /** Roles that may fill empty 16ths at high intensity — never the kick/snare spine. */
 const FILLABLE_ROLES = new Set<DrumRole>(['hat', 'shaker', 'perc', 'ghost', 'ride'])
 
+/** Roles a new take may sprinkle ghost 16ths on. */
+const GHOST_ROLES = new Set<DrumRole>(['hat', 'shaker', 'perc', 'ghost'])
+
+/**
+ * Many styles fix their hat and percussion lines (all `x`), so a plain
+ * reroll would repeat them exactly. From the second take on, these lines gain
+ * quiet ghost 16ths between the eighths — more of them the busier the layer,
+ * none at 0. Take 0 is the style as written; every step keeps its own roll,
+ * so raising the intensity only adds ghosts.
+ */
+function ghostHits(ctx: LayerContext, role: DrumRole, written: number[]): number[] {
+  if (ctx.take === 0 || !GHOST_ROLES.has(role)) return []
+  const taken = new Set(written)
+  const chance = ctx.intensity * 0.16
+  const hits: number[] = []
+  for (let step = 1; step < ctx.bars * 16; step += 2) {
+    if (!taken.has(step) && stream(ctx, 'drums', role, 'ghost', step)() < chance) hits.push(step)
+  }
+  return hits
+}
+
 export function padForRole(role: DrumRole, pads: LayerTarget['pads']): number {
   const { names, kinds } = ROLE_MATCH[role]
   for (const name of names) {
@@ -224,7 +245,8 @@ function generateDrums(ctx: LayerContext, target: LayerTarget): LayerSteps {
     if (pad < 0 || lines.length === 0) continue
     used.add(pad)
     const line = pick(stream(ctx, 'drums', role, 'line'), lines)
-    add(pad, rollLine(line, ctx.bars, stream(ctx, 'drums', role, 'roll'), style.drums.fills?.[role], ctx.intensity, FILLABLE_ROLES.has(role)))
+    const written = rollLine(line, ctx.bars, stream(ctx, 'drums', role, 'roll'), style.drums.fills?.[role], ctx.intensity, FILLABLE_ROLES.has(role))
+    add(pad, [...written, ...ghostHits(ctx, role, written)])
   }
   // Range brings in the kit's other drums, in an order fixed by the beat, so
   // sliding up only ever adds drums and sliding back takes the same ones out.
@@ -321,6 +343,42 @@ function generateBass(ctx: LayerContext, target: LayerTarget): LayerSteps {
   return steps
 }
 
+/**
+ * Most styles write their chords as a lone hit per change, or as a fixed
+ * skank, so a plain reroll would repeat them exactly. From the second take on
+ * a chord part is re-comped: a push (the next chord an eighth early),
+ * off-beat re-strikes of the chord that is sounding, and now and then a
+ * written hit left out — more of the first two and fewer of the last the
+ * busier the layer, and fewer additions when the style keeps its chords
+ * sparse. Take 0 is the line as written; chord changes always sound. Each
+ * candidate step keeps its own roll, so raising the intensity only adds hits.
+ * `at` is the step whose chord sounds.
+ */
+function compChords(ctx: LayerContext, line: Pulse, changes: number[], hits: number[], extras: Set<number>): { add: Array<{ step: number; at: number }>; drop: Set<number> } {
+  if (ctx.take === 0) return { add: [], drop: new Set() }
+  const stepCount = ctx.bars * 16
+  const restraint = Math.max(0.4, Math.min(1, [...line].filter((char) => char !== '.').length / (line.length / 16) / 4))
+  const changeSet = new Set(changes)
+  const drop = new Set(hits.filter((step) => !changeSet.has(step) && !extras.has(step) && stream(ctx, 'chords', 'comp', 'drop', step)() < 0.3 * (1 - ctx.intensity)))
+  const taken = new Set([...hits, ...changes, ...extras].filter((step) => !drop.has(step)))
+  const add: Array<{ step: number; at: number }> = []
+  for (const change of changes) {
+    const step = change - 2
+    if (step < 0 || taken.has(step) || stream(ctx, 'chords', 'comp', 'push', change)() >= ctx.intensity * 0.8 * restraint) continue
+    taken.add(step)
+    add.push({ step, at: change })
+  }
+  // Re-strikes keep off the steps the style writes (and the chord changes) and their neighbours, wherever a roll put its hits.
+  const written = Array.from({ length: stepCount }, (_, step) => step).filter((step) => (line[step % line.length] ?? '.') !== '.')
+  const near = new Set([...written, ...changes, ...extras].flatMap((step) => [step - 1, step, step + 1]))
+  for (let step = 1; step < stepCount; step++) {
+    const weight = step % 4 === 2 ? 0.5 : step % 4 === 3 ? 0.15 : 0
+    if (weight === 0 || near.has(step) || add.some((item) => item.step === step) || stream(ctx, 'chords', 'comp', 'stab', step)() >= weight * ctx.intensity * restraint) continue
+    add.push({ step, at: step })
+  }
+  return { add, drop }
+}
+
 function generateChords(ctx: LayerContext, target: LayerTarget): LayerSteps {
   const { style, key, progression } = ctx
   const stepCount = ctx.bars * 16
@@ -346,7 +404,9 @@ function generateChords(ctx: LayerContext, target: LayerTarget): LayerSteps {
   const passing = range > 0
     ? changes.filter((step) => step >= 2 && stream(ctx, 'chords', 'range', 'lead', step)() < range * 0.7).map((step) => step - 2)
     : []
+  const comp = compChords(ctx, line, changes, hits, new Set(passing))
   for (const step of [...new Set([...hits, ...changes, ...passing])].sort((a, b) => a - b)) {
+    if (comp.drop.has(step)) continue
     let pad = padFor(chordAt(ctx, step).degree)
     // Range: between the changes, other chords of the key pass through — first
     // the close relatives (two notes shared), then, near the top, any of them.
@@ -360,6 +420,11 @@ function generateChords(ctx: LayerContext, target: LayerTarget): LayerSteps {
     }
     if (pad) (steps[pad.index] ??= []).push(step)
   }
+  for (const { step, at } of comp.add) {
+    const pad = padFor(chordAt(ctx, at).degree)
+    if (pad) (steps[pad.index] ??= []).push(step)
+  }
+  if (comp.add.length > 0) for (const list of Object.values(steps)) list.sort((a, b) => a - b)
   return steps
 }
 

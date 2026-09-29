@@ -207,6 +207,56 @@ it('offers substantially sparser simple beats and repeatable variations across t
   }
 })
 
+describe('takes: a reroll of one part is a different part', () => {
+  const distinct = (style: (typeof STYLES)[number], target: LayerTarget, overrides: Partial<LayerContext> = {}) =>
+    new Set(Array.from({ length: 8 }, (_, take) => JSON.stringify(generateLayer(ctxFor(style, { take, ...overrides }), target)))).size
+
+  it('gives chords and drums fresh material on most takes, in every style', () => {
+    for (const style of STYLES) {
+      expect(distinct(style, melodicTarget('chords')), `${style.id} chords`).toBeGreaterThanOrEqual(3)
+      expect(distinct(style, kitTarget(style.sounds.drums)), `${style.id} drums`).toBeGreaterThanOrEqual(5)
+    }
+  })
+
+  it('leaves the first take as the style wrote it', () => {
+    for (const style of STYLES) {
+      const chords = generateLayer(ctxFor(style), melodicTarget('chords'))
+      const written = new Set(style.chords.rhythms.flatMap((line) => [...line].flatMap((char, step) => (char === '.' ? [] : [step % 16]))))
+      const changes = new Set(pickProgression(style, 42).map((_, index, all) => Math.round((index * styleStepCount(style)) / all.length)))
+      for (const step of Object.values(chords).flat()) expect(written.has(step % 16) || changes.has(step), `${style.id} @${step}`).toBe(true)
+    }
+  })
+
+  it('keeps every chord change sounding and only adds hits as the layer gets busier', () => {
+    for (const style of STYLES) {
+      const progression = pickProgression(style, 42)
+      const changes = progression.map((_, index) => Math.round((index * styleStepCount(style)) / progression.length))
+      for (const take of [1, 2, 3]) {
+        let previous: number[] = []
+        for (const intensity of [0.25, 0.5, 0.75, 1]) {
+          const steps = new Set(Object.values(generateLayer(ctxFor(style, { take, intensity }), melodicTarget('chords'))).flat())
+          for (const change of changes) expect(steps.has(change), `${style.id} take ${take} change ${change}`).toBe(true)
+          for (const step of previous) expect(steps.has(step), `${style.id} take ${take} @${intensity}`).toBe(true)
+          previous = [...steps]
+        }
+      }
+    }
+  })
+
+  it('sprinkles ghost hits only on hats and percussion, never the kick or snare, and none at 0', () => {
+    const style = STYLES.find((item) => item.id === 'arcade')!
+    const kit = kitTarget(style.sounds.drums)
+    const kick = padForRole('kick', kit.pads)
+    const snare = padForRole('snare', kit.pads)
+    for (const take of [1, 2, 3, 4]) {
+      const base = generateLayer(ctxFor(style, { take: 0, intensity: 1 }), kit)
+      const next = generateLayer(ctxFor(style, { take, intensity: 1 }), kit)
+      expect(generateLayer(ctxFor(style, { take, intensity: 0 }), kit)[padForRole('hat', kit.pads)]?.some((step) => step % 2 === 1) ?? false).toBe(false)
+      for (const pad of [kick, snare]) expect(next[pad]!.filter((step) => step % 2 === 1)).toEqual(base[pad]!.filter((step) => step % 2 === 1))
+    }
+  })
+})
+
 describe('range: the style\'s keys … all the keys', () => {
   const pads = (steps: Record<number, number[]>) => Object.keys(steps).filter((pad) => steps[Number(pad)]!.length > 0).length
   const average = (fn: (seed: number) => number) => Array.from({ length: 12 }, (_, seed) => fn(seed)).reduce((sum, n) => sum + n, 0) / 12

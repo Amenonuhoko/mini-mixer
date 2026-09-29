@@ -2375,3 +2375,19 @@ Verified headless at 1894 × 1036 during a Disco beat: the four washes light (dr
 ## 2026-09-28 — Rings toned down; shipped
 
 The user found the hit rings a touch much. Their peak opacity drops from 0.85 to 0.6, the ring's own alpha from 0.3 to 0.2, and the pool from ten to seven, so a dense beat shows fewer rings at once. Shipped to production (main, which Vercel serves) along with everything on preview: the instrument expansion and retuning, the moods and song keys, the studio window controls, the wide-screen dock, and the room's part in the light show.
+
+## 2026-09-29 — Make a beat: shuffle one instrument, and takes that really change
+
+### Context
+Make a beat was misbehaving and the user wanted to shuffle new patterns on specific instruments. Generate itself ran without errors in headless Chromium, but measuring it showed where it felt broken: a new take of the Chords part came out identical in most styles (their rhythm lines are a lone hit per change, so a reroll changed nothing — over 8 takes only 33 of 144 style-takes were distinct, 1–2 distinct takes in 15 of the 18 styles), a few styles' drums barely moved (Arcade 2 of 8, Disco 3), and Surprise me could land on the style already playing, so it looked like nothing happened. The Vary row also ran off the right edge on a phone (nowrap, hidden scrollbar), hiding New chords.
+
+### Decision(s)
+- Each part in Make a beat is now 🎲 name | 🔒: the dice gives only that instrument a new take (its own style, sounds, Busy and Keys / Kit stay; a part with nothing yet is written in the menu's style), the lock keeps it through Generate and Vary as before. A locked part's shuffle is disabled. Shuffling a part whose steps you drew by hand (no generated layer) asks before replacing them. Two across on a phone, four in the wide dock.
+- Takes now differ. From the second take on, chords are re-comped (a push into the next chord, off-beat re-strikes, now and then a written hit left out; more of the first two and fewer of the last as Busy rises, gentler in styles that keep chords sparse) and hats, shakers, percussion and ghost snares gain quiet 16ths between the eighths. Take 0 is untouched — verified byte-identical for every style, seed, intensity and range against the previous generator — so existing beats and the "as written" first take don't change. Every candidate step keeps its own roll, so raising Busy still only adds hits, and every chord change always sounds. Distinct takes over 8: chords 33 → 112 of 144, drums 115 → 141. Ambient's bass stays a drone by design.
+- Surprise me avoids the styles already in the beat, so it is always a change.
+- Generate only asks "start a whole new beat?" when it would replace parts that have steps in another style (or that you drew); empty parts no longer count. Before, a beat with just one shuffled instrument warned that it would replace every part, the chords and the tempo.
+- The Vary row wraps.
+
+### Verification
+Types, lint (the same three warnings), 236 tests (four new: takes differ in every style, take 0 is the style as written, chord changes always sound and hits only rise with Busy, ghosts stay off the kick and snare) and the build pass. Headless Chromium at 390 and 1440 px: shuffling each of Drums / Bass / Chords / Melody changes only that part and keeps the style; a lone shuffled Bass on a blank canvas writes only the bass and Generate then doesn't ask to confirm; a locked part's shuffle is disabled and Generate leaves it byte-identical; six Surprise picks in a row all changed style; the hand-drawn-steps confirm cancels without touching them and Replace writes the new pattern; no horizontal overflow; no page errors.
+
