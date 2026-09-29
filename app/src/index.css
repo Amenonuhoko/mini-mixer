@@ -4119,3 +4119,18 @@ button.list-item:hover .list-wave {
 .sequencer-song-toggle { margin-left: auto; }
 /* Section names scroll under the fixed name column cleanly. */
 .sequencer-song-heads .sequencer-row-fixed { align-self: stretch; background: var(--deck-solid); }
+
+/* Song: ticking sections to edit several together (fades + mix). */
+.song-select-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.song-select-hint { color: var(--text-dim); font-size: var(--fs-xs); }
+.song-section-select { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--cyan); }
+.song-section.selected { border-color: var(--cyan); }
+.song-section-top .song-section-number { width: auto; }
+
+.section-edit-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: 6px 0; }
+.section-edit-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.section-edit-row-text small { color: var(--text-dim); font-size: var(--fs-xs); }
+.section-edit-row .stepper { flex: none; }
+.section-edit-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: var(--s3); }
+.song-section-summary.song-fade-note { text-transform: none; }
+.section-edit .sheet-note { margin-top: 8px; }

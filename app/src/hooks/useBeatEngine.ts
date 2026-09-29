@@ -6,7 +6,7 @@ import { Scheduler } from '../engine/Scheduler'
 import type { Action } from '../state/reducer'
 import type { AppState } from '../state/types'
 import { playablePads } from '../state/banks'
-import { buildSongTimeline, handoverRange, patternPitchCents, sectionBankGain, songStepAt } from '../engine/songTimeline'
+import { buildSongTimeline, handoverRange, patternPitchCents, sectionBankGain, sectionFadeGain, songStepAt } from '../engine/songTimeline'
 
 /**
  * Owns the single AudioEngine + Scheduler pair for the app's lifetime and keeps
@@ -63,6 +63,10 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         if (pattern) {
           const visiblePads = playablePads(current)
           const bankByPad = plan.bankByPad
+          // The section's fade-in / fade-out, as the gain for this step.
+          const fade = songPosition
+            ? sectionFadeGain(songPosition.span.section, stepIndex - songPosition.span.startStep, songPosition.span.endStep - songPosition.span.startStep)
+            : 1
           for (const pad of visiblePads) {
             if (pad.muted) continue
             // A programmed cell owns its source reference. The pad may have
@@ -72,7 +76,7 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
             const sample = current.samples[sampleId]
             if (!sample) continue
             const bank = bankByPad.get(pad.id)
-            const level = songPosition && bank ? sectionBankGain(songPosition.span.section, bank) : 1
+            const level = songPosition && bank ? sectionBankGain(songPosition.span.section, bank) * fade : 1
             engine.triggerStep(pad, sample.buffer, time, level, plan.phrasing.get(pattern.id)?.get(pad.id)?.[patternStep], patternPitchCents(pattern, bank))
           }
         }

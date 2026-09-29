@@ -63,7 +63,9 @@ export function withSectionEnding(
     if (!hasPattern(baseId, state.patterns)) songSections = sections.map((item) => item.id === carrier.id ? plain : item)
     else if (owner && owner.id === ending.of && owner.patternId === baseId) {
       // Fold the split-off repeat back into the section it came from.
-      songSections = sections.flatMap((item) => item.id === carrier.id ? [] : item.id === owner.id ? [{ ...item, repeats: Math.min(32, item.repeats + 1) }] : [item])
+      songSections = sections.flatMap((item) => item.id === carrier.id ? [] : item.id === owner.id
+        ? [{ ...item, repeats: Math.min(32, item.repeats + 1), ...(carrier.fadeOutBars ? { fadeOutBars: carrier.fadeOutBars } : {}) }]
+        : [item])
     } else songSections = sections.map((item) => item.id === carrier.id ? { ...plain, patternId: baseId } : item)
     // The ending's pattern goes too, once nothing plays it.
     const patterns = songSections.some((item) => item.patternId === carrier.patternId)
@@ -96,10 +98,16 @@ export function withSectionEnding(
   const name = `${section.name || 'Section'} ending`
   const pattern: Pattern = { ...baked, id: ids.pattern, name }
   const songSections = section.repeats > 1
-    ? sections.flatMap((item) => item.id !== section.id ? [item] : [
-      { ...item, repeats: item.repeats - 1 },
-      { ...item, id: ids.section, name, patternId: ids.pattern, repeats: 1, ending: { move, basePatternId, of: section.id } },
-    ])
+    ? sections.flatMap((item) => {
+      if (item.id !== section.id) return [item]
+      // A fade runs across the whole part: the fade-in stays on its first bars and the fade-out moves to the ending.
+      const { fadeOutBars: _out, ...first } = item
+      const { fadeInBars: _in, ...last } = item
+      return [
+        { ...first, repeats: item.repeats - 1 },
+        { ...last, id: ids.section, name, patternId: ids.pattern, repeats: 1, ending: { move, basePatternId, of: section.id } },
+      ]
+    })
     : sections.map((item) => item.id === section.id ? { ...item, patternId: ids.pattern, ending: { move, basePatternId } } : item)
   return { patterns: [...state.patterns, pattern], songSections, activePatternId: state.activePatternId }
 }

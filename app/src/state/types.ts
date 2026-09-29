@@ -186,6 +186,10 @@ export interface SongSection {
   bankVolumes?: Partial<Record<BankKind, number>>
   /** Banks removed from this section's playback without deleting the shared pattern. */
   excludedBanks?: BankKind[]
+  /** Bars, from the section's start, over which every sound ramps up from silence (see sectionFadeGain). Missing = no fade. */
+  fadeInBars?: number
+  /** Bars, up to the section's end, over which every sound ramps down to silence. Missing = no fade. */
+  fadeOutBars?: number
   /**
    * Set when this section's pattern is a baked ending: a copy of `basePatternId`
    * with `move` written into its last beat or bar. `of` is the section it ends

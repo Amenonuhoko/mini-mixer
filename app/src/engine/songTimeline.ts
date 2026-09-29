@@ -13,6 +13,38 @@ export function sectionBankGain(section: SongSection, bank: BankKind): number {
   return section.excludedBanks?.includes(bank) ? 0 : sectionBankLevel(section, bank)
 }
 
+export const STEPS_PER_BAR = 16
+/** The longest fade a section can store; a fade is also limited to its section's own length. */
+export const MAX_FADE_BARS = 64
+
+/** A section's fade length in whole bars (0 = none), tolerant of missing or odd stored values. */
+export function sectionFadeBars(section: SongSection, edge: 'in' | 'out'): number {
+  const value = edge === 'in' ? section.fadeInBars : section.fadeOutBars
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(MAX_FADE_BARS, Math.round(value))) : 0
+}
+
+/**
+ * The fade's gain (0–1) for one step of a section: `stepInSection` counts from
+ * the section's first step, across every repeat, and `sectionSteps` is its whole
+ * length. Linear, and never exactly silent, so a fade-in still starts on a
+ * (very quiet) downbeat and a fade-out ends on a (very quiet) last step.
+ * Sounds take this gain when they start, so a note that rings on keeps the
+ * level it began at.
+ */
+export function sectionFadeGain(section: SongSection, stepInSection: number, sectionSteps: number): number {
+  const fadeIn = Math.min(sectionFadeBars(section, 'in') * STEPS_PER_BAR, sectionSteps)
+  const fadeOut = Math.min(sectionFadeBars(section, 'out') * STEPS_PER_BAR, sectionSteps)
+  const up = fadeIn > 0 && stepInSection < fadeIn ? (stepInSection + 1) / (fadeIn + 1) : 1
+  const remaining = sectionSteps - stepInSection
+  const down = fadeOut > 0 && remaining <= fadeOut ? remaining / (fadeOut + 1) : 1
+  return Math.max(0, Math.min(up, down, 1))
+}
+
+/** The banks a pattern has at least one step in, in bank order. */
+export function programmedBanks(banks: AppState['banks'], pattern: Pattern | undefined): BankKind[] {
+  return banks.filter((bank) => bank.padIds.some((padId) => pattern?.steps[padId]?.some(Boolean))).map((bank) => bank.kind)
+}
+
 export interface SongSpan {
   section: SongSection
   pattern: Pattern

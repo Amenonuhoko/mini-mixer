@@ -3,7 +3,7 @@ import { Channel, createMasterStage, ReverbRooms, shapeEnvelope } from './channe
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 import { bankVolumeScale, playablePads } from '../state/banks'
-import { buildSongTimeline, patternPitchCents, sectionBankGain } from './songTimeline'
+import { buildSongTimeline, patternPitchCents, sectionBankGain, sectionFadeGain } from './songTimeline'
 import { planPhrasing, type NotePerformance } from './phrasing'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
@@ -70,19 +70,20 @@ export async function renderSongToBuffer(state: AppState): Promise<AudioBuffer> 
   const bankByPad = new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const)))
   const hits: ScheduledHit[] = []
   for (const span of timeline) {
+    const sectionSteps = span.endStep - span.startStep
     const phrasing = planPhrasing(span.pattern, state.banks, pads, state.transport.bpm)
     for (let repeat = 0; repeat < span.section.repeats; repeat++) {
       for (const pad of pads) {
         if (pad.muted) continue
         const bank = bankByPad.get(pad.id)
-        const level = bank ? sectionBankGain(span.section, bank) : 1
+        const bankGain = bank ? sectionBankGain(span.section, bank) : 1
         const cents = patternPitchCents(span.pattern, bank)
         span.pattern.steps[pad.id]?.forEach((sampleId, patternStep) => {
           const sample = sampleId ? state.samples[sampleId] : undefined
           if (sample) hits.push({
             pad,
             sample,
-            level,
+            level: bankGain * sectionFadeGain(span.section, repeat * span.pattern.stepCount + patternStep, sectionSteps),
             cents,
             performance: phrasing.get(pad.id)?.[patternStep],
             offsetSeconds: (span.startStep + repeat * span.pattern.stepCount + patternStep) * secondsPerStep,

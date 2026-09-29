@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
-import { buildSongTimeline, sectionBankLevel } from '../engine/songTimeline'
+import { buildSongTimeline, programmedBanks as programmedBankKinds, sectionBankLevel, sectionFadeBars } from '../engine/songTimeline'
 import { renderSongToBuffer } from '../engine/bouncePattern'
 import { encodeWav } from '../engine/projectFile'
 import { computePeaks } from '../utils/waveform'
@@ -10,6 +10,7 @@ import { SONG_TEMPLATES } from '../engine/songTemplates'
 import { BANK_NAMES } from '../state/banks'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Stepper } from './Stepper'
+import { SectionEditSheet } from './SectionEditSheet'
 import { TransitionSheet } from './TransitionSheet'
 import { endingCarrier, TRANSITION_MOVES } from '../state/sectionEnding'
 import type { PendingRecording } from './RecordingReview'
@@ -21,7 +22,9 @@ import type { PendingRecording } from './RecordingReview'
  * pattern and repeats, its own mix (which banks play, how loud, and its
  * ending / transition into the next section), Edit this (its pattern in Seq,
  * looping), Play from here, Duplicate (a numbered copy with its own identical
- * pattern) and Remove; then adding sections and rendering the song.
+ * pattern) and Remove; then adding sections and rendering the song. Ticking
+ * sections and choosing Edit selected changes several at once — fades and mix
+ * (see SectionEditSheet).
  */
 export function SongArranger({ onBounced }: { onBounced: (recording: PendingRecording) => void }) {
   const { state, dispatch } = useAppState()
@@ -37,6 +40,12 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
   const [showStructures, setShowStructures] = useState(state.songSections.length <= 1)
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
   const [transitionFromId, setTransitionFromId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [editingSelection, setEditingSelection] = useState(false)
+  // In song order, and never holding a section that has since been removed.
+  const selection = state.songSections.filter((section) => selectedIds.includes(section.id)).map((section) => section.id)
+  const toggleSelected = (sectionId: string) =>
+    setSelectedIds(selectedIds.includes(sectionId) ? selectedIds.filter((id) => id !== sectionId) : [...selectedIds, sectionId])
   const songHasSteps = timeline.some(({ pattern }) =>
     Object.values(pattern.steps).some((row) => row.some(Boolean)),
   )
@@ -190,12 +199,36 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           </button>
           <span>Edit this opens a section's pattern in Seq, looping it. ▶ Play from here plays on to the end — stop whenever you like.</span>
         </div>
+        <div className="song-select-bar" role="group" aria-label="Select sections to edit together">
+          <button
+            type="button"
+            className="chip-btn"
+            onClick={() => setSelectedIds(state.songSections.map((section) => section.id))}
+            disabled={selection.length === state.songSections.length}
+          >
+            Select all
+          </button>
+          <button type="button" className="chip-btn" onClick={() => setSelectedIds([])} disabled={selection.length === 0}>
+            Clear
+          </button>
+          <button
+            type="button"
+            className="chip-btn on"
+            onClick={() => setEditingSelection(true)}
+            disabled={selection.length === 0}
+            title="Fade in, fade out and mix for every ticked section at once"
+          >
+            {selection.length === 0 ? 'Edit selected' : `Edit selected (${selection.length})`}
+          </button>
+          {selection.length === 0 && <span className="song-select-hint">Tick sections to set their fades and mix together.</span>}
+        </div>
         <ol className="song-sections">
           {state.songSections.map((section, index) => {
             const linkedPattern = state.patterns.find((pattern) => pattern.id === section.patternId)
-            const programmedBanks = state.banks
-              .filter((bank) => bank.padIds.some((padId) => linkedPattern?.steps[padId]?.some(Boolean)))
-              .map((bank) => bank.kind)
+            const programmedBanks = programmedBankKinds(state.banks, linkedPattern)
+            const selected = selection.includes(section.id)
+            const fadeIn = sectionFadeBars(section, 'in')
+            const fadeOut = sectionFadeBars(section, 'out')
             const spanIndex = timeline.findIndex((span) => span.section.id === section.id)
             const restHasSteps = timeline
               .slice(spanIndex)
@@ -206,8 +239,15 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
             const name = state.songSections.filter((item) => item.name === section.name).length > 1 ? `${baseName} (part ${index + 1})` : baseName
             const linkedCount = state.songSections.filter((item) => item.patternId === section.patternId).length
             return (
-              <li key={section.id} className={playing ? 'song-section playing' : 'song-section'}>
+              <li key={section.id} className={`song-section${playing ? ' playing' : ''}${selected ? ' selected' : ''}`}>
                 <div className="song-section-top">
+                  <input
+                    type="checkbox"
+                    className="song-section-select"
+                    checked={selected}
+                    onChange={() => toggleSelected(section.id)}
+                    aria-label={`Select ${name}`}
+                  />
                   <span className="song-section-number">{index + 1}</span>
                   <input
                     className="song-section-name"
@@ -307,6 +347,13 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                     {endingLabel(section.id)}
                   </button>
                 </div>
+                {(fadeIn > 0 || fadeOut > 0) && (
+                  <p className="song-section-summary song-fade-note">
+                    {[fadeIn > 0 && `Fade in ${fadeIn} ${fadeIn === 1 ? 'bar' : 'bars'}`, fadeOut > 0 && `Fade out ${fadeOut} ${fadeOut === 1 ? 'bar' : 'bars'}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
                 <p className="song-section-summary song-link-note">{linkedCount > 1 ? 'Shared by ' + linkedCount + ' sections — editing updates all of them.' : 'Independent pattern — edits affect only this section.'}</p>
                 <div className="song-section-actions">
                   <button
@@ -354,6 +401,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
             + Add section
           </button>
         </div>
+        {editingSelection && selection.length > 0 && <SectionEditSheet sectionIds={selection} onClose={() => setEditingSelection(false)} />}
         {transitionFromId && (
           <TransitionSheet sectionId={transitionFromId} onClose={() => setTransitionFromId(null)} />
         )}

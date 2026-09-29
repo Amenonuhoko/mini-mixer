@@ -107,6 +107,7 @@ describe('stateFromMeta', () => {
     const meta = JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta
     const loaded = stateFromMeta(meta, {})
     expect(loaded.songSections).toEqual(state.songSections)
+    expect(loaded.songSections[0]).not.toHaveProperty('fadeInBars')
     expect(loaded.patterns[0]!.pitch).toEqual({ melody: 12, bass: -3 })
     expect(loaded.transport.playMode).toBe('song')
     expect(loaded.transport.isPlaying).toBe(false)
@@ -119,6 +120,21 @@ describe('stateFromMeta', () => {
     const legacy = stateFromMeta(meta, {})
     expect(legacy.songSections).toEqual([])
     expect(legacy.transport.playMode).toBe('pattern')
+  })
+
+  it('round-trips section fades, and drops ones that are off or make no sense', () => {
+    const state = createInitialState()
+    state.songSections[0]!.fadeInBars = 2
+    state.songSections[0]!.fadeOutBars = 4
+    const meta = JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta
+    expect(stateFromMeta(meta, {}).songSections[0]).toMatchObject({ fadeInBars: 2, fadeOutBars: 4 })
+    meta.songSections![0]!.fadeInBars = 0
+    meta.songSections![0]!.fadeOutBars = 'lots' as unknown as number
+    const loaded = stateFromMeta(meta, {}).songSections[0]!
+    expect(loaded).not.toHaveProperty('fadeInBars')
+    expect(loaded).not.toHaveProperty('fadeOutBars')
+    meta.songSections![0]!.fadeInBars = 500
+    expect(stateFromMeta(meta, {}).songSections[0]!.fadeInBars).toBe(64)
   })
 
   it('round-trips banks, key and label settings', () => {

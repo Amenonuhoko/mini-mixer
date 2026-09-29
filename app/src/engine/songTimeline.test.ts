@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState } from '../state/defaults'
 import { reducer } from '../state/reducer'
-import { buildSongTimeline, sectionBankGain, sectionBankLevel, songStepAt } from './songTimeline'
+import { buildSongTimeline, sectionBankGain, sectionBankLevel, sectionFadeGain, songStepAt } from './songTimeline'
+import type { SongSection } from '../state/types'
 
 describe('song arrangement', () => {
   it('makes a verse/chorus starter with a distinct editable chorus and linked repeats', () => {
@@ -181,5 +182,90 @@ describe('song arrangement', () => {
     expect(state.songSections[0]!.patternId).toBe(last.patternId)
     state = reducer(state, { type: 'SET_SONG_SECTION_BANK_INCLUDED', sectionId: first.id, bank: 'chords', included: true })
     expect(sectionBankGain(state.songSections[0]!, 'chords')).toBe(0.45)
+  })
+})
+
+describe('section fades', () => {
+  const section = (fades: Partial<SongSection>): SongSection => ({ id: 's', name: 'Verse', patternId: 'p', repeats: 4, ...fades })
+
+  it('plays at full level with no fade, and for old sections that never stored one', () => {
+    for (const step of [0, 31, 63]) expect(sectionFadeGain(section({}), step, 64)).toBe(1)
+  })
+
+  it('ramps up over the first bars and is at full level from there on', () => {
+    const fade = section({ fadeInBars: 1 })
+    const ramp = Array.from({ length: 16 }, (_, step) => sectionFadeGain(fade, step, 64))
+    expect(ramp[0]).toBeGreaterThan(0)
+    expect(ramp[15]).toBeLessThan(1)
+    expect(ramp).toEqual([...ramp].sort((a, b) => a - b))
+    expect(sectionFadeGain(fade, 16, 64)).toBe(1)
+    expect(sectionFadeGain(fade, 63, 64)).toBe(1)
+  })
+
+  it('ramps down over the last bars, ending on its quietest step', () => {
+    const fade = section({ fadeOutBars: 2 })
+    expect(sectionFadeGain(fade, 31, 64)).toBe(1)
+    const ramp = Array.from({ length: 32 }, (_, step) => sectionFadeGain(fade, 32 + step, 64))
+    expect(ramp[0]).toBeLessThan(1)
+    expect(ramp[31]).toBeGreaterThan(0)
+    expect(ramp[31]).toBe(Math.min(...ramp))
+    expect(ramp).toEqual([...ramp].sort((a, b) => b - a))
+  })
+
+  it('is limited to the section, and a fade-in and fade-out that meet take the quieter of the two', () => {
+    // 16 steps can't hold a 4-bar fade: it stretches over the whole section.
+    const long = section({ fadeInBars: 4 })
+    expect(sectionFadeGain(long, 0, 16)).toBeCloseTo(1 / 17)
+    expect(sectionFadeGain(long, 15, 16)).toBeCloseTo(16 / 17)
+    const both = section({ fadeInBars: 1, fadeOutBars: 1 })
+    expect(sectionFadeGain(both, 8, 16)).toBe(Math.min(9 / 17, 8 / 17))
+    expect(sectionFadeGain(both, 8, 16)).toBeGreaterThan(0)
+  })
+
+  it('ignores stored nonsense', () => {
+    expect(sectionFadeGain(section({ fadeInBars: Number.NaN, fadeOutBars: -3 }), 0, 64)).toBe(1)
+  })
+})
+
+describe('editing several sections at once', () => {
+  const songOf = (names: string[]) => reducer(createInitialState(), { type: 'APPLY_SONG_TEMPLATE', sections: names })
+
+  it('sets fades on exactly the selected sections, leaving the others and an omitted fade alone', () => {
+    let state = songOf(['Intro', 'Verse', 'Chorus'])
+    const [intro, verse, chorus] = state.songSections
+    state = reducer(state, { type: 'SET_SONG_SECTIONS_FADE', sectionIds: [intro!.id, chorus!.id], fadeInBars: 2, fadeOutBars: 1 })
+    state = reducer(state, { type: 'SET_SONG_SECTIONS_FADE', sectionIds: [chorus!.id], fadeOutBars: 3 })
+    expect(state.songSections[0]).toMatchObject({ fadeInBars: 2, fadeOutBars: 1 })
+    expect(state.songSections[1]).toEqual(verse)
+    expect(state.songSections[2]).toMatchObject({ fadeInBars: 2, fadeOutBars: 3 })
+  })
+
+  it('removes a fade set to 0 bars, and keeps stored values whole and bounded', () => {
+    let state = songOf(['Intro', 'Verse'])
+    const ids = state.songSections.map((section) => section.id)
+    state = reducer(state, { type: 'SET_SONG_SECTIONS_FADE', sectionIds: ids, fadeInBars: 2.6, fadeOutBars: 999 })
+    expect(state.songSections[0]).toMatchObject({ fadeInBars: 3, fadeOutBars: 64 })
+    state = reducer(state, { type: 'SET_SONG_SECTIONS_FADE', sectionIds: ids, fadeInBars: 0, fadeOutBars: Number.NaN })
+    for (const section of state.songSections) {
+      expect('fadeInBars' in section).toBe(false)
+      expect('fadeOutBars' in section).toBe(false)
+    }
+  })
+
+  it('applies one bank\'s level and on/off to every selected section only', () => {
+    let state = songOf(['Verse', 'Chorus', 'Verse'])
+    const [a, b, c] = state.songSections.map((section) => section.id) as [string, string, string]
+    state = reducer(state, { type: 'SET_SONG_SECTIONS_BANK_VOLUME', sectionIds: [a, c], bank: 'bass', level: 35.4 })
+    state = reducer(state, { type: 'SET_SONG_SECTIONS_BANK_INCLUDED', sectionIds: [a, b], bank: 'chords', included: false })
+    const [first, second, third] = state.songSections as [SongSection, SongSection, SongSection]
+    expect([sectionBankLevel(first, 'bass'), sectionBankLevel(second, 'bass'), sectionBankLevel(third, 'bass')]).toEqual([0.35, 1, 0.35])
+    expect([sectionBankGain(first, 'chords'), sectionBankGain(second, 'chords'), sectionBankGain(third, 'chords')]).toEqual([0, 0, 1])
+    state = reducer(state, { type: 'SET_SONG_SECTIONS_BANK_INCLUDED', sectionIds: [a, b], bank: 'chords', included: true })
+    expect(state.songSections.map((section) => sectionBankGain(section, 'chords'))).toEqual([1, 1, 1])
+  })
+
+  it('ignores a level that is not a number', () => {
+    const state = songOf(['Verse'])
+    expect(reducer(state, { type: 'SET_SONG_SECTIONS_BANK_VOLUME', sectionIds: [state.songSections[0]!.id], bank: 'bass', level: Number.NaN })).toBe(state)
   })
 })

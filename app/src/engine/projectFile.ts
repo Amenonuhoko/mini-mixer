@@ -4,6 +4,7 @@ import { computePeaks } from '../utils/waveform'
 import { BANK_KINDS, createBank } from '../state/banks'
 import { createId, DEFAULT_PERFORM } from '../state/defaults'
 import { TRANSITION_MOVE_IDS } from '../state/sectionEnding'
+import { sectionFadeBars } from './songTimeline'
 import { DEFAULT_KEY, DEFAULT_PAD_LABELS } from '../music/theory'
 import { DEFAULT_INTENSITY, pickProgression } from '../styles/generator'
 import { styleById } from '../styles/library'
@@ -342,6 +343,7 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
             : []
         })),
       } : {}),
+      ...fadeFields(section),
       ...(section.excludedBanks ? {
         excludedBanks: BANK_KINDS.filter((kind) => section.excludedBanks?.includes(kind)),
       } : {}),
@@ -355,6 +357,13 @@ export function stateFromMeta(meta: ProjectMeta, samples: Record<string, Sample>
     })),
     transport: buildTransport(meta.transport),
   }
+}
+
+/** A section's saved fades, tolerating anything a hand-edited or older file holds; none stored means none. */
+function fadeFields(section: SongSection): Pick<SongSection, 'fadeInBars' | 'fadeOutBars'> {
+  const fadeInBars = sectionFadeBars(section, 'in')
+  const fadeOutBars = sectionFadeBars(section, 'out')
+  return { ...(fadeInBars ? { fadeInBars } : {}), ...(fadeOutBars ? { fadeOutBars } : {}) }
 }
 
 export function buildSample(

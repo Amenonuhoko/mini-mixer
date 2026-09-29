@@ -19,6 +19,7 @@ import {
 import { bankOfPad, getActiveBank, getSamplerBank, soundKey } from './banks'
 import { createId, createInitialState, createNeutralEffects, createPad } from './defaults'
 import { SONG_TEMPLATES } from '../engine/songTemplates'
+import { MAX_FADE_BARS } from '../engine/songTimeline'
 import { resolveSequenceTraceCell } from '../utils/sequenceTraceLoad'
 import type {
   AppState,
@@ -114,6 +115,10 @@ export type Action =
   | { type: 'UPDATE_SONG_SECTION'; sectionId: string; name?: string; patternId?: string; repeats?: number }
   | { type: 'SET_SONG_SECTION_BANK_VOLUME'; sectionId: string; bank: BankKind; level: number }
   | { type: 'SET_SONG_SECTION_BANK_INCLUDED'; sectionId: string; bank: BankKind; included: boolean }
+  /** The same edits for several selected sections at once; a fade of 0 bars removes it, and an omitted fade is left alone. */
+  | { type: 'SET_SONG_SECTIONS_FADE'; sectionIds: string[]; fadeInBars?: number; fadeOutBars?: number }
+  | { type: 'SET_SONG_SECTIONS_BANK_VOLUME'; sectionIds: string[]; bank: BankKind; level: number }
+  | { type: 'SET_SONG_SECTIONS_BANK_INCLUDED'; sectionIds: string[]; bank: BankKind; included: boolean }
   /** Previews a transition written into the end of a section (null takes it out), then plays the handover. */
   | { type: 'PREVIEW_SECTION_ENDING'; sectionId: string; move: TransitionMove | null; ids: { section: string; pattern: string } }
   | { type: 'MAKE_SECTION_UNIQUE'; sectionId: string }
@@ -169,6 +174,32 @@ export function nextNumberedName(name: string, names: string[]): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
+}
+
+function setSectionsBankVolume(state: AppState, sectionIds: readonly string[], bank: BankKind, level: number): AppState {
+  if (!Number.isFinite(level) || !state.banks.some((item) => item.kind === bank)) return state
+  const ids = new Set(sectionIds)
+  return {
+    ...state,
+    songSections: state.songSections.map((section) =>
+      ids.has(section.id) ? { ...section, bankVolumes: { ...section.bankVolumes, [bank]: clamp(Math.round(level), 0, 100) } } : section,
+    ),
+  }
+}
+
+function setSectionsBankIncluded(state: AppState, sectionIds: readonly string[], bank: BankKind, included: boolean): AppState {
+  if (!state.banks.some((item) => item.kind === bank)) return state
+  const ids = new Set(sectionIds)
+  return {
+    ...state,
+    songSections: state.songSections.map((section) => {
+      if (!ids.has(section.id)) return section
+      const excluded = new Set(section.excludedBanks ?? [])
+      if (included) excluded.delete(bank)
+      else excluded.add(bank)
+      return { ...section, excludedBanks: [...excluded] }
+    }),
+  }
 }
 
 function updatePad(state: AppState, padId: string, update: (pad: Pad) => Pad): AppState {
@@ -1025,36 +1056,31 @@ export function reducer(state: AppState, action: Action): AppState {
       }
 
     case 'SET_SONG_SECTION_BANK_VOLUME':
-      if (!Number.isFinite(action.level) || !state.banks.some((bank) => bank.kind === action.bank)) {
-        return state
-      }
-      return {
-        ...state,
-        songSections: state.songSections.map((section) =>
-          section.id === action.sectionId
-            ? {
-                ...section,
-                bankVolumes: {
-                  ...section.bankVolumes,
-                  [action.bank]: clamp(Math.round(action.level), 0, 100),
-                },
-              }
-            : section,
-        ),
-      }
+      return setSectionsBankVolume(state, [action.sectionId], action.bank, action.level)
+
+    case 'SET_SONG_SECTIONS_BANK_VOLUME':
+      return setSectionsBankVolume(state, action.sectionIds, action.bank, action.level)
 
     case 'SET_SONG_SECTION_BANK_INCLUDED':
-      if (!state.banks.some((bank) => bank.kind === action.bank)) return state
+      return setSectionsBankIncluded(state, [action.sectionId], action.bank, action.included)
+
+    case 'SET_SONG_SECTIONS_BANK_INCLUDED':
+      return setSectionsBankIncluded(state, action.sectionIds, action.bank, action.included)
+
+    case 'SET_SONG_SECTIONS_FADE': {
+      const ids = new Set(action.sectionIds)
+      const bars = (value: number) => (Number.isFinite(value) ? clamp(Math.round(value), 0, MAX_FADE_BARS) : 0)
       return {
         ...state,
         songSections: state.songSections.map((section) => {
-          if (section.id !== action.sectionId) return section
-          const excluded = new Set(section.excludedBanks ?? [])
-          if (action.included) excluded.delete(action.bank)
-          else excluded.add(action.bank)
-          return { ...section, excludedBanks: [...excluded] }
+          if (!ids.has(section.id)) return section
+          const { fadeInBars, fadeOutBars, ...rest } = section
+          const fadeIn = action.fadeInBars === undefined ? fadeInBars : bars(action.fadeInBars)
+          const fadeOut = action.fadeOutBars === undefined ? fadeOutBars : bars(action.fadeOutBars)
+          return { ...rest, ...(fadeIn ? { fadeInBars: fadeIn } : {}), ...(fadeOut ? { fadeOutBars: fadeOut } : {}) }
         }),
       }
+    }
 
     case 'SET_VARIATION_LOCKS': {
       const patterns = state.patterns.map((pattern) => pattern.id === state.activePatternId ? { ...pattern, variationLocks: action.locked } : pattern)

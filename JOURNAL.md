@@ -2375,3 +2375,20 @@ Verified headless at 1894 × 1036 during a Disco beat: the four washes light (dr
 ## 2026-09-28 — Rings toned down; shipped
 
 The user found the hit rings a touch much. Their peak opacity drops from 0.85 to 0.6, the ring's own alpha from 0.3 to 0.2, and the pool from ten to seven, so a dense beat shows fewer rings at once. Shipped to production (main, which Vercel serves) along with everything on preview: the instrument expansion and retuning, the moods and song keys, the studio window controls, the wide-screen dock, and the room's part in the light show.
+
+## 2026-09-29 — Edit song sections together: fades and bulk mix
+
+### Context
+The Song page could only mix one section at a time and had no fades. The ask: select one or several segments of the song and edit their properties — fade in, fade out, mixing — together.
+
+### Decision(s)
+Each section card got a checkbox, and a bar above the list (Select all · Clear · Edit selected) opens `SectionEditSheet`. The sheet's fade steppers (whole bars) and per-bank on/off + level write to every ticked section in one action (`SET_SONG_SECTIONS_FADE`, `SET_SONG_SECTIONS_BANK_VOLUME`, `SET_SONG_SECTIONS_BANK_INCLUDED`; the single-section actions now share the same helpers). Fades live on `SongSection` (`fadeInBars`, `fadeOutBars`), are read by live playback and by the song bounce through one function (`sectionFadeGain`), and are kept by the project file loader. Selection is UI state only.
+
+### Alternatives considered
+A true gain ramp on the audio graph per section — rejected: notes are fire-and-forget buffer sources on shared pad channels, so a ramp would have to be scheduled on every channel and duplicated in the offline bounce. Scaling each hit's level as it starts (step-quantised, ~1/16th note) reuses the level path both already have, and they cannot disagree. Cost: a note that rings across steps keeps its starting level, so long pads fade in steps rather than smoothly.
+
+### Reasoning
+An ending is split off a repeating section as its own section (`withSectionEnding`), copying every property — so a naive copy would fade the ending in from silence and fade the rest out before it. The split now keeps the fade-in on the first part and moves the fade-out to the ending; removing the ending gives it back.
+
+### Open questions / carried forward
+Fades are linear in gain, not perceptual; a curve option and copy-mix-from-another-section were left out. Selecting from the Seq page's whole-song view is not wired — only the Song page selects.

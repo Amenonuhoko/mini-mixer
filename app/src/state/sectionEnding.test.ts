@@ -110,3 +110,31 @@ describe('section endings', () => {
     expect(handoverRange(spans, 'chorus')).toEqual({ start: 64, end: 80 })
   })
 })
+
+describe('section endings and fades', () => {
+  it('keeps the fade-in on the first bars and moves the fade-out onto the ending', () => {
+    const state = song(4)
+    state.songSections[0] = { ...state.songSections[0]!, fadeInBars: 2, fadeOutBars: 3 }
+    const next = { ...state, ...withSectionEnding(state, 'verse', 'pause', ids)! }
+    const [verse, ending] = next.songSections
+    expect(verse).toMatchObject({ repeats: 3, fadeInBars: 2 })
+    expect('fadeOutBars' in verse!).toBe(false)
+    expect(ending).toMatchObject({ repeats: 1, fadeOutBars: 3 })
+    expect('fadeInBars' in ending!).toBe(false)
+  })
+
+  it('gives the fade-out back to the section when the ending is taken out again', () => {
+    const state = song(4)
+    state.songSections[0] = { ...state.songSections[0]!, fadeInBars: 2, fadeOutBars: 3 }
+    const withEnding = { ...state, ...withSectionEnding(state, 'verse', 'pause', ids)! }
+    const plain = { ...withEnding, ...withSectionEnding(withEnding, 'verse', null, ids)! }
+    expect(plain.songSections[0]).toMatchObject({ id: 'verse', repeats: 4, fadeInBars: 2, fadeOutBars: 3 })
+  })
+
+  it('leaves a single-pass section\'s fades on it when an ending is added', () => {
+    const state = song(1)
+    state.songSections[0] = { ...state.songSections[0]!, fadeInBars: 1, fadeOutBars: 1 }
+    const next = { ...state, ...withSectionEnding(state, 'verse', 'pause', ids)! }
+    expect(next.songSections[0]).toMatchObject({ id: 'verse', fadeInBars: 1, fadeOutBars: 1 })
+  })
+})
