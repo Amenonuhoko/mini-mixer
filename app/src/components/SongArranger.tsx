@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
+import { useTogglePlayback } from '../hooks/useTogglePlayback'
 import { buildSongTimeline, sectionBankLevel } from '../engine/songTimeline'
 import { renderSongToBuffer } from '../engine/bouncePattern'
 import { encodeWav } from '../engine/projectFile'
@@ -9,24 +10,29 @@ import { computePeaks } from '../utils/waveform'
 import { SONG_TEMPLATES } from '../engine/songTemplates'
 import { BANK_NAMES } from '../state/banks'
 import { ConfirmDialog } from './ConfirmDialog'
+import { Overlay } from './Overlay'
 import { Stepper } from './Stepper'
 import { TransitionSheet } from './TransitionSheet'
 import { endingCarrier, TRANSITION_MOVES } from '../state/sectionEnding'
 import type { PendingRecording } from './RecordingReview'
 
 /**
- * The Song page: a small, ordered arrangement where each section points to
- * one editable pattern. Top to bottom: a whole-song preview and the ready-made
- * structures; then the sections — each with its name and ↑ ↓ on top, its
- * pattern and repeats, its own mix (which banks play, how loud, and its
- * ending / transition into the next section), Edit this (its pattern in Seq,
- * looping), Play from here, Duplicate (a numbered copy with its own identical
- * pattern) and Remove; then adding sections and rendering the song.
+ * The Song menu, opened from Seq's header: a sheet holding a small, ordered
+ * arrangement where each section points to one editable pattern. Play whole
+ * song / Stop stays in the sheet's header (the sheet covers the transport, and
+ * the header stays put as the sections scroll). Top to bottom: saving the song,
+ * its structure and the ready-made structures; then the sections — each with
+ * its name and ↑ ↓ on top, its pattern and repeats, its ending / transition
+ * into the next section, its mix (which banks play and how loud — folded away
+ * until asked for), Edit this (its pattern in Seq, looping), Play from here,
+ * Duplicate (a numbered copy with its own identical pattern) and Remove; then
+ * adding sections.
  */
-export function SongArranger({ onBounced }: { onBounced: (recording: PendingRecording) => void }) {
+export function SongArranger({ onBounced, onClose }: { onBounced: (recording: PendingRecording) => void; onClose: () => void }) {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const { goToSequencer } = useNavigation()
+  const togglePlayback = useTogglePlayback()
   const songMode = state.transport.playMode === 'song'
   const timeline = buildSongTimeline(state)
   const totalSteps = timeline.at(-1)?.endStep ?? 0
@@ -37,6 +43,14 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
   const [showStructures, setShowStructures] = useState(state.songSections.length <= 1)
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
   const [transitionFromId, setTransitionFromId] = useState<string | null>(null)
+  // Sections whose mix is unfolded; each starts folded to a one-line summary.
+  const [openMixIds, setOpenMixIds] = useState<ReadonlySet<string>>(new Set())
+  const toggleMix = (sectionId: string) =>
+    setOpenMixIds((open) => {
+      const next = new Set(open)
+      if (!next.delete(sectionId)) next.add(sectionId)
+      return next
+    })
   const songHasSteps = timeline.some(({ pattern }) =>
     Object.values(pattern.steps).some((row) => row.some(Boolean)),
   )
@@ -108,6 +122,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
     engine.stopAllSounds()
     dispatch({ type: 'SET_ACTIVE_PATTERN', patternId })
     dispatch({ type: 'AUDITION_SONG_SECTION', sectionId, scope: 'loop' })
+    onClose()
     goToSequencer()
   }
 
@@ -133,14 +148,37 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
     </div>
   )
 
+  const { isPlaying } = state.transport
+  const firstSection = state.songSections[0]
+
   return (
-    <section className="module song-arranger" aria-label="Song arrangement">
-      <header className="module-head">
-        <h2 className="module-title">Song</h2>
-        <span className="module-sub">
-          {state.songSections.length} sections · {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, '0')}
-        </span>
-      </header>
+    // Escape belongs to the sheet on top (the ending sheet, the structure prompt) while one is open.
+    <Overlay
+      onClose={() => {
+        if (!transitionFromId && !pendingTemplateId) onClose()
+      }}
+      className="sheet-tall"
+      title="Song"
+      subtitle={`${state.songSections.length} sections · ${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}`}
+      headerActions={
+        isPlaying ? (
+          <button type="button" className="chip-btn on song-play" onClick={togglePlayback} title="Stop playback">
+            ■ Stop
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="chip-btn on song-play"
+            onClick={() => firstSection && audition(firstSection.id, 'rest')}
+            disabled={!songHasSteps}
+            title="Play the whole song from the top"
+          >
+            ▶ Play song
+          </button>
+        )
+      }
+    >
+      <div className="song-arranger">
       <div className="song-editor">
         <div className="song-export">
           <button
@@ -179,17 +217,7 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           <span className="song-structure-chevron" aria-hidden="true">{showStructures ? '▴' : '▾'}</span>
         </button>
         {showStructures && templates}
-        <div className="song-preview-bar">
-          <button
-            type="button"
-            className="chip-btn on"
-            onClick={() => state.songSections[0] && audition(state.songSections[0].id, 'rest')}
-            disabled={!songHasSteps}
-          >
-            ▶ Play whole song
-          </button>
-          <span>Edit this opens a section's pattern in Seq, looping it. ▶ Play from here plays on to the end — stop whenever you like.</span>
-        </div>
+        <p className="song-hint">Edit this opens a section's pattern in Seq, looping it. ▶ Play from here plays on to the end — stop whenever you like.</p>
         <ol className="song-sections">
           {state.songSections.map((section, index) => {
             const linkedPattern = state.patterns.find((pattern) => pattern.id === section.patternId)
@@ -205,6 +233,9 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
             const baseName = section.name || `Section ${index + 1}`
             const name = state.songSections.filter((item) => item.name === section.name).length > 1 ? `${baseName} (part ${index + 1})` : baseName
             const linkedCount = state.songSections.filter((item) => item.patternId === section.patternId).length
+            const mixOpen = openMixIds.has(section.id)
+            const mixId = `song-mix-${section.id}`
+            const leftOut = programmedBanks.filter((kind) => section.excludedBanks?.includes(kind)).length
             return (
               <li key={section.id} className={playing ? 'song-section playing' : 'song-section'}>
                 <div className="song-section-top">
@@ -263,41 +294,24 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                     incrementTitle={`Play ${name} one more time`}
                   />
                 </div>
-                {/* This section's own mix: which banks play in it, and how loud — and how it leads into the next section. */}
-                <div className="song-section-mix" role="group" aria-label={`${name} mix`}>
-                  {programmedBanks.length === 0 && <span className="song-section-summary">Empty pattern — edit to add sounds</span>}
-                  {programmedBanks.map((kind) => {
-                    const removed = section.excludedBanks?.includes(kind) ?? false
-                    const level = Math.round(sectionBankLevel(section, kind) * 100)
-                    return (
-                      <div className={removed ? 'song-bank removed' : 'song-bank'} key={kind}>
-                        <button
-                          type="button"
-                          className={removed ? 'chip-btn song-bank-toggle' : 'chip-btn on song-bank-toggle'}
-                          onClick={() => dispatch({ type: 'SET_SONG_SECTION_BANK_INCLUDED', sectionId: section.id, bank: kind, included: removed })}
-                          aria-pressed={!removed}
-                          aria-label={`${BANK_NAMES[kind]} in ${name}`}
-                          title={removed ? `Bring ${BANK_NAMES[kind]} back into ${name}` : `Leave ${BANK_NAMES[kind]} out of ${name} — its steps stay saved`}
-                        >
-                          {BANK_NAMES[kind]}
-                        </button>
-                        <input
-                          type="range"
-                          className="slider"
-                          style={{ '--fill': `${level / 100}` } as React.CSSProperties}
-                          min={0}
-                          max={100}
-                          value={level}
-                          disabled={removed}
-                          aria-label={`${BANK_NAMES[kind]} volume in ${name}`}
-                          onChange={(event) =>
-                            dispatch({ type: 'SET_SONG_SECTION_BANK_VOLUME', sectionId: section.id, bank: kind, level: Number(event.target.value) })
-                          }
-                        />
-                        <span className="readout song-bank-level">{removed ? 'Off' : `${level}%`}</span>
-                      </div>
-                    )
-                  })}
+                {/* How this section leads into the next, and its own mix — which banks play in it and how loud — folded away until asked for. */}
+                <div className="song-section-mix">
+                  {programmedBanks.length === 0 ? (
+                    <span className="song-section-summary">Empty pattern — edit to add sounds</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className={mixOpen ? 'chip-btn song-mix-toggle open' : 'chip-btn song-mix-toggle'}
+                      aria-expanded={mixOpen}
+                      aria-controls={mixId}
+                      aria-label={`${name} mix`}
+                      title={mixOpen ? `Hide ${name}'s mix` : `Show ${name}'s mix — which banks play and how loud`}
+                      onClick={() => toggleMix(section.id)}
+                    >
+                      <span>Mix · {programmedBanks.length} {programmedBanks.length === 1 ? 'bank' : 'banks'}{leftOut > 0 ? ` · ${leftOut} off` : ''}</span>
+                      <span className="song-structure-chevron" aria-hidden="true">{mixOpen ? '▴' : '▾'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="chip-btn song-transition"
@@ -307,6 +321,42 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
                     {endingLabel(section.id)}
                   </button>
                 </div>
+                {mixOpen && (
+                  <div className="song-bank-list" id={mixId} role="group" aria-label={`${name} mix levels`}>
+                    {programmedBanks.map((kind) => {
+                      const removed = section.excludedBanks?.includes(kind) ?? false
+                      const level = Math.round(sectionBankLevel(section, kind) * 100)
+                      return (
+                        <div className={removed ? 'song-bank removed' : 'song-bank'} key={kind}>
+                          <button
+                            type="button"
+                            className={removed ? 'chip-btn song-bank-toggle' : 'chip-btn on song-bank-toggle'}
+                            onClick={() => dispatch({ type: 'SET_SONG_SECTION_BANK_INCLUDED', sectionId: section.id, bank: kind, included: removed })}
+                            aria-pressed={!removed}
+                            aria-label={`${BANK_NAMES[kind]} in ${name}`}
+                            title={removed ? `Bring ${BANK_NAMES[kind]} back into ${name}` : `Leave ${BANK_NAMES[kind]} out of ${name} — its steps stay saved`}
+                          >
+                            {BANK_NAMES[kind]}
+                          </button>
+                          <input
+                            type="range"
+                            className="slider"
+                            style={{ '--fill': `${level / 100}` } as React.CSSProperties}
+                            min={0}
+                            max={100}
+                            value={level}
+                            disabled={removed}
+                            aria-label={`${BANK_NAMES[kind]} volume in ${name}`}
+                            onChange={(event) =>
+                              dispatch({ type: 'SET_SONG_SECTION_BANK_VOLUME', sectionId: section.id, bank: kind, level: Number(event.target.value) })
+                            }
+                          />
+                          <span className="readout song-bank-level">{removed ? 'Off' : `${level}%`}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
                 <p className="song-section-summary song-link-note">{linkedCount > 1 ? 'Shared by ' + linkedCount + ' sections — editing updates all of them.' : 'Independent pattern — edits affect only this section.'}</p>
                 <div className="song-section-actions">
                   <button
@@ -366,7 +416,8 @@ export function SongArranger({ onBounced }: { onBounced: (recording: PendingReco
           />
         )}
       </div>
-    </section>
+      </div>
+    </Overlay>
   )
 }
 

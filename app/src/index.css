@@ -2472,8 +2472,6 @@ button.list-item:hover .list-wave {
 /* Save song and Export WAV lead the page, big. */
 .song-export { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .song-export-btn { min-height: 52px; font-size: var(--fs-sm); }
-.song-preview-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.song-preview-bar span { color: var(--text-dim); font-size: var(--fs-xs); }
 .song-mode { display: flex; gap: 4px; }
 .song-hint { margin: 0; color: var(--text-dim); font-size: var(--fs-xs); }
 .song-footer { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
@@ -3434,13 +3432,33 @@ button.list-item:hover .list-wave {
   height: var(--control-sm);
 }
 
-/* Song: each section's own mix — which banks play, and how loud. */
+/* Song: a section's ending and its mix toggle share a row; the mix itself — which banks play, and how loud — unfolds under it. */
 .song-section-mix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding-left: 26px;
+}
+
+.song-mix-toggle.open {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.song-bank-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
   width: 100%;
   padding-left: 26px;
+}
+
+/* Play / Stop in the Song sheet's header, level with its title. */
+.song-play {
+  flex: none;
+  align-self: center;
 }
 
 .song-bank {
@@ -3517,8 +3535,7 @@ button.list-item:hover .list-wave {
 }
 
 .song-transition {
-  align-self: flex-start;
-  margin-top: 2px;
+  flex: none;
 }
 
 /* Fingers, not cursors: every control is at least 40px where you touch it. */

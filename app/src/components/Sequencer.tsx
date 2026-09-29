@@ -11,7 +11,7 @@ import { computePeaks } from '../utils/waveform'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { Bank, Pad, Sample, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
-import { BrushIcon, EyeIcon, LoopIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon } from './icons'
+import { BrushIcon, EyeIcon, LoopIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, SongIcon, TrashIcon } from './icons'
 import { Overlay } from './Overlay'
 import { SequenceLoadPicker } from './SequenceLoadPicker'
 import type { PendingRecording } from './RecordingReview'
@@ -102,7 +102,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const [songView, setSongView] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
   const [confirmCopy, setConfirmCopy] = useState(false)
-  const { selectedPadId, selectPad, beatStarts } = useNavigation()
+  const { selectedPadId, selectPad, beatStarts, songMenuOpen, openSongMenu } = useNavigation()
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const paintRef = useRef<Painting | null>(null)
@@ -423,6 +423,16 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
         </>)}
         <button
           type="button"
+          className={songMenuOpen ? 'chip-btn on sequencer-song-menu' : 'chip-btn sequencer-song-menu'}
+          onClick={openSongMenu}
+          aria-haspopup="dialog"
+          aria-expanded={songMenuOpen}
+          title="The song's sections, their mix and endings — save or export the song"
+        >
+          <SongIcon size={14} /> Song
+        </button>
+        <button
+          type="button"
           className={songView ? 'chip-btn on sequencer-song-toggle' : 'chip-btn sequencer-song-toggle'}
           aria-pressed={songView}
           onClick={() => showSong(!songView)}
@@ -612,7 +622,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                   </button>}
                 </div>
                 {removedFromPart && (
-                  <p className="sequencer-bank-removed">Left out of {targetSection?.name} — bring it back on the Song page.</p>
+                  <p className="sequencer-bank-removed">Left out of {targetSection?.name} — bring it back in the Song menu.</p>
                 )}
                 {!removedFromPart && rows.map((pad) => (
                 <SequencerRow

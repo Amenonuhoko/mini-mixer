@@ -42,7 +42,7 @@ const OWN = 'own'
 export function BeatStarter() {
   const { state, dispatch } = useAppState()
   const engine = useEngine()
-  const { goToSong, beatStarterOpen: open, setBeatStarterOpen, markBeatStarted } = useNavigation()
+  const { openSongMenu, beatStarterOpen: open, setBeatStarterOpen, markBeatStarted } = useNavigation()
   const { busy, error, startBeat, regenerateLayers, hearBeat, newChords } = useGroove()
   const [choice, setChoice] = useState<string | null>(null)
   const [pendingStyle, setPendingStyle] = useState<{ style: StyleDef; surprise: boolean } | null>(null)
@@ -122,8 +122,8 @@ export function BeatStarter() {
             <button type="button" className="chip-btn" onClick={endLoop}>
               End loop
             </button>
-            <button type="button" className="chip-btn" onClick={goToSong}>
-              Song page
+            <button type="button" className="chip-btn" onClick={openSongMenu}>
+              Song menu
             </button>
           </div>
         </div>

@@ -7,6 +7,8 @@ interface OverlayProps {
   /** Sheet heading. Every sheet gets the same header — title, optional subtitle, close button — so they all read as one system. */
   title?: ReactNode
   subtitle?: ReactNode
+  /** Controls kept in reach beside Close as the sheet scrolls (the Song menu's Play / Stop — a sheet blocks the transport under it). */
+  headerActions?: ReactNode
   /** Extra class for sheet-specific sizing (e.g. the pad editor's taller sheet). */
   className?: string
   children: ReactNode
@@ -26,7 +28,14 @@ interface OverlayProps {
  * problem: the popup is never actually a DOM descendant of .app-shell, so it
  * can't be trapped in its stacking context.
  */
-export function Overlay({ onClose, title, subtitle, className, children }: OverlayProps) {
+export function Overlay({
+  onClose,
+  title,
+  subtitle,
+  headerActions,
+  className,
+  children,
+}: OverlayProps) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -49,6 +58,7 @@ export function Overlay({ onClose, title, subtitle, className, children }: Overl
               <h2 className="sheet-title">{title}</h2>
               {subtitle && <p className="sheet-subtitle">{subtitle}</p>}
             </div>
+            {headerActions}
             <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
               <CloseIcon />
             </button>

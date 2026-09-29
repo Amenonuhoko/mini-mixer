@@ -2375,3 +2375,20 @@ Verified headless at 1894 × 1036 during a Disco beat: the four washes light (dr
 ## 2026-09-28 — Rings toned down; shipped
 
 The user found the hit rings a touch much. Their peak opacity drops from 0.85 to 0.6, the ring's own alpha from 0.3 to 0.2, and the pool from ten to seven, so a dense beat shows fewer rings at once. Shipped to production (main, which Vercel serves) along with everything on preview: the instrument expansion and retuning, the moods and song keys, the studio window controls, the wide-screen dock, and the room's part in the light show.
+
+## 2026-09-29 — The Song page becomes a menu in Seq; each section's mix folds away
+
+### Context
+The user asked to turn the whole Song page into a menu within Seq, and to hide the volume mixer inside each song section in a collapsible list. The Song tab was a fourth destination for something you reach from Seq anyway (Edit this and Make a beat's "Working on" note already bounce between the two).
+
+### Decision(s)
+- No Song tab or `song` page any more. A **Song** chip in Seq's header (beside Whole song) opens the arrangement as a sheet (`SongArranger` now renders inside `Overlay`, class `sheet-tall`). Its open state, `songMenuOpen`, lives in NavigationContext and the shell renders the sheet, so Make a beat's note (now **Song menu**) can open it too, and Save song still hands its recording to the shell's review overlay. Edit this closes the sheet and lands in Seq, looping the section.
+- Each section's mix (bank chips and sliders) is a collapsible list, folded by default under a "Mix · 4 banks · 1 off" toggle in a row with Ending / transition. Open state is per section, in the sheet's own state, so it resets when the sheet closes.
+- A sheet covers the transport and switches Space off, so Play would have become unreachable while auditioning. `Overlay` gained an optional `headerActions` slot beside Close, and the Song sheet puts **▶ Play song** / **■ Stop** there (replacing the in-body Play whole song chip); the sticky header keeps it in reach however far the sections scroll.
+- Escape closes only the topmost sheet: the Song sheet ignores it while the Ending sheet or the structure prompt is open.
+
+### Alternatives considered
+An inline, foldable Song panel in Seq (like Make a beat): the transport would stay reachable, but the panel would compete with the grid for height in each of Seq's four layouts (phone, wide split, landscape stack, solo). Another sheet, opened from a header chip, sits the same way everywhere and matches Pattern options.
+
+### Reasoning
+Three tabs read cleaner, and the tab bar's grid already keeps Play centred whatever the group sizes. The mix is the bulkiest, least-touched part of a section card, so it folds; the ending stays visible because it isn't a level.

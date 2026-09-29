@@ -101,8 +101,6 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
       return <PadsPage onRecorded={onBounced} />
     case 'sequencer':
       return <Sequencer onBounced={onBounced} />
-    case 'song':
-      return <SongArranger onBounced={onBounced} />
     case 'library':
       return <Library />
   }
@@ -110,7 +108,7 @@ function CurrentPage({ onBounced }: CurrentPageProps) {
 
 function Shell() {
   const { state, dispatch } = useAppState()
-  const { page, editingPadId, goBackFromEdit, goToPads, goToSequencer } = useNavigation()
+  const { page, editingPadId, goBackFromEdit, goToPads, goToSequencer, songMenuOpen, closeSongMenu } = useNavigation()
   const engine = useEngine()
   const [pendingRecording, setPendingRecording] = useState<PendingRecording | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -212,6 +210,7 @@ function Shell() {
         </div>
       </div>
       {editingPadId !== null && <PadEditOverlay onClose={goBackFromEdit} />}
+      {songMenuOpen && <SongArranger onBounced={setPendingRecording} onClose={closeSongMenu} />}
       {pendingRecording && (
         <RecordingReviewOverlay
           recording={pendingRecording}

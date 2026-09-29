@@ -13,7 +13,7 @@ interface TransitionSheetProps {
 
 /**
  * How a song section ends and leads into the next one. Opened from the
- * section's mix on the Song page. A move is written into the steps of the
+ * section's row in the Song menu. A move is written into the steps of the
  * pattern the section ends on (so Edit this can fine-tune it), previewed by
  * playing the handover, then kept or undone.
  */

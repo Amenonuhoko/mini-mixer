@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type Page = 'pads' | 'sequencer' | 'song' | 'library'
+export type Page = 'pads' | 'sequencer' | 'library'
 
 /**
  * How a screen wide enough for both shows the studio (Pads and Seq): the
@@ -26,10 +26,13 @@ interface NavigationValue {
   editingPadId: string | null
   goToPads: () => void
   goToSequencer: () => void
-  goToSong: () => void
   goToLibrary: () => void
   goToEditPad: (padId: string) => void
   goBackFromEdit: () => void
+  /** The Song menu — the arrangement's sheet, opened from Seq (and Make a beat's "Working on" note). An overlay, not a destination, like the pad editor. */
+  songMenuOpen: boolean
+  openSongMenu: () => void
+  closeSongMenu: () => void
   /** The studio's arrangement on a wide screen — see StudioView. Remembered across reloads. */
   studioView: StudioView
   setStudioView: (view: StudioView) => void
@@ -51,16 +54,18 @@ interface NavigationValue {
 const NavigationContext = createContext<NavigationValue | null>(null)
 
 /**
- * Client-side page state only — no router library. This app has four small,
+ * Client-side page state only — no router library. This app has three small,
  * flat destinations and no need for URLs/history, so a plain context keeps
  * navigation reachable from deep components (e.g. a pad's "Edit" action)
  * without prop-drilling, at a fraction of a router's weight. Editing a pad is
  * a popup (see PadEditOverlay), not a fourth destination — editingPadId opens
- * and closes it without changing `page` underneath.
+ * and closes it without changing `page` underneath. The Song menu is the same
+ * kind of thing (songMenuOpen), reached from Seq.
  */
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<Page>('pads')
   const [editingPadId, setEditingPadId] = useState<string | null>(null)
+  const [songMenuOpen, setSongMenuOpen] = useState(false)
   const [selectedPadId, setSelectedPadId] = useState<string | null>(null)
   const [beatStarterOpen, setBeatStarterOpen] = useState(true)
   const [beatStarts, setBeatStarts] = useState(0)
@@ -79,10 +84,12 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     editingPadId,
     goToPads: () => setPage('pads'),
     goToSequencer: () => setPage('sequencer'),
-    goToSong: () => setPage('song'),
     goToLibrary: () => setPage('library'),
     goToEditPad: (padId: string) => setEditingPadId(padId),
     goBackFromEdit: () => setEditingPadId(null),
+    songMenuOpen,
+    openSongMenu: () => setSongMenuOpen(true),
+    closeSongMenu: () => setSongMenuOpen(false),
     studioView,
     setStudioView,
     selectedPadId,

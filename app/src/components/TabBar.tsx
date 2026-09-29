@@ -1,5 +1,5 @@
 import { useNavigation } from '../state/NavigationContext'
-import { LibraryIcon, PadsIcon, SeqIcon, SongIcon } from './icons'
+import { LibraryIcon, PadsIcon, SeqIcon } from './icons'
 import { PlayButton } from './PlayButton'
 import { TransportCluster } from './TransportStrip'
 
@@ -9,7 +9,7 @@ interface TabBarProps {
 }
 
 /**
- * Bottom bar, in the thumb zone: the four destinations with Play raised
+ * Bottom bar, in the thumb zone: the three destinations with Play raised
  * dead center — the button pressed most, right under the thumb — in a pill
  * with the metronome, master level and panic. (Recording lives on the Pads
  * page, next to the sounds it makes.)
@@ -18,11 +18,12 @@ interface TabBarProps {
  * tabs light together; each panel's own header holds the control that gives
  * it the whole window or brings the other back (StudioViewToggle). A tab
  * still always reveals the panel it names: tapping Pads while the sequencer
- * has the window brings the pads back beside it. The groups either side of
- * Play mirror each other, so Play stays centred.
+ * has the window brings the pads back beside it. The song arrangement isn't
+ * a tab: it's the Song menu in Seq's header. The groups either side of
+ * Play needn't match in size — the grid keeps Play centred.
  */
 export function TabBar({ combinedView }: TabBarProps) {
-  const { page, studioView, setStudioView, goToPads, goToSequencer, goToSong, goToLibrary } = useNavigation()
+  const { page, studioView, setStudioView, goToPads, goToSequencer, goToLibrary } = useNavigation()
   const studio = page === 'pads' || page === 'sequencer'
   const padsActive = combinedView ? studio && studioView !== 'sequencer' : page === 'pads'
   const seqActive = combinedView ? studio && studioView !== 'pads' : page === 'sequencer'
@@ -52,10 +53,6 @@ export function TabBar({ combinedView }: TabBarProps) {
         <PlayButton />
       </TransportCluster>
       <div className="tab-group tab-group-right">
-        <button type="button" className={page === 'song' ? 'tab on' : 'tab'} onClick={goToSong} aria-current={page === 'song' ? 'page' : undefined}>
-          <SongIcon />
-          <span className="tab-label">Song</span>
-        </button>
         <button type="button" className={page === 'library' ? 'tab on' : 'tab'} onClick={goToLibrary} aria-current={page === 'library' ? 'page' : undefined}>
           <LibraryIcon />
           <span className="tab-label">Library</span>
