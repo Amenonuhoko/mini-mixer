@@ -133,6 +133,8 @@ export type Action =
   | { type: 'SET_PATTERN_PITCH'; patternId: string; bank: BankKind; semitones: number }
   /** Replaces a pattern's steps (and length and generator settings) with another pattern's — e.g. the Intro copied into the Verse. */
   | { type: 'COPY_PATTERN_FROM'; patternId: string; fromId: string }
+  /** Replaces one bank's steps (and its phrasing and pitch) in a pattern with the same bank's from another — e.g. the Intro's chords copied into the Verse. */
+  | { type: 'COPY_BANK_FROM'; patternId: string; fromId: string; bankId: string }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_TRANSPORT_PLAYING'; isPlaying: boolean }
   | { type: 'SET_LOOP_MODE'; loopMode: LoopMode }
@@ -723,6 +725,29 @@ export function reducer(state: AppState, action: Action): AppState {
       // The pattern in the grid carries the live generator settings too.
       const next = action.patternId === state.activePatternId ? { ...copied, groove: source.groove ?? null } : copied
       return removeUnusedNoteSamples(next)
+    }
+
+    case 'COPY_BANK_FROM': {
+      const source = state.patterns.find((pattern) => pattern.id === action.fromId)
+      const bank = state.banks.find((item) => item.id === action.bankId)
+      if (!source || !bank || action.fromId === action.patternId || !state.patterns.some((pattern) => pattern.id === action.patternId)) return state
+      const copied = updatePattern(state, action.patternId, (pattern) => {
+        const steps = { ...pattern.steps }
+        for (const padId of bank.padIds) {
+          const row = source.steps[padId]
+          // A shorter or longer source loops to fill this pattern's length.
+          steps[padId] = Array.from({ length: pattern.stepCount }, (_, i) => (row && row.length > 0 ? row[i % source.stepCount] ?? null : null))
+        }
+        const phrasing = { ...pattern.phrasing }
+        const pitch = { ...pattern.pitch }
+        const sourcePhrasing = source.phrasing?.[bank.kind]
+        if (sourcePhrasing) phrasing[bank.kind] = sourcePhrasing
+        else delete phrasing[bank.kind]
+        if (source.pitch?.[bank.kind] !== undefined) pitch[bank.kind] = source.pitch[bank.kind]!
+        else delete pitch[bank.kind]
+        return { ...pattern, steps, phrasing, pitch, traceSteps: null, traceSource: null }
+      })
+      return removeUnusedNoteSamples(copied)
     }
 
     case 'CLEAR_PATTERN': {

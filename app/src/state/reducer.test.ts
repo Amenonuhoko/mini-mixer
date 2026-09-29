@@ -817,6 +817,26 @@ describe('copy a pattern from another', () => {
   })
 })
 
+describe('copy one bank from another pattern', () => {
+  it('replaces only that bank in the target, leaving its other banks and the source alone', () => {
+    let state = createInitialState()
+    state = reducer(state, { type: 'APPLY_SONG_TEMPLATE', sections: ['Intro', 'Verse'] })
+    const [intro, verse] = state.songSections
+    const [first, second] = state.banks
+    const a = first!.padIds[0]!
+    const b = second!.padIds[0]!
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: intro!.patternId, padId: a, stepIndex: 2, sampleId: 'x' })
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: verse!.patternId, padId: a, stepIndex: 5, sampleId: 'x' })
+    state = reducer(state, { type: 'TOGGLE_STEP', patternId: verse!.patternId, padId: b, stepIndex: 1, sampleId: 'x' })
+    state = reducer(state, { type: 'COPY_BANK_FROM', patternId: verse!.patternId, fromId: intro!.patternId, bankId: first!.id })
+    const target = state.patterns.find((pattern) => pattern.id === verse!.patternId)!
+    expect(target.steps[a]![2]).toBe('x')
+    expect(target.steps[a]![5]).toBeNull()
+    expect(target.steps[b]![1]).toBe('x')
+    expect(state.patterns.find((pattern) => pattern.id === intro!.patternId)!.steps[a]![2]).toBe('x')
+  })
+})
+
 describe('pattern pitch', () => {
   it('belongs to one pattern: pitching the Verse leaves the Chorus alone', () => {
     let state = createInitialState()

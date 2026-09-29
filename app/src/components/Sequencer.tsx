@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
 import { BANK_NAMES, playablePads, visibleBankPads } from '../state/banks'
@@ -101,11 +101,35 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   // The whole song side by side in one grid, every section editable in place.
   const [songView, setSongView] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
+  // A bank's "copy from another pattern" picker: the bank, and the pattern chosen while a replace is being confirmed.
+  const [copyBank, setCopyBank] = useState<{ bankId: string; fromId: string | null } | null>(null)
   const [confirmCopy, setConfirmCopy] = useState(false)
   const { selectedPadId, selectPad, beatStarts, songMenuOpen, openSongMenu } = useNavigation()
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const paintRef = useRef<Painting | null>(null)
+  // Where you were looking in each pattern (page and grid scroll), so switching Intro ↔ Verse puts you back.
+  const patternId = pattern?.id
+  const looks = useRef(new Map<string, { top: number; left: number }>())
+  useLayoutEffect(() => {
+    const grid = scrollRef.current
+    if (!patternId || songView || !grid) return
+    let page: HTMLElement | null = grid.parentElement
+    while (page && !/(auto|scroll)/.test(getComputedStyle(page).overflowY)) page = page.parentElement
+    const saved = looks.current.get(patternId)
+    if (saved) {
+      grid.scrollLeft = saved.left
+      if (page) page.scrollTop = saved.top
+    }
+    const remember = () => looks.current.set(patternId, { top: page?.scrollTop ?? 0, left: grid.scrollLeft })
+    grid.addEventListener('scroll', remember, { passive: true })
+    page?.addEventListener('scroll', remember, { passive: true })
+    return () => {
+      // No final save here: by now a shorter pattern may have clamped the scroll.
+      grid.removeEventListener('scroll', remember)
+      page?.removeEventListener('scroll', remember)
+    }
+  }, [patternId, songView])
   const padsById = new Map(state.pads.map((pad) => [pad.id, pad]))
 
   // Make a beat just wrote a whole new beat: fold every bank to the rows it uses (a kit has up to 32).
@@ -601,6 +625,17 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                     {partLabel(bank.kind, bankHasSteps)} ⋯
                   </button>
                   </>}
+                  {!songView && state.patterns.length > 1 && (
+                    <button
+                      type="button"
+                      className="sequencer-bank-style"
+                      aria-label={`Copy ${BANK_NAMES[bank.kind]} from another pattern`}
+                      title={`Copy ${BANK_NAMES[bank.kind]} from another pattern into ${pattern.name}`}
+                      onClick={() => setCopyBank({ bankId: bank.id, fromId: null })}
+                    >
+                      Copy
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="sequencer-bank-toggle"
@@ -787,6 +822,45 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
           </section>
         </Overlay>
       )}
+      {copyBank && (() => {
+        const bank = state.banks.find((item) => item.id === copyBank.bankId)
+        if (!bank) return null
+        const has = (item: typeof pattern) => bank.padIds.some((padId) => (item.steps[padId] ?? []).some(Boolean))
+        const from = state.patterns.find((item) => item.id === copyBank.fromId)
+        const label = BANK_NAMES[bank.kind]
+        const apply = (fromId: string) => {
+          dispatch({ type: 'COPY_BANK_FROM', patternId: pattern.id, fromId, bankId: bank.id })
+          setCopyBank(null)
+        }
+        const partsOf = (id: string) => state.songSections.filter((section) => section.patternId === id).length
+        return (
+          <>
+            <Overlay onClose={() => { if (!from) setCopyBank(null) }} title={`Copy ${label}`} subtitle={`Into ${pattern.name}: pick where to copy its ${label.toLowerCase()} from.`}>
+              <div className="pattern-menu-actions">
+                {state.patterns.filter((item) => item.id !== pattern.id).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="btn"
+                    disabled={!has(item)}
+                    onClick={() => (has(pattern) ? setCopyBank({ bankId: bank.id, fromId: item.id }) : apply(item.id))}
+                  >
+                    {item.name}{has(item) ? '' : ' (no steps)'}
+                  </button>
+                ))}
+              </div>
+            </Overlay>
+            {from && (
+              <ConfirmDialog
+                message={`Replace ${label} in ${pattern.name} with ${label} from ${from.name}?${partsOf(pattern.id) > 1 ? ` Every song part using ${pattern.name} changes too.` : ''}`}
+                confirmLabel="Copy"
+                onConfirm={() => apply(from.id)}
+                onCancel={() => setCopyBank({ bankId: bank.id, fromId: null })}
+              />
+            )}
+          </>
+        )
+      })()}
       {confirmCopy && (
         <ConfirmDialog
           message={`Replace everything in ${pattern.name} with a copy of ${state.patterns.find((item) => item.id === copyFromId)?.name ?? 'that pattern'}?${
