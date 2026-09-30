@@ -2417,3 +2417,7 @@ Types, lint, 265 tests. In headless Chromium: tap and drag picks, edits reach ev
 
 ### Open questions / carried forward
 Notes in the whole-song view show no tails or fades and can't be picked there. A picked note's edit isn't auditioned on its own — press Play. Moving or scaling a selection in time, and a sustain-by-looping option, are the natural next steps.
+
+## 2026-09-30 — App icon: the note on a lit stage
+
+The user liked a cleaner, bolder note but wanted the pads still visible behind it, and the icon to say "light show". The note (cyan head, orange head, slanted beam) now sits on a full 4×4 pad grid with a dark outline to separate it; three background pads are lit in the bank colours (violet, mint, pink), a hit ring spreads from the orange head as in the app's light show, and two soft stage washes fall from the top corners. Below 48 px that detail turns to noise, so `favicon.svg` and `favicon-32.png` use a simpler variant: the grid, the note and the ring. Full-size sources are in `scripts/app-icon/` (icon, apple-touch at 90%, maskable at 76% for the Android safe zone); the PNGs are rendered from them in Chromium. Icon URLs bumped to `?v=3`.
