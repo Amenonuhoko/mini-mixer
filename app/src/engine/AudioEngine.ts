@@ -3,7 +3,7 @@ import type { EffectId, EffectSetting, Pad } from '../state/types'
 import { AUDIO_PROFILE } from './audioProfile'
 import { preferPlaybackSession } from './audioSession'
 import { Channel, createMasterStage, holdEnvelope, PARAM_RAMP_SECONDS, ReverbRooms, shapeEnvelope } from './channel'
-import type { NotePerformance } from './phrasing'
+import { noteTiming, type NotePerformance } from './phrasing'
 import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { Performer } from './performer'
 import { seamlessLoopBuffer } from './loopSeam'
@@ -514,7 +514,9 @@ export class AudioEngine {
     const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
     // A sequencer step brings its own pattern's pitch; anything played live takes the pattern in the grid's.
     const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (options.cents ?? 0) + (options.patternCents ?? this.livePitch.get(pad.id) ?? 0)
-    source.playbackRate.value = rate
+    // A stretched note plays faster or slower (pitch follows) so it lasts exactly as long as it was given.
+    const timing = noteTiming(window.duration / (rate * Math.pow(2, detune / 1200)), options)
+    source.playbackRate.value = rate * timing.rateScale
     source.detune.value = detune
 
     const env = ctx.createGain()
@@ -524,7 +526,7 @@ export class AudioEngine {
 
     // Every one-shot fades out over its last few milliseconds — a recording that
     // stops mid-waveform would otherwise click at its natural end, not just a trimmed one.
-    const duration = Math.min(window.duration / (rate * Math.pow(2, detune / 1200)), options.durationSeconds ?? Infinity)
+    const duration = timing.seconds
     const levelAt = shapeEnvelope(env.gain, start, level, {
       fadeIn: window.offset > 0.001 || loop,
       end: loop ? null : start + duration,

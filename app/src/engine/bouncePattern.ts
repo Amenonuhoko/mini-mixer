@@ -4,7 +4,7 @@ import { dialToDetuneCents, dialToPlaybackRate } from './dialMapping'
 import { trimToPlaybackWindow } from './trim'
 import { bankVolumeScale, playablePads } from '../state/banks'
 import { buildSongTimeline, patternPitchCents, sectionBankGain, sectionFadeGain } from './songTimeline'
-import { planPhrasing, type NotePerformance } from './phrasing'
+import { noteTiming, planPhrasing, type NotePerformance } from './phrasing'
 
 function effectValue(effects: EffectSetting[], id: EffectId): number {
   return effects.find((effect) => effect.id === id)?.value ?? 0
@@ -107,9 +107,16 @@ async function renderHits(hits: ScheduledHit[], sequenceSeconds: number, bankSca
   const windows = hits.map((hit) =>
     trimToPlaybackWindow(hit.pad.trimStart, hit.pad.trimEnd, hit.sample.buffer.duration),
   )
+  // How each note plays: at its pad's own speed and pitch, then as long (and as fast) as its phrasing or its own edit says.
+  const plays = hits.map((hit, i) => {
+    const effects = hit.pad.effectsBypassed ? [] : hit.pad.effects
+    const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
+    const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (hit.cents ?? 0)
+    return { rate, detune, timing: noteTiming(windows[i]!.duration / (rate * Math.pow(2, detune / 1200)), hit.performance) }
+  })
   const tailSeconds = 0.15
   const totalSeconds = hits.reduce(
-    (latest, hit, i) => Math.max(latest, hit.offsetSeconds + windows[i]!.duration),
+    (latest, hit, i) => Math.max(latest, hit.offsetSeconds + Math.max(windows[i]!.duration, plays[i]!.timing.seconds)),
     sequenceSeconds,
   ) + tailSeconds
 
@@ -140,16 +147,15 @@ async function renderHits(hits: ScheduledHit[], sequenceSeconds: number, bankSca
 
     const source = ctx.createBufferSource()
     source.buffer = sample.buffer
-    const rate = dialToPlaybackRate(effectValue(effects, 'speed'))
-    const detune = dialToDetuneCents(effectValue(effects, 'pitch')) + (hit.cents ?? 0)
-    source.playbackRate.value = rate
+    const { rate, detune, timing } = plays[i]!
+    source.playbackRate.value = rate * timing.rateScale
     source.detune.value = detune
 
     const env = ctx.createGain()
     env.gain.value = 0
     source.connect(env)
     env.connect(channel.input)
-    const duration = Math.min(window.duration / (rate * Math.pow(2, detune / 1200)), hit.performance?.durationSeconds ?? Infinity)
+    const duration = timing.seconds
     shapeEnvelope(env.gain, offsetSeconds, (hit.level ?? 1) * (hit.performance?.level ?? 1), {
       fadeIn: window.offset > 0.001,
       end: offsetSeconds + duration,

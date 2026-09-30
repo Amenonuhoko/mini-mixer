@@ -1,6 +1,6 @@
 import { varyPattern, developSection, type VariationKind } from '../styles/variations'
 import { tonicMidi } from '../music/theory'
-import { normalizePhrasing } from '../engine/phrasing'
+import { mergeNoteEdit, normalizePhrasing, type NoteEditChange } from '../engine/phrasing'
 import { endingCarrier, withSectionEnding } from './sectionEnding'
 import {
   BPM_MIN,
@@ -28,6 +28,7 @@ import type {
   BankKind,
   BankBuild,
   CharacterPreset,
+  NoteEdit,
   EffectId,
   LoopMode,
   MoodId,
@@ -43,6 +44,12 @@ import type {
   Sample,
   SequenceTrace,
 } from './types'
+
+/** One step of a pattern: which pad's row, which step. */
+export interface NoteRef {
+  padId: string
+  stepIndex: number
+}
 
 export type Action =
   | { type: 'SET_PATTERN_PHRASING' | 'PREVIEW_PATTERN_PHRASING'; patternId: string; bank: BankKind; phrasing: Phrasing | null }
@@ -96,6 +103,9 @@ export type Action =
   | { type: 'TOGGLE_STEP'; patternId: string; padId: string; stepIndex: number; sampleId: string | null }
   | { type: 'SET_STEP_SAMPLE'; patternId: string; padId: string; stepIndex: number; sampleId: string }
   | { type: 'CLEAR_STEP'; patternId: string; padId: string; stepIndex: number }
+  /** Sets fades, length and stretch on the lit steps among `notes` (0 / false removes one); anything left out is kept. */
+  | { type: 'SET_NOTE_EDITS'; patternId: string; notes: NoteRef[]; edit: NoteEditChange }
+  | { type: 'CLEAR_NOTE_EDITS'; patternId: string; notes: NoteRef[] }
   /** Sets one row to exactly these steps (every one playing `sampleId`) — the row fills. */
   | { type: 'SET_ROW_STEPS'; patternId: string; padId: string; steps: number[]; sampleId: string | null }
   /** Copies the first bar of every row onto every later bar. */
@@ -200,6 +210,59 @@ function setSectionsBankIncluded(state: AppState, sectionIds: readonly string[],
       return { ...section, excludedBanks: [...excluded] }
     }),
   }
+}
+
+/** The pattern with `change` made to each listed step's note edit (undefined removes it); steps that are not lit are skipped. */
+function withNoteEdits(pattern: Pattern, notes: readonly NoteRef[], change: (current: NoteEdit | undefined) => NoteEdit | undefined): Pattern {
+  const edits: NonNullable<Pattern['noteEdits']> = { ...pattern.noteEdits }
+  for (const { padId, stepIndex } of notes) {
+    if (!pattern.steps[padId]?.[stepIndex]) continue
+    const row = { ...edits[padId] }
+    const edit = change(row[String(stepIndex)])
+    if (edit) row[String(stepIndex)] = edit
+    else delete row[String(stepIndex)]
+    if (Object.keys(row).length > 0) edits[padId] = row
+    else delete edits[padId]
+  }
+  const { noteEdits: _old, ...plain } = pattern
+  return Object.keys(edits).length > 0 ? { ...plain, noteEdits: edits } : plain
+}
+
+/** The pattern with every note edit of these pads' rows dropped — for a row that is being written afresh. */
+function withoutNoteEdits(pattern: Pattern, padIds: readonly string[]): Pattern {
+  if (!pattern.noteEdits || !padIds.some((padId) => pattern.noteEdits![padId])) return pattern
+  const { noteEdits, ...plain } = pattern
+  const kept = Object.fromEntries(Object.entries(noteEdits).filter(([padId]) => !padIds.includes(padId)))
+  return Object.keys(kept).length > 0 ? { ...plain, noteEdits: kept } : plain
+}
+
+/**
+ * Note edits belong to lit steps. Whatever empties, moves or removes a step —
+ * a tap, Clear, a shorter pattern, a new beat, a variation — leaves its edit
+ * behind, so this drops any edit whose step is no longer lit.
+ */
+function pruneNoteEdits(state: AppState): AppState {
+  let changed = false
+  const patterns = state.patterns.map((pattern) => {
+    const edits = pattern.noteEdits
+    if (!edits) return pattern
+    const kept: NonNullable<Pattern['noteEdits']> = {}
+    let dropped = false
+    for (const [padId, row] of Object.entries(edits)) {
+      const keptRow: Record<string, NoteEdit> = {}
+      for (const [key, edit] of Object.entries(row)) {
+        const index = Number(key)
+        if (index < pattern.stepCount && pattern.steps[padId]?.[index]) keptRow[key] = edit
+        else dropped = true
+      }
+      if (Object.keys(keptRow).length > 0) kept[padId] = keptRow
+    }
+    if (!dropped) return pattern
+    changed = true
+    const { noteEdits: _dropped, ...plain } = pattern
+    return Object.keys(kept).length > 0 ? { ...plain, noteEdits: kept } : plain
+  })
+  return changed ? { ...state, patterns } : state
 }
 
 function updatePad(state: AppState, padId: string, update: (pad: Pad) => Pad): AppState {
@@ -433,6 +496,11 @@ function applyBankBuild(
 }
 
 export function reducer(state: AppState, action: Action): AppState {
+  const next = applyAction(state, action)
+  return next === state ? state : pruneNoteEdits(next)
+}
+
+function applyAction(state: AppState, action: Action): AppState {
   // Audition/navigation may continue. A subsequent musical edit accepts the draft,
   // so Undo can never silently discard newer notes, sound assignments or deleted samples.
   const auditionActions = ['PREVIEW_VARIATION', 'PREVIEW_RELATED_SONG', 'SET_VARIATION_LOCKS', 'KEEP_VARIATION', 'UNDO_VARIATION', 'SET_ACTIVE_PATTERN', 'SET_ACTIVE_BANK', 'SET_PLAY_MODE', 'AUDITION_SONG_SECTION', 'SET_CURRENT_SONG_SECTION', 'SET_TRANSPORT_PLAYING', 'SET_LOOP_MODE', 'SET_METRONOME_ENABLED', 'SET_CURRENT_STEP']
@@ -585,7 +653,7 @@ export function reducer(state: AppState, action: Action): AppState {
           steps[padId] = Array.from({ length: stepCount }, (_, i) => (active.has(i) ? sampleId : null))
         }
         return {
-          ...pattern,
+          ...withoutNoteEdits(pattern, bank.padIds),
           stepCount,
           steps,
           traceSteps: pattern.traceSteps
@@ -708,12 +776,20 @@ export function reducer(state: AppState, action: Action): AppState {
       return removeUnusedNoteSamples(cleared)
     }
 
+    case 'SET_NOTE_EDITS':
+      return updatePattern(state, action.patternId, (pattern) =>
+        withNoteEdits(pattern, action.notes, (current) => mergeNoteEdit(current, action.edit)),
+      )
+
+    case 'CLEAR_NOTE_EDITS':
+      return updatePattern(state, action.patternId, (pattern) => withNoteEdits(pattern, action.notes, () => undefined))
+
     case 'SET_ROW_STEPS': {
       const pattern = state.patterns.find((item) => item.id === action.patternId)
       if (!pattern || (action.sampleId !== null && !state.samples[action.sampleId])) return state
       const on = new Set(action.steps)
       const written = updatePattern(state, action.patternId, (current) => ({
-        ...current,
+        ...withoutNoteEdits(current, [action.padId]),
         steps: {
           ...current.steps,
           [action.padId]: Array.from({ length: current.stepCount }, (_, i) => (on.has(i) ? action.sampleId : null)),
@@ -723,20 +799,35 @@ export function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'REPEAT_FIRST_BAR':
-      return updatePattern(state, action.patternId, (pattern) => ({
-        ...pattern,
-        steps: Object.fromEntries(
-          Object.entries(pattern.steps).map(([padId, row]) => [
-            padId,
-            Array.from({ length: pattern.stepCount }, (_, i) => row[i % 16] ?? null),
-          ]),
-        ),
-      }))
+      return updatePattern(state, action.patternId, (pattern) => {
+        const { noteEdits: barEdits, ...plain } = pattern
+        const repeated: Pattern = {
+          ...plain,
+          steps: Object.fromEntries(
+            Object.entries(pattern.steps).map(([padId, row]) => [
+              padId,
+              Array.from({ length: pattern.stepCount }, (_, i) => row[i % 16] ?? null),
+            ]),
+          ),
+        }
+        // Each bar takes bar 1's note edits along with its steps.
+        if (!barEdits) return repeated
+        const noteEdits: NonNullable<Pattern['noteEdits']> = {}
+        for (const [padId, row] of Object.entries(barEdits)) {
+          const repeatedRow: Record<string, NoteEdit> = {}
+          for (let i = 0; i < pattern.stepCount; i++) {
+            const edit = row[String(i % 16)]
+            if (edit) repeatedRow[String(i)] = edit
+          }
+          if (Object.keys(repeatedRow).length > 0) noteEdits[padId] = repeatedRow
+        }
+        return Object.keys(noteEdits).length > 0 ? { ...repeated, noteEdits } : repeated
+      })
 
     case 'COPY_PATTERN_FROM': {
       const source = state.patterns.find((pattern) => pattern.id === action.fromId)
       if (!source || action.fromId === action.patternId || !state.patterns.some((pattern) => pattern.id === action.patternId)) return state
-      const copied = updatePattern(state, action.patternId, (pattern) => ({
+      const copied = updatePattern(state, action.patternId, ({ noteEdits: _replaced, ...pattern }) => ({
         ...pattern,
         stepCount: source.stepCount,
         steps: Object.fromEntries(
@@ -748,6 +839,7 @@ export function reducer(state: AppState, action: Action): AppState {
         groove: source.groove ?? null,
         phrasing: normalizePhrasing(source.phrasing),
         ...(source.pitch ? { pitch: { ...source.pitch } } : {}),
+        ...(source.noteEdits ? { noteEdits: { ...source.noteEdits } } : {}),
         traceSteps: null,
         traceSource: null,
       }))
@@ -966,6 +1058,7 @@ export function reducer(state: AppState, action: Action): AppState {
         groove: source?.groove ?? (source?.id === state.activePatternId ? state.groove : null),
         phrasing: normalizePhrasing(source?.phrasing),
         ...(source?.pitch ? { pitch: { ...source.pitch } } : {}),
+        ...(source?.noteEdits ? { noteEdits: { ...source.noteEdits } } : {}),
         stepCount: source?.stepCount ?? 16,
         steps: Object.fromEntries(state.pads.map((pad) => [
           pad.id,

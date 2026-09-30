@@ -1,5 +1,5 @@
 import { DEFAULT_MIX_LEVEL, MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
-import { normalizePhrasing } from './phrasing'
+import { normalizeNoteEdits, normalizePhrasing } from './phrasing'
 import { computePeaks } from '../utils/waveform'
 import { BANK_KINDS, createBank } from '../state/banks'
 import { createId, DEFAULT_PERFORM } from '../state/defaults'
@@ -226,9 +226,23 @@ export function normalizeBanks(meta: Pick<ProjectMeta, 'banks' | 'pads' | 'visib
  */
 export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
   const sampleIdByPad = new Map(pads.map((pad) => [pad.id, pad.sampleId]))
-  return patterns.map((pattern) => {
+  return patterns.map(({ noteEdits: savedEdits, ...pattern }) => {
     const longestRow = Math.max(MIN_STEP_COUNT, ...Object.values(pattern.steps).map((steps) => steps.length))
     const stepCount = Math.min(MAX_STEP_COUNT, Math.max(MIN_STEP_COUNT, pattern.stepCount ?? longestRow))
+    const steps = Object.fromEntries(
+      Object.entries(pattern.steps).map(([padId, rawSteps]) => {
+        const legacySteps = rawSteps as unknown as Array<string | boolean | null | undefined>
+        return [
+          padId,
+          Array.from({ length: stepCount }, (_, stepIndex) => {
+            const step = legacySteps[stepIndex]
+            if (typeof step === 'string') return step
+            return step === true ? sampleIdByPad.get(padId) ?? null : null
+          }),
+        ]
+      }),
+    )
+    const noteEdits = normalizeNoteEdits(savedEdits, steps, stepCount)
     return {
       ...pattern,
       stepCount,
@@ -243,19 +257,8 @@ export function normalizePatterns(patterns: Pattern[], pads: Pad[]): Pattern[] {
       variationLocks: BANK_KINDS.filter((kind) => pattern.variationLocks?.includes(kind)),
       traceSteps: pattern.traceSteps ?? null,
       traceSource: pattern.traceSource ?? (pattern.traceSteps ? 'reference' : null),
-      steps: Object.fromEntries(
-        Object.entries(pattern.steps).map(([padId, rawSteps]) => {
-          const legacySteps = rawSteps as unknown as Array<string | boolean | null | undefined>
-          return [
-            padId,
-            Array.from({ length: stepCount }, (_, stepIndex) => {
-              const step = legacySteps[stepIndex]
-              if (typeof step === 'string') return step
-              return step === true ? sampleIdByPad.get(padId) ?? null : null
-            }),
-          ]
-        }),
-      ),
+      steps,
+      ...(noteEdits ? { noteEdits } : {}),
     }
   })
 }

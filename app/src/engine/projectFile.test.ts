@@ -137,6 +137,21 @@ describe('stateFromMeta', () => {
     expect(stateFromMeta(meta, {}).songSections[0]!.fadeInBars).toBe(64)
   })
 
+  it('round-trips note edits, and drops ones that are junk or belong to a step that is not lit', () => {
+    const state = createInitialState()
+    const pattern = state.patterns[0]!
+    const padId = state.pads[0]!.id
+    pattern.steps[padId]![2] = 'kick'
+    pattern.noteEdits = { [padId]: { '2': { fadeInSteps: 3, lengthSteps: 4, stretch: true } } }
+    const meta = JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta
+    expect(stateFromMeta(meta, {}).patterns[0]!.noteEdits).toEqual(pattern.noteEdits)
+    const saved = meta.patterns[0]!
+    saved.noteEdits = { [padId]: { '2': { lengthSteps: 4.4, fadeOutSteps: 'lots' as unknown as number }, '3': { lengthSteps: 2 }, '99': { lengthSteps: 2 } }, nobody: { '0': { lengthSteps: 2 } } }
+    expect(stateFromMeta(meta, {}).patterns[0]!.noteEdits).toEqual({ [padId]: { '2': { lengthSteps: 4 } } })
+    delete saved.noteEdits
+    expect(stateFromMeta(meta, {}).patterns[0]).not.toHaveProperty('noteEdits')
+  })
+
   it('round-trips banks, key and label settings', () => {
     const state = { ...createInitialState(3), mood: null, key: { tonic: 2, scale: 'dorian' as const, chordColor: 'seventh' as const } }
     const loaded = stateFromMeta(JSON.parse(JSON.stringify(extractProjectMeta(state))) as ProjectMeta, {})

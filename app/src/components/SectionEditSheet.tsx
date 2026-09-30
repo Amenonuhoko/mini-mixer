@@ -3,7 +3,7 @@ import { useEngine } from '../state/EngineContext'
 import { BANK_NAMES } from '../state/banks'
 import { buildSongTimeline, MAX_FADE_BARS, programmedBanks, sectionBankLevel, sectionFadeBars, STEPS_PER_BAR } from '../engine/songTimeline'
 import { Overlay } from './Overlay'
-import { Stepper } from './Stepper'
+import { MixedStepper } from './MixedStepper'
 
 interface SectionEditSheetProps {
   /** The selected sections; every change below applies to all of them at once. */
@@ -54,37 +54,30 @@ export function SectionEditSheet({ sectionIds, onClose }: SectionEditSheetProps)
     onClose()
   }
 
-  const fadeRow = (edge: 'in' | 'out', label: string, hint: string) => {
-    const values = sections.map((section) => sectionFadeBars(section, edge))
-    const low = Math.min(...values)
-    const high = Math.max(...values)
-    const same = low === high
-    const set = (bars: number) =>
-      dispatch(
-        edge === 'in'
-          ? { type: 'SET_SONG_SECTIONS_FADE', sectionIds: ids, fadeInBars: bars }
-          : { type: 'SET_SONG_SECTIONS_FADE', sectionIds: ids, fadeOutBars: bars },
-      )
-    return (
-      <div className="section-edit-row">
-        <div className="section-edit-row-text">
-          <strong>{label}</strong>
-          <small>{hint}</small>
-        </div>
-        <Stepper
-          label={`${label} length`}
-          value={!same ? 'Mixed' : low === 0 ? 'Off' : low}
-          {...(same && low > 0 ? { unit: low === 1 ? 'bar' : 'bars' } : {})}
-          onDecrement={() => set(same ? low - 1 : low)}
-          onIncrement={() => set(same ? high + 1 : high)}
-          decrementDisabled={same && low <= 0}
-          incrementDisabled={same && high >= maxFade}
-          decrementTitle={`${label}: one bar shorter`}
-          incrementTitle={`${label}: one bar longer`}
-        />
+  const fadeRow = (edge: 'in' | 'out', label: string, hint: string) => (
+    <div className="edit-row">
+      <div className="edit-row-text">
+        <strong>{label}</strong>
+        <small>{hint}</small>
       </div>
-    )
-  }
+      <MixedStepper
+        label={`${label} length`}
+        values={sections.map((section) => sectionFadeBars(section, edge))}
+        max={maxFade}
+        zeroLabel="Off"
+        unit={(bars) => (bars === 1 ? 'bar' : 'bars')}
+        decrementTitle={`${label}: one bar shorter`}
+        incrementTitle={`${label}: one bar longer`}
+        onSet={(bars) =>
+          dispatch(
+            edge === 'in'
+              ? { type: 'SET_SONG_SECTIONS_FADE', sectionIds: ids, fadeInBars: bars }
+              : { type: 'SET_SONG_SECTIONS_FADE', sectionIds: ids, fadeOutBars: bars },
+          )
+        }
+      />
+    </div>
+  )
 
   return (
     <Overlay onClose={close} title={sections.length === 1 ? 'Edit section' : `Edit ${sections.length} sections`} subtitle={subtitle} className="section-edit">

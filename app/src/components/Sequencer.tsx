@@ -9,7 +9,8 @@ import { useNavigation } from '../state/NavigationContext'
 import { padIdentity } from '../utils/padIdentity'
 import { computePeaks } from '../utils/waveform'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
-import type { Bank, Pad, Sample, SequenceTrace } from '../state/types'
+import type { NoteRef } from '../state/reducer'
+import type { Bank, NoteEdit, Pad, Sample, SequenceTrace } from '../state/types'
 import { ConfirmDialog } from './ConfirmDialog'
 import { BrushIcon, EyeIcon, LoopIcon, MoreIcon, OpenIcon, PlusIcon, SaveIcon, TrashIcon } from './icons'
 import { Overlay } from './Overlay'
@@ -22,6 +23,7 @@ import { PatternBeatStarter } from './BeatStarter'
 import { styleById } from '../styles/library'
 
 const STEP_POP_KEYFRAMES: Keyframe[] = [{ transform: 'scale(1.22)' }, { transform: 'scale(1)' }]
+import { NoteEditBar } from './NoteEditBar'
 import { PhrasingEditor } from './PhrasingEditor'
 import { PartSheet } from './PartSheet'
 
@@ -50,6 +52,15 @@ interface Painting {
   frame: number
 }
 const WAVEFORM_BUCKETS = 80
+const NO_KEYS: ReadonlySet<string> = new Set()
+const NO_STEPS: ReadonlySet<number> = new Set()
+
+/** A note (a lit step) as a set member: its pad's row and its step. */
+const noteKey = (padId: string, step: number) => `${padId}:${step}`
+function parseNoteKey(key: string): NoteRef {
+  const at = key.lastIndexOf(':')
+  return { padId: key.slice(0, at), stepIndex: Number(key.slice(at + 1)) }
+}
 
 function chunk<T>(items: T[], size: number): T[][] {
   const groups: T[][] = []
@@ -95,6 +106,9 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const [previewOnClick, setPreviewOnClick] = useState(true)
   const [loadPickerOpen, setLoadPickerOpen] = useState(false)
   const [paintMode, setPaintMode] = useState(false)
+  // Select tool: taps and drags pick lit steps to edit (see NoteEditBar) instead of toggling them.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selection, setSelection] = useState<{ patternId: string; keys: ReadonlySet<string> }>({ patternId: '', keys: NO_KEYS })
   const [confirmRepeat, setConfirmRepeat] = useState(false)
   const [patternMenuOpen, setPatternMenuOpen] = useState(false)
   const [fillOpen, setFillOpen] = useState(false)
@@ -107,6 +121,26 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const scrollRef = useRef<HTMLDivElement>(null)
   const paintRef = useRef<Painting | null>(null)
   const padsById = new Map(state.pads.map((pad) => [pad.id, pad]))
+  // Notes picked in the Select tool belong to the pattern in the grid, and only lit steps count.
+  const pickedKeys = selection.patternId === pattern?.id ? selection.keys : NO_KEYS
+  const pickedNotes: NoteRef[] = pattern
+    ? [...pickedKeys].map(parseNoteKey).filter(({ padId, stepIndex }) => pattern.steps[padId]?.[stepIndex])
+    : []
+  const editPicked = (edit: (keys: Set<string>) => void) =>
+    setSelection((current) => {
+      const keys = new Set(current.patternId === pattern?.id ? current.keys : [])
+      edit(keys)
+      return { patternId: pattern?.id ?? '', keys }
+    })
+  const setSelecting = (on: boolean) => {
+    setSelectMode(on)
+    if (on) setPaintMode(false)
+    else setSelection({ patternId: '', keys: NO_KEYS })
+  }
+  const toggleNote = (padId: string, step: number) => {
+    if (!pattern?.steps[padId]?.[step]) return
+    editPicked((keys) => (keys.has(noteKey(padId, step)) ? keys.delete(noteKey(padId, step)) : keys.add(noteKey(padId, step))))
+  }
 
   // Make a beat just wrote a whole new beat: fold every bank to the rows it uses (a kit has up to 32).
   const seenBeatStarts = useRef(beatStarts)
@@ -152,6 +186,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     dispatch({ type: 'SET_TRANSPORT_PLAYING', isPlaying: false })
     // Play follows what's on screen: the whole song here, the pattern otherwise.
     dispatch({ type: 'SET_PLAY_MODE', mode: on ? 'song' : 'pattern' })
+    if (on) setSelecting(false)
     setSongView(on)
   }
   const playSection = (sectionId: string, scope: 'rest' | 'loop') => {
@@ -262,6 +297,12 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     if (!paint || !target || paint.applied.has(cell.key)) return
     paint.applied.add(cell.key)
     paint.painted = true
+    if (selectMode) {
+      // A stroke picks (or, starting on a picked note, drops) the lit steps it crosses.
+      if (!cell.on) return
+      editPicked((keys) => (paint.mode === 'draw' ? keys.add(noteKey(cell.padId, cell.step)) : keys.delete(noteKey(cell.padId, cell.step))))
+      return
+    }
     const pad = padsById.get(cell.padId)
     if (!pad) return
     if (paint.mode === 'erase') {
@@ -294,12 +335,13 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     if (sequencerGateMode || event.button > 0) return
     const cell = cellAt(event.clientX, event.clientY)
     if (!cell) return
-    if (event.pointerType !== 'mouse' && !paintMode) return
-    const paint: Painting = { mode: cell.on ? 'erase' : 'draw', origin: cell, applied: new Set(), painted: false, x: event.clientX, y: event.clientY, frame: 0 }
+    if (event.pointerType !== 'mouse' && !paintMode && !selectMode) return
+    const erasing = selectMode ? pickedKeys.has(noteKey(cell.padId, cell.step)) : cell.on
+    const paint: Painting = { mode: erasing ? 'erase' : 'draw', origin: cell, applied: new Set(), painted: false, x: event.clientX, y: event.clientY, frame: 0 }
     paintRef.current = paint
-    // Paint mode strokes from the first touch. A mouse press is left alone
+    // Paint and Select strokes start from the first touch. A mouse press is left alone
     // until it drags, so a plain click still reaches the step and toggles it.
-    if (paintMode) startStroke(paint, event.pointerId)
+    if (paintMode || selectMode) startStroke(paint, event.pointerId)
   }
 
   const startStroke = (paint: Painting, pointerId: number) => {
@@ -476,13 +518,25 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
           <button
             type="button"
             className={paintMode ? 'chip-btn on' : 'chip-btn'}
-            onClick={() => setPaintMode((enabled) => !enabled)}
+            onClick={() => {
+              setPaintMode((enabled) => !enabled)
+              setSelecting(false)
+            }}
             aria-pressed={paintMode}
             title={paintMode ? 'Paint on — drag across steps to fill them (start on a lit step to erase)' : 'Paint — drag a finger across steps to fill them'}
           >
             <BrushIcon size={14} />
             Paint
           </button>
+          {!songView && <button
+            type="button"
+            className={selectMode ? 'chip-btn on' : 'chip-btn'}
+            onClick={() => setSelecting(!selectMode)}
+            aria-pressed={selectMode}
+            title={selectMode ? 'Select on — tap or drag across lit steps to pick them, then fade, lengthen or stretch them' : 'Select — pick notes to fade in, lengthen or stretch'}
+          >
+            Select
+          </button>}
           {!songView && <button
             type="button"
             className="chip-btn"
@@ -495,6 +549,24 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
         </div>
       </div>
 
+      {selectMode && !songView && (
+        <NoteEditBar
+          pattern={pattern}
+          notes={pickedNotes}
+          onSelectRow={
+            selectedPad && (pattern.steps[selectedPad.id] ?? []).some(Boolean)
+              ? () => editPicked((keys) => (pattern.steps[selectedPad.id] ?? []).forEach((cell, step) => cell && keys.add(noteKey(selectedPad.id, step))))
+              : null
+          }
+          onSelectAll={() =>
+            editPicked((keys) =>
+              visiblePads.forEach((pad) => (pattern.steps[pad.id] ?? []).forEach((cell, step) => cell && keys.add(noteKey(pad.id, step)))),
+            )
+          }
+          onDeselect={() => setSelection({ patternId: '', keys: NO_KEYS })}
+        />
+      )}
+
       {!songView && !patternHasSteps && (
         <p className="sequencer-empty">
           <span className="sequencer-empty-text">Blank canvas? Tap steps, or pick parts and a style in Make a beat and press Generate.</span>
@@ -503,7 +575,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
 
       <div className="sequencer-scroll" onWheel={handleTimelineWheel} ref={scrollRef}>
         <div
-          className={paintMode ? 'sequencer-grid painting' : 'sequencer-grid'}
+          className={paintMode || selectMode ? 'sequencer-grid painting' : 'sequencer-grid'}
           ref={gridRef}
           {...(songView ? { 'data-current-section': state.transport.currentSongSectionId ?? '' } : {})}
           onPointerDown={handleGridPointerDown}
@@ -627,9 +699,13 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                   selected={pad.id === selectedPadId}
                   gateMode={sequencerGateMode}
                   previewOnClick={previewOnClick}
+                  selectMode={selectMode}
+                  {...(songView ? {} : { noteEdits: pattern.noteEdits?.[pad.id], pickedSteps: pickedNotes.length > 0 ? new Set(pickedNotes.filter((note) => note.padId === pad.id).map((note) => note.stepIndex)) : NO_STEPS })}
                   {...(songView ? { segments: segments.map((segment) => ({ sectionId: segment.section.id, steps: segment.pattern.steps[pad.id] ?? new Array<string | null>(segment.pattern.stepCount).fill(null) })) } : {})}
                   onToggleStep={(stepIndex, sectionId) =>
-                    dispatch({ type: 'TOGGLE_STEP', patternId: patternForSection(sectionId)?.id ?? pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
+                    selectMode
+                      ? toggleNote(pad.id, stepIndex)
+                      : dispatch({ type: 'TOGGLE_STEP', patternId: patternForSection(sectionId)?.id ?? pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
                   }
                   onPick={() => pickRow(bank, pad)}
                 />
@@ -836,6 +912,12 @@ interface SequencerRowProps {
   selected: boolean
   gateMode: boolean
   previewOnClick: boolean
+  /** The Select tool is on: a tap picks a note instead of toggling the step. */
+  selectMode: boolean
+  /** This row's note edits, shown as held lengths and fades — not in the whole-song grid. */
+  noteEdits?: Record<string, NoteEdit> | undefined
+  /** Which of this row's steps are picked. */
+  pickedSteps?: ReadonlySet<number>
   /** The whole-song grid: one run of steps per section, side by side. */
   segments?: Array<{ sectionId: string; steps: Array<string | null> }>
   onToggleStep: (stepIndex: number, sectionId?: string) => void
@@ -860,6 +942,9 @@ function SequencerRow({
   selected,
   gateMode,
   previewOnClick,
+  selectMode,
+  noteEdits,
+  pickedSteps = NO_STEPS,
   segments,
   onToggleStep,
   onPick,
@@ -881,8 +966,17 @@ function SequencerRow({
     gateSources.current.set(event.pointerId, engine.triggerPad(pad, sample.buffer))
   }
 
+  // Steps a held note runs on into, drawn as a tail so a long note reads as a block.
+  const tails = new Map<number, boolean>()
+  for (const [key, edit] of Object.entries(noteEdits ?? {})) {
+    const first = Number(key)
+    const last = Math.min(first + (edit.lengthSteps ?? 1), steps.length) - 1
+    for (let step = first + 1; step <= last; step++) tails.set(step, !!edit.stretch)
+  }
+
   const toggle = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number, sectionId?: string) => {
     onToggleStep(stepIndex, sectionId)
+    if (selectMode) return
     // A tapped-on step pops, like a hardware button lighting under the finger.
     if (!on) event.currentTarget.animate?.(STEP_POP_KEYFRAMES, { duration: 180, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' })
     if (on || !sample || pad.muted || !previewOnClick) return
@@ -899,6 +993,8 @@ function SequencerRow({
             const on = sampleId !== null
             const traceSampleId = rowTrace[stepIndex] ?? null
             const traced = !on && traceSampleId !== null
+            const edit = sectionId === undefined && on ? noteEdits?.[String(stepIndex)] : undefined
+            const tail = sectionId === undefined && !on && tails.has(stepIndex)
             const sampleLabel = sampleId ? sampleLabels[sampleId] ?? 'deleted sample' : null
             const traceLabel = traceSampleId ? sampleLabels[traceSampleId] ?? 'deleted sample' : null
             return (
@@ -908,7 +1004,18 @@ function SequencerRow({
                 data-step-index={stepIndex}
                 data-pad-id={pad.id}
                 data-section={sectionId}
-                className={['step', on ? 'on' : '', traced ? 'trace' : ''].filter(Boolean).join(' ')}
+                className={[
+                  'step',
+                  on ? 'on' : '',
+                  traced ? 'trace' : '',
+                  edit?.lengthSteps && edit.lengthSteps > 1 ? 'held' : '',
+                  edit?.fadeInSteps ? 'fade-in' : '',
+                  edit?.fadeOutSteps ? 'fade-out' : '',
+                  tail ? 'tail' : '',
+                  tail && !tails.has(stepIndex + 1) ? 'tail-end' : '',
+                  tail && tails.get(stepIndex) ? 'stretch' : '',
+                  selectMode && on && pickedSteps.has(stepIndex) ? 'picked' : '',
+                ].filter(Boolean).join(' ')}
                 onPointerDown={startGate}
                 onPointerUp={(event) => stopGateSource(event.pointerId)}
                 onPointerCancel={(event) => stopGateSource(event.pointerId)}

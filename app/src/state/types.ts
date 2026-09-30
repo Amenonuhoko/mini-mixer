@@ -156,7 +156,25 @@ export interface Phrasing {
   dynamics: number
 }
 
+/**
+ * One lit step's own settings, on top of its bank's phrasing (see engine/phrasing.ts).
+ * All in sixteenth-note steps, so they follow tempo; a property left out is
+ * simply not set. Made in Seq's Select tool.
+ */
+export interface NoteEdit {
+  /** The note rises from silence over this many steps. */
+  fadeInSteps?: number
+  /** The note dies away over this many steps, ending where the note ends. */
+  fadeOutSteps?: number
+  /** The note is held for exactly this many steps from its onset — it can end sooner than its sound, or run on past the next hit. */
+  lengthSteps?: number
+  /** With a length: slows or speeds the sound so it fills the length exactly (tape-style — pitch follows). */
+  stretch?: boolean
+}
+
 export interface Pattern {
+  /** Per-note edits: pad id → step index (a string, so it saves as JSON) → edit. Only ever holds lit steps. */
+  noteEdits?: Record<string, Record<string, NoteEdit>>
   phrasing?: Partial<Record<BankKind, Phrasing>> | undefined
   variationLocks?: BankKind[]
 

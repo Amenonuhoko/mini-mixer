@@ -2392,3 +2392,28 @@ An ending is split off a repeating section as its own section (`withSectionEndin
 
 ### Open questions / carried forward
 Fades are linear in gain, not perceptual; a curve option and copy-mix-from-another-section were left out. Selecting from the Seq page's whole-song view is not wired — only the Song page selects.
+
+## 2026-09-30 — Edit individual notes: fades, held length, stretch
+
+### Context
+Section-level fades and mix (previous entry) left the notes themselves untouchable: a lit step was on or off, and how long it sounded came only from its bank's phrasing. The ask: pick one or several blocks in the sequence and fade them in, extend their duration, stretch them over several steps.
+
+### Decision(s)
+A **Select** tool in Seq's toolbar picks lit steps (tap, or drag across a row); a panel edits all picked notes at once. Per-note settings — `fadeInSteps`, `fadeOutSteps`, `lengthSteps`, `stretch` — live in `Pattern.noteEdits` and are applied inside `planPhrasing`, on top of the bank's phrasing, producing the same `NotePerformance` that live playback and the bounce already consumed. Two new pieces of that shape: `stretchToSeconds`, and `noteTiming()`, the one place that turns a note's natural length plus its performance into "how long it plays and how fast", used by both the live voice and the offline bounce.
+
+"Extend its duration" and "stretch it over multiple steps" are two different things here. **Length** holds the note for N steps — it cuts a sound shorter, or lets it run on past the next hit. It cannot make a recording last longer than it is. **Stretch to fill** does that: it plays the sound slower (or faster) so it lasts exactly the length, capped at ¼×–4×.
+
+### Alternatives considered
+- *Loop the sound to sustain it.* Would keep the pitch, but needs a loop point per sample and a crossfade at every note end (`loopSeam` is built for whole-pad loops, not per-note), and project.md already states phrasing does not extend sustain. Left out.
+- *Time-stretch without changing pitch.* Needs real DSP the project has deliberately avoided (see the 2026-09-07 entry on pitch/speed coupling). Tape-style stretch is honest about what it does.
+- *Storing the edit in the step cell.* Cells are sample-id strings read in a dozen places (generators, variations, song templates, recordings). A sparse map beside `steps` touches none of them.
+- *Moving/scaling a selection's timing* (spread notes over more steps). A different feature from per-note length; not built.
+
+### Reasoning
+The map beside `steps` has one hazard: every writer of `steps` would have to remember to fix it. Instead the reducer wrapper prunes after every action — an edit whose step is no longer lit (or beyond the pattern) is dropped — so toggling, clearing, resizing, generating and varying can't leave a stale edit on a different note. The few writers that rewrite a row wholesale (Fill row, Make a beat's write) drop that row's edits explicitly, since a note that happens to stay lit is no longer the same note. Copies and Bar 1 → all carry the edits with the steps.
+
+### Verified
+Types, lint, 265 tests. In headless Chromium: tap and drag picks, edits reach every picked note, deselecting and leaving Select behave, and the offline bounce of a 0.5 s tone measured plain 0.51 s · hold 2 steps 0.26 s · hold 8 steps 0.51 s (the sound's own end) · stretch to 8 steps 1.01 s at steady level · squeeze to 2 steps 0.26 s · fade in over 4 steps 0.04 → 0.24 → 0.29 · fade out over 4 steps falling to 0.07 by 0.45 s. No audio was listened to.
+
+### Open questions / carried forward
+Notes in the whole-song view show no tails or fades and can't be picked there. A picked note's edit isn't auditioned on its own — press Play. Moving or scaling a selection in time, and a sustain-by-looping option, are the natural next steps.

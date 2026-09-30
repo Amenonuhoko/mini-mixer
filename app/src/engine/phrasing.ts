@@ -1,4 +1,5 @@
-import type { Bank, BankKind, Pad, Pattern, Phrasing } from '../state/types'
+import { MAX_STEP_COUNT } from '../state/constants'
+import type { Bank, BankKind, NoteEdit, Pad, Pattern, Phrasing } from '../state/types'
 
 export const WIND_INSTRUMENTS = new Set(['Flute', 'Clarinet', 'Trumpet', 'Alto Saxophone', 'Oboe', 'Bassoon', 'French Horn', 'Trombone', 'Harmonica'])
 export function isWind(bank: Bank): boolean { return bank.sound?.type === 'preset' && WIND_INSTRUMENTS.has(bank.sound.name) }
@@ -35,6 +36,77 @@ export interface NotePerformance {
   durationSeconds?: number
   attackSeconds?: number
   releaseSeconds?: number
+  /** Play the sound faster or slower (pitch follows) so it lasts exactly this long. */
+  stretchToSeconds?: number
+}
+
+/** The longest fade a single note can be given, in steps (one bar). */
+export const MAX_NOTE_FADE_STEPS = 16
+/** A stretched sound never plays slower than a quarter or faster than four times its speed. */
+const STRETCH_LIMIT = 4
+
+const whole = (value: number, max: number) => (Number.isFinite(value) ? Math.max(0, Math.min(max, Math.round(value))) : 0)
+
+/** What a Select-tool change sets: a number to set a property (0 removes it), or nothing to leave it. */
+export type NoteEditChange = { [Key in keyof NoteEdit]?: NoteEdit[Key] | undefined }
+
+/** A note's edit after `change`; undefined when nothing is left set. A stretch only means something with a length. */
+export function mergeNoteEdit(current: NoteEdit | undefined, change: NoteEditChange): NoteEdit | undefined {
+  const fadeIn = change.fadeInSteps === undefined ? current?.fadeInSteps : whole(change.fadeInSteps, MAX_NOTE_FADE_STEPS)
+  const fadeOut = change.fadeOutSteps === undefined ? current?.fadeOutSteps : whole(change.fadeOutSteps, MAX_NOTE_FADE_STEPS)
+  const length = change.lengthSteps === undefined ? current?.lengthSteps : whole(change.lengthSteps, MAX_STEP_COUNT)
+  const stretch = change.stretch === undefined ? current?.stretch : change.stretch === true
+  const edit: NoteEdit = {
+    ...(fadeIn ? { fadeInSteps: fadeIn } : {}),
+    ...(fadeOut ? { fadeOutSteps: fadeOut } : {}),
+    ...(length ? { lengthSteps: length } : {}),
+    ...(length && stretch ? { stretch: true } : {}),
+  }
+  return Object.keys(edit).length > 0 ? edit : undefined
+}
+
+/** The saved edits of a pattern made safe: whole, bounded values, on lit steps that exist. Undefined when none are left. */
+export function normalizeNoteEdits(value: unknown, steps: Record<string, Array<string | null>>, stepCount: number): Pattern['noteEdits'] {
+  if (!value || typeof value !== 'object') return undefined
+  const result: NonNullable<Pattern['noteEdits']> = {}
+  for (const [padId, row] of Object.entries(value as Record<string, unknown>)) {
+    if (!row || typeof row !== 'object') continue
+    const kept: Record<string, NoteEdit> = {}
+    for (const [key, raw] of Object.entries(row as Record<string, unknown>)) {
+      const index = Number(key)
+      if (!Number.isInteger(index) || index < 0 || index >= stepCount || !steps[padId]?.[index] || !raw || typeof raw !== 'object') continue
+      const edit = mergeNoteEdit(undefined, raw as NoteEditChange)
+      if (edit) kept[String(index)] = edit
+    }
+    if (Object.keys(kept).length > 0) result[padId] = kept
+  }
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
+/**
+ * How long a note sounds, and how much faster its sound plays (1 = as it is),
+ * given how long it would last untouched. Shared by live playback and the
+ * bounce so they cannot disagree.
+ */
+export function noteTiming(naturalSeconds: number, performance?: Pick<NotePerformance, 'durationSeconds' | 'stretchToSeconds'>): { seconds: number; rateScale: number } {
+  const target = performance?.stretchToSeconds
+  const rateScale = target && target > 0 ? Math.max(1 / STRETCH_LIMIT, Math.min(STRETCH_LIMIT, naturalSeconds / target)) : 1
+  return { seconds: Math.min(naturalSeconds / rateScale, performance?.durationSeconds ?? Infinity), rateScale }
+}
+
+/** Puts a step's own edit over what its bank's phrasing planned for it. `stepsToEnd` is how many steps the pattern has left from the onset. */
+function applyNoteEdit(note: NotePerformance, edit: NoteEdit, secondsPerStep: number, stepsToEnd: number): NotePerformance {
+  const result = { ...note }
+  if (edit.lengthSteps) {
+    const seconds = Math.max(.025, Math.min(edit.lengthSteps, stepsToEnd) * secondsPerStep)
+    result.durationSeconds = seconds
+    // A held note ends with a short release of its own, unless it is given a fade-out below.
+    result.releaseSeconds = Math.min(seconds * .3, .055)
+    if (edit.stretch) result.stretchToSeconds = seconds
+  }
+  if (edit.fadeInSteps) result.attackSeconds = edit.fadeInSteps * secondsPerStep
+  if (edit.fadeOutSteps) result.releaseSeconds = edit.fadeOutSteps * secondsPerStep
+  return result
 }
 
 /** One cheap plan shared by live playback and bounce; no extra audio nodes. */
@@ -62,15 +134,17 @@ export function planPhrasing(pattern: Pattern, banks: Bank[], pads: Pad[], bpm: 
         // Stable across edits, repeats and exports; timing and pitch stay exact.
         const nuance = ((step * 17 + bank.kind.length * 13) % 11) / 10
         const level = 1 - amount * (1 - accent + nuance * .12)
-        if (settings.articulation === 'natural') return { level }
+        const edit = pattern.noteEdits?.[id]?.[String(step)]
+        const shaped = (note: NotePerformance) => (edit ? applyNoteEdit(note, edit, secondsPerStep, pattern.stepCount - step) : note)
+        if (settings.articulation === 'natural') return shaped({ level })
         const fraction = settings.articulation === 'short' ? .42 : settings.articulation === 'detached' ? .82 : 1
         const steps = settings.articulation === 'short' ? Math.min(available, 2) : available
         const durationSeconds = Math.max(.025, steps * secondsPerStep * fraction)
-        return {
+        return shaped({
           level, durationSeconds,
           attackSeconds: settings.articulation === 'connected' ? .008 + amount * .008 : .002,
           releaseSeconds: Math.min(durationSeconds * .3, settings.articulation === 'short' ? .018 : .055),
-        }
+        })
       }))
     }
   }
