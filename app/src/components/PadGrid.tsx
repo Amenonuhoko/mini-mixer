@@ -524,6 +524,9 @@ function PadButton({
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     onSelect(pad.id)
     if (!pad.sampleId) return
+    // Where this pad is, read once now (layout is clean at the start of a
+    // press): pointermove only hit-tests once the finger has left it.
+    pressRectRef.current = event.currentTarget.getBoundingClientRect()
     // Capture so a finger drifting off this small tile mid-press still
     // reports its release here, not to whichever pad it ends up over —
     // pads sit right next to each other, unlike the isolated record FAB.
@@ -541,6 +544,7 @@ function PadButton({
   // input id (offset so it can't clash with a real pointer or key) and is
   // let go when the finger leaves it or lifts.
   const sweptRef = useRef(new Map<number, number>())
+  const pressRectRef = useRef<DOMRect | null>(null)
   const releaseSwept = (pointerId: number) => {
     const swept = sweptRef.current.get(pointerId)
     if (swept === undefined) return
@@ -550,6 +554,17 @@ function PadButton({
 
   const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (loopModeEnabled || event.buttons === 0) return
+    // Most presses never leave the pad. While the finger is still on it and
+    // nothing has been swept, there's nothing to look up — elementFromPoint
+    // is a hit test through the whole page on every move event otherwise,
+    // and a phone sends one for every frame of a held finger's jitter.
+    const rect = pressRectRef.current
+    if (
+      rect &&
+      !sweptRef.current.has(event.pointerId) &&
+      event.clientX >= rect.left && event.clientX < rect.right &&
+      event.clientY >= rect.top && event.clientY < rect.bottom
+    ) return
     const under = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-pad-index]')
     const target = under ? Number(under.dataset.padIndex) : null
     const current = sweptRef.current.get(event.pointerId) ?? index
