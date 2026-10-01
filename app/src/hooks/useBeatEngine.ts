@@ -21,13 +21,19 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
   const schedulerRef = useRef<Scheduler | null>(null)
   const lastSongSectionRef = useRef<string | null>(null)
   const stateRef = useRef(state)
-  const playbackPlan = useMemo(() => ({
-    timeline: buildSongTimeline(state),
-    bankByPad: new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const))),
-    phrasing: new Map(state.patterns.map((pattern) => [pattern.id, planPhrasing(pattern, state.banks, playablePads(state), state.transport.bpm)])),
+  const playbackPlan = useMemo(() => {
+    // The pads a step plays, listed once here rather than rebuilt (with a
+    // map of every pad) on every 16th in the scheduler callback below.
+    const pads = playablePads(state)
+    return {
+      timeline: buildSongTimeline(state),
+      pads,
+      bankByPad: new Map(state.banks.flatMap((bank) => bank.padIds.map((id) => [id, bank.kind] as const))),
+      phrasing: new Map(state.patterns.map((pattern) => [pattern.id, planPhrasing(pattern, state.banks, pads, state.transport.bpm)])),
+    }
   // Only musical edits rebuild the plan; playhead updates do not allocate it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [state.patterns, state.songSections, state.banks, state.pads, state.transport.bpm])
+  }, [state.patterns, state.songSections, state.banks, state.pads, state.transport.bpm])
   const planRef = useRef(playbackPlan)
   useEffect(() => {
     stateRef.current = state
@@ -61,9 +67,8 @@ export function useBeatEngine(state: AppState, dispatch: React.Dispatch<Action>)
         }
         engine.markStep(patternStep, time, pattern?.stepCount ?? 16)
         if (pattern) {
-          const visiblePads = playablePads(current)
           const bankByPad = plan.bankByPad
-          for (const pad of visiblePads) {
+          for (const pad of plan.pads) {
             if (pad.muted) continue
             // A programmed cell owns its source reference. The pad may have
             // been reassigned since this step was entered.
