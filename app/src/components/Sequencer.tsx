@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePadLooping } from '../hooks/usePadLooping'
 import { renderPatternToBuffer } from '../engine/bouncePattern'
 import { BANK_NAMES, playablePads, visibleBankPads } from '../state/banks'
@@ -6,7 +6,7 @@ import { MAX_STEP_COUNT, MIN_STEP_COUNT } from '../state/constants'
 import { useAppState } from '../state/AppStateContext'
 import { useEngine } from '../state/EngineContext'
 import { useNavigation } from '../state/NavigationContext'
-import { padIdentity } from '../utils/padIdentity'
+import { padIdentity, type PadIdentity } from '../utils/padIdentity'
 import { computePeaks } from '../utils/waveform'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
 import type { Bank, Pad, Sample, SequenceTrace } from '../state/types'
@@ -51,7 +51,25 @@ interface Painting {
 }
 const WAVEFORM_BUCKETS = 80
 
-function chunk<T>(items: T[], size: number): T[][] {
+/**
+ * Rows without steps of their own share these, so an unprogrammed row's
+ * props are the same from render to render and its memo holds (see
+ * SequencerRow). Never written to: the reducer builds its own arrays.
+ */
+const EMPTY_ROW: ReadonlyArray<string | null> = []
+const emptyRows = new Map<number, ReadonlyArray<string | null>>()
+function emptyRow(stepCount: number): ReadonlyArray<string | null> {
+  let row = emptyRows.get(stepCount)
+  if (!row) {
+    row = new Array<string | null>(stepCount).fill(null)
+    emptyRows.set(stepCount, row)
+  }
+  return row
+}
+type RowSegment = { sectionId: string; steps: ReadonlyArray<string | null> }
+const EMPTY_SEGMENTS: ReadonlyArray<RowSegment> = []
+
+function chunk<T>(items: ReadonlyArray<T>, size: number): T[][] {
   const groups: T[][] = []
   for (let i = 0; i < items.length; i += size) groups.push(items.slice(i, i + size))
   return groups
@@ -84,7 +102,10 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const { state, dispatch } = useAppState()
   const engine = useEngine()
   const pattern = state.patterns.find((p) => p.id === state.activePatternId)
-  const visiblePads = playablePads(state)
+  // Only pad and bank edits change which pads play; everything derived from
+  // this list below is memoised on it so a step edit touches no other row.
+  const { pads, banks, samples, key, padLabels } = state
+  const visiblePads = useMemo(() => playablePads({ pads, banks }), [pads, banks])
   const [expandedOverride, setExpandedOverride] = useState<Record<string, boolean>>({})
   const [bouncing, setBouncing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -106,7 +127,7 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const gridRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const paintRef = useRef<Painting | null>(null)
-  const padsById = new Map(state.pads.map((pad) => [pad.id, pad]))
+  const padsById = useMemo(() => new Map(state.pads.map((pad) => [pad.id, pad])), [state.pads])
 
   // Make a beat just wrote a whole new beat: fold every bank to the rows it uses (a kit has up to 32).
   const seenBeatStarts = useRef(beatStarts)
@@ -133,17 +154,39 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
   const patternHasSteps = pattern
     ? visiblePads.some((pad) => (pattern.steps[pad.id] ?? []).some((sampleId) => sampleId !== null))
     : false
-  const sampleLabels = Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label]))
+  const sampleLabels = useMemo(
+    () => Object.fromEntries(Object.entries(state.samples).map(([id, sample]) => [id, sample.label])),
+    [state.samples],
+  )
+  // How each row is named: the same object until a pad, bank, sample or label setting changes.
+  const identities = useMemo(() => {
+    const byPad = new Map<string, PadIdentity>()
+    for (const bank of banks) for (const pad of visibleBankPads({ pads }, bank)) byPad.set(pad.id, padIdentity({ samples, key, padLabels }, bank, pad))
+    return byPad
+  }, [banks, pads, samples, key, padLabels])
 
   // --- Whole song -----------------------------------------------------------
   // Every section once, in song order, each showing its own pattern; a pattern
   // two sections share shows (and edits) in both.
-  const segments = songView
-    ? state.songSections.flatMap((section) => {
-        const segmentPattern = state.patterns.find((item) => item.id === section.patternId)
-        return segmentPattern ? [{ section, pattern: segmentPattern }] : []
-      })
-    : []
+  const segments = useMemo(
+    () =>
+      songView
+        ? state.songSections.flatMap((section) => {
+            const segmentPattern = state.patterns.find((item) => item.id === section.patternId)
+            return segmentPattern ? [{ section, pattern: segmentPattern }] : []
+          })
+        : [],
+    [songView, state.songSections, state.patterns],
+  )
+  // Each row's run of steps per section, rebuilt only when the song or its patterns change.
+  const rowSegments = useMemo(() => {
+    const byPad = new Map<string, ReadonlyArray<RowSegment>>()
+    if (segments.length === 0) return byPad
+    for (const pad of visiblePads) {
+      byPad.set(pad.id, segments.map((segment) => ({ sectionId: segment.section.id, steps: segment.pattern.steps[pad.id] ?? emptyRow(segment.pattern.stepCount) })))
+    }
+    return byPad
+  }, [segments, visiblePads])
   const patternForSection = (sectionId: string | undefined) =>
     segments.find((segment) => segment.section.id === sectionId)?.pattern ?? pattern
   const showSong = (on: boolean) => {
@@ -221,6 +264,21 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
     const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
     if (sample && !pad.muted) engine.triggerPad(pad, sample.buffer)
   }
+
+  const toggleStep = (pad: Pad, stepIndex: number, sectionId?: string) => {
+    const target = patternForSection(sectionId)
+    if (target) dispatch({ type: 'TOGGLE_STEP', patternId: target.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
+  }
+
+  // Every row gets the same two callbacks on every render, so a row whose
+  // own props haven't changed is skipped (SequencerRow is memoised); they
+  // reach the current handlers through a ref.
+  const rowHandlers = useRef({ pickRow, toggleStep })
+  useEffect(() => {
+    rowHandlers.current = { pickRow, toggleStep }
+  })
+  const onPickRow = useCallback((bank: Bank, pad: Pad) => rowHandlers.current.pickRow(bank, pad), [])
+  const onToggleStep = useCallback((pad: Pad, stepIndex: number, sectionId?: string) => rowHandlers.current.toggleStep(pad, stepIndex, sectionId), [])
 
   // --- Painting ------------------------------------------------------------
   // A drag along a row fills (or, starting on a lit cell, erases) every cell
@@ -619,19 +677,18 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
                   key={pad.id}
                   pad={pad}
                   bank={bank}
-                  steps={pattern.steps[pad.id] ?? new Array<string | null>(pattern.stepCount).fill(null)}
-                  traceSteps={pattern.traceSteps?.[pad.id] ?? []}
+                  identity={identities.get(pad.id) ?? padIdentity(state, bank, pad)}
+                  steps={pattern.steps[pad.id] ?? emptyRow(pattern.stepCount)}
+                  traceSteps={pattern.traceSteps?.[pad.id] ?? EMPTY_ROW}
                   sampleLabels={sampleLabels}
                   engine={engine}
                   sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
                   selected={pad.id === selectedPadId}
                   gateMode={sequencerGateMode}
                   previewOnClick={previewOnClick}
-                  {...(songView ? { segments: segments.map((segment) => ({ sectionId: segment.section.id, steps: segment.pattern.steps[pad.id] ?? new Array<string | null>(segment.pattern.stepCount).fill(null) })) } : {})}
-                  onToggleStep={(stepIndex, sectionId) =>
-                    dispatch({ type: 'TOGGLE_STEP', patternId: patternForSection(sectionId)?.id ?? pattern.id, padId: pad.id, stepIndex, sampleId: pad.sampleId })
-                  }
-                  onPick={() => pickRow(bank, pad)}
+                  {...(songView ? { segments: rowSegments.get(pad.id) ?? EMPTY_SEGMENTS } : {})}
+                  onToggleStep={onToggleStep}
+                  onPick={onPickRow}
                 />
                 ))}
               </div>
@@ -828,8 +885,10 @@ export function Sequencer({ onBounced, withBeatStarter = true }: SequencerProps)
 interface SequencerRowProps {
   pad: Pad
   bank: Bank
-  steps: Array<string | null>
-  traceSteps: Array<string | null>
+  /** How the row is named — the same as its pad (see padIdentity), computed by the grid. */
+  identity: PadIdentity
+  steps: ReadonlyArray<string | null>
+  traceSteps: ReadonlyArray<string | null>
   sampleLabels: Record<string, string>
   engine: AudioEngine
   sample: Sample | undefined
@@ -837,10 +896,10 @@ interface SequencerRowProps {
   gateMode: boolean
   previewOnClick: boolean
   /** The whole-song grid: one run of steps per section, side by side. */
-  segments?: Array<{ sectionId: string; steps: Array<string | null> }>
-  onToggleStep: (stepIndex: number, sectionId?: string) => void
+  segments?: ReadonlyArray<RowSegment>
+  onToggleStep: (pad: Pad, stepIndex: number, sectionId?: string) => void
   /** Tapping the row's name: hear it, and make it the selected pad (on the Pads page too). */
-  onPick: () => void
+  onPick: (bank: Bank, pad: Pad) => void
 }
 
 /**
@@ -848,10 +907,17 @@ interface SequencerRowProps {
  * grid shows; tap it to hear and select the pad — Fill row acts on it)
  * and its steps. Painting across cells is handled
  * by the grid (see Sequencer), so it can cross rows and auto-scroll.
+ *
+ * Memoised, and given only props that hold still between edits (the grid
+ * memoises them and shares one empty row), so toggling a step, painting a
+ * stroke or picking a pad re-renders the row that changed — not every step
+ * button in the grid, which on a phone is the difference between a tap and
+ * a stutter once a few banks are open.
  */
-function SequencerRow({
+const SequencerRow = memo(function SequencerRow({
   pad,
   bank,
+  identity,
   steps,
   traceSteps,
   sampleLabels,
@@ -864,9 +930,7 @@ function SequencerRow({
   onToggleStep,
   onPick,
 }: SequencerRowProps) {
-  const { state } = useAppState()
   const looping = usePadLooping(engine, pad.id)
-  const identity = padIdentity(state, bank, pad)
   const rowName = pad.music ? `${BANK_NAMES[bank.kind]} ${identity.name}` : `Pad ${identity.number}, ${identity.name}`
   const gateSources = useRef(new Map<number, Voice>())
 
@@ -882,7 +946,7 @@ function SequencerRow({
   }
 
   const toggle = (event: React.MouseEvent<HTMLButtonElement>, on: boolean, stepIndex: number, sectionId?: string) => {
-    onToggleStep(stepIndex, sectionId)
+    onToggleStep(pad, stepIndex, sectionId)
     // A tapped-on step pops, like a hardware button lighting under the finger.
     if (!on) event.currentTarget.animate?.(STEP_POP_KEYFRAMES, { duration: 180, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' })
     if (on || !sample || pad.muted || !previewOnClick) return
@@ -891,7 +955,7 @@ function SequencerRow({
     if (!gateMode || event.detail === 0) engine.triggerPad(pad, sample.buffer)
   }
 
-  const renderGroups = (rowSteps: Array<string | null>, rowTrace: Array<string | null>, sectionId?: string) =>
+  const renderGroups = (rowSteps: ReadonlyArray<string | null>, rowTrace: ReadonlyArray<string | null>, sectionId?: string) =>
     chunk(rowSteps, GROUP_SIZE).map((group, groupIndex) => (
         <div className="step-group" key={groupIndex}>
           {group.map((sampleId, i) => {
@@ -928,7 +992,7 @@ function SequencerRow({
           type="button"
           className="sequencer-row-label"
           data-glow-pad={pad.id}
-          onClick={onPick}
+          onClick={() => onPick(bank, pad)}
           aria-pressed={selected}
           aria-label={`${rowName}: play and select`}
           title={`${identity.name} — tap to hear it and select it`}
@@ -949,4 +1013,4 @@ function SequencerRow({
         : renderGroups(steps, traceSteps)}
     </div>
   )
-}
+})
