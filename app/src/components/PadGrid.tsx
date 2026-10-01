@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type RefObject } from 'react'
 import { DRUM_KITS } from '../engine/drumSynth'
 import { soundName } from '../engine/bankBuilder'
 import { performSummary, performVoice, Performer } from '../engine/performer'
@@ -12,7 +12,8 @@ import { useEngine } from '../state/EngineContext'
 import { drumVoiceIcon, instrumentIconForName } from '../utils/instrumentIcon'
 import { keysOwnedElsewhere, padIndexForCode, padKeyAt } from '../utils/keyboard'
 import type { AudioEngine, Voice } from '../engine/AudioEngine'
-import type { AppState, Bank, BankKind, BankSound, Pad } from '../state/types'
+import type { Action } from '../state/reducer'
+import type { AppState, Bank, BankKind, BankSound, Pad, Sample } from '../state/types'
 import { BankSoundPicker } from './BankSoundPicker'
 import { BankTabs } from './BankTabs'
 import { StudioViewToggle } from './StudioViewToggle'
@@ -35,7 +36,7 @@ interface PadFace {
   home: boolean
 }
 
-function padFace(state: AppState, bank: Bank, pad: Pad, index: number): PadFace {
+function padFace(state: Pick<AppState, 'key' | 'padLabels'>, bank: Bank, pad: Pad, index: number): PadFace {
   if (pad.music) {
     return {
       label: padLabel(pad.music, state.key, state.padLabels),
@@ -90,7 +91,21 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
   const { goToEditPad } = useNavigation()
   const engine = useEngine()
   const bank = getActiveBank(state)
-  const visiblePads = visibleBankPads(state, bank)
+  // Only pad and bank edits change the grid; the faces below are memoised on
+  // the same, so a pad's props hold still between them (PadButton is memoised).
+  const { pads, key, padLabels } = state
+  const visiblePads = useMemo(() => visibleBankPads({ pads }, bank), [pads, bank])
+  const faces = useMemo(() => visiblePads.map((pad, index) => padFace({ key, padLabels }, bank, pad, index)), [visiblePads, bank, key, padLabels])
+  // The pads' press handlers read the current state through this rather than
+  // taking it as a prop, which would re-render every pad on every change.
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  })
+  const openPad = useCallback((padId: string) => {
+    onSelectPad(padId)
+    goToEditPad(padId)
+  }, [onSelectPad, goToEditPad])
   const loopModeEnabled = state.transport.padLoopModeEnabled
   const mixerModeEnabled = state.transport.padMixerModeEnabled
   const playbackMode = state.transport.padPlaybackMode
@@ -225,9 +240,9 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
           style={{ '--cols': columns } as React.CSSProperties}
         >
           {visiblePads.map((pad, index) => {
-            const face = padFace(state, bank, pad, index)
+            const face = faces[index]!
             return mixerModeEnabled ? (
-              <MixPadTile key={pad.id} pad={pad} index={index} engine={engine} face={face} onOpen={() => { onSelectPad(pad.id); goToEditPad(pad.id) }} />
+              <MixPadTile key={pad.id} pad={pad} index={index} engine={engine} face={face} onOpen={openPad} />
             ) : (
               <PadButton
                 key={pad.id}
@@ -236,6 +251,9 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
                 performer={performer}
                 index={index}
                 engine={engine}
+                dispatch={dispatch}
+                stateRef={stateRef}
+                sample={pad.sampleId ? state.samples[pad.sampleId] : undefined}
                 selected={pad.id === selectedPadId}
                 loopModeEnabled={loopModeEnabled}
                 playbackMode={playbackMode}
@@ -371,6 +389,11 @@ interface PadButtonProps {
   performer: Performer
   index: number
   engine: AudioEngine
+  dispatch: Dispatch<Action>
+  /** The current app state, for the press handlers (see PadGrid). */
+  stateRef: RefObject<AppState>
+  /** The pad's sound, for its face. */
+  sample: Sample | undefined
   selected: boolean
   loopModeEnabled: boolean
   playbackMode: 'gate' | 'oneshot'
@@ -394,13 +417,19 @@ interface PadButtonProps {
  * way, loop and mute stay off the pad face itself — see the selected-pad
  * action bar in PadsPage — this is purely a playback trigger, not a settings
  * surface.
+ *
+ * Memoised: a tap selects the pad, which used to re-render the whole bank
+ * (every face, label and waveform) for the two pads whose look changed.
  */
-function PadButton({
+const PadButton = memo(function PadButton({
   pad,
   bank,
   performer,
   index,
   engine,
+  dispatch,
+  stateRef,
+  sample,
   selected,
   loopModeEnabled,
   playbackMode,
@@ -410,10 +439,8 @@ function PadButton({
   keyTargets,
   onSelect,
 }: PadButtonProps) {
-  const { state, dispatch } = useAppState()
   const looping = usePadLooping(engine, pad.id)
   const filled = pad.sampleId !== null
-  const sample = pad.sampleId ? state.samples[pad.sampleId] : undefined
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   // A physical input is independently tracked by pointer id. A Map (rather
@@ -425,6 +452,7 @@ function PadButton({
 
   /** Hands the press to the performer if the current perform settings need it; false means play it plainly. */
   const tryPerform = (pointerId: number, gate: boolean): boolean => {
+    const state = stateRef.current
     const voice = performVoice(state, bank, pad)
     if (!voice || !Performer.handles(state.perform, voice)) return false
     performer.press(`${pad.id}:${pointerId}`, voice, gate)
@@ -439,6 +467,7 @@ function PadButton({
   }
 
   const recordCurrentStep = () => {
+    const state = stateRef.current
     if (!sequencerRecordEnabled || !state.transport.isPlaying || !pad.sampleId) return
     dispatch({
       type: 'SET_STEP_SAMPLE',
@@ -468,7 +497,7 @@ function PadButton({
    */
   const startHit = (inputId: number) => {
     if (!pad.sampleId || loopModeEnabled || pad.muted) return
-    const sample = state.samples[pad.sampleId]
+    const sample = stateRef.current.samples[pad.sampleId]
     if (!sample) return
     if (tryPerform(inputId, playbackMode === 'gate')) return
     recordCurrentStep()
@@ -484,7 +513,7 @@ function PadButton({
       // never blocks stopping one already running — a pad muted mid-loop
       // must still be stoppable.
       if (pad.muted && !looping) return
-      const sample = state.samples[pad.sampleId]
+      const sample = stateRef.current.samples[pad.sampleId]
       if (!sample) return
       engine.toggleLoop(pad, sample.buffer)
       return
@@ -597,7 +626,7 @@ function PadButton({
     onSelect(pad.id)
     if (!pad.sampleId) return
 
-    const sample = state.samples[pad.sampleId]
+    const sample = stateRef.current.samples[pad.sampleId]
     if (!sample) return
     if (loopModeEnabled) {
       if (!pad.muted || looping) engine.toggleLoop(pad, sample.buffer)
@@ -653,7 +682,7 @@ function PadButton({
       {keyHint && filled && <span className="pad-hint" aria-hidden="true">{keyHint}</span>}
     </button>
   )
-}
+})
 
 /** Input ids for pads played by a swipe: far from pointer ids (small, positive) and key ids (negative). */
 const SWIPE_INPUT_BASE = 1_000_000
@@ -664,7 +693,7 @@ interface MixPadTileProps {
   engine: AudioEngine
   face: PadFace
   /** Open this pad's sheet. */
-  onOpen: () => void
+  onOpen: (padId: string) => void
 }
 
 /**
@@ -672,7 +701,7 @@ interface MixPadTileProps {
  * trim, effects — see PadEditOverlay) instead of playing it. The bank's
  * volume and effects sit above the grid (see BankMix).
  */
-function MixPadTile({ pad, index, engine, face, onOpen }: MixPadTileProps) {
+const MixPadTile = memo(function MixPadTile({ pad, index, engine, face, onOpen }: MixPadTileProps) {
   const looping = usePadLooping(engine, pad.id)
   return (
     <button
@@ -681,7 +710,7 @@ function MixPadTile({ pad, index, engine, face, onOpen }: MixPadTileProps) {
       data-pad-id={pad.id}
       data-pad-index={index}
       data-glow-pad={pad.id}
-      onClick={onOpen}
+      onClick={() => onOpen(pad.id)}
       aria-label={`Pad ${index + 1}${pad.muted ? ', muted' : ''} — open its level, sound, trim and effects`}
     >
       <span className="pad-glow" aria-hidden="true" />
@@ -694,7 +723,7 @@ function MixPadTile({ pad, index, engine, face, onOpen }: MixPadTileProps) {
       <span className="mix-tile-level readout" aria-hidden="true">{pad.muted ? 'Muted' : `${pad.mixLevel}`}</span>
     </button>
   )
-}
+})
 
 /**
  * Mix, for the bank on screen: one volume slider for all its pads (on top
