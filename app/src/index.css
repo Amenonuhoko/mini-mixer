@@ -3938,8 +3938,10 @@ button.list-item:hover .list-wave {
 .perform-panel {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: var(--s2);
+  gap: 10px;
+  padding: var(--s3, 12px);
+  max-height: 60vh;
+  overflow-y: auto;
   border: 1px solid rgb(var(--orange-rgb) / 0.3);
   border-radius: var(--r-md);
   background: rgb(var(--orange-rgb) / 0.03);
@@ -3970,9 +3972,58 @@ button.list-item:hover .list-wave {
   min-width: 0;
 }
 
+.perform-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.perform-title {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm, 13px);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.perform-help {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.perform-lesson {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: rgb(var(--orange-rgb) / 0.08);
+}
+
+.perform-lesson-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.perform-lesson-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--orange);
+}
+
+.perform-lesson-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .perform-row-controls .segment {
   flex: none;
-  padding: 0 6px;
+  min-height: 34px;
+  padding: 0 10px;
   letter-spacing: 0.04em;
 }
 
