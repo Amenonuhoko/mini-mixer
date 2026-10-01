@@ -3940,8 +3940,9 @@ button.list-item:hover .list-wave {
   flex-direction: column;
   gap: 10px;
   padding: var(--s3, 12px);
-  max-height: 60vh;
+  max-height: 40vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid rgb(var(--orange-rgb) / 0.3);
   border-radius: var(--r-md);
   background: rgb(var(--orange-rgb) / 0.03);

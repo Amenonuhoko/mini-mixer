@@ -108,6 +108,14 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
   useEffect(() => {
     if (loopModeEnabled || mixerModeEnabled) performer.stopAll()
   }, [performer, loopModeEnabled, mixerModeEnabled])
+  // Mix hides the Perform toggle, so an open panel would be stuck on screen
+  // with no way to close it: close it whenever Loop or Mix takes over.
+  const padsTakenOver = loopModeEnabled || mixerModeEnabled
+  const [wasTakenOver, setWasTakenOver] = useState(padsTakenOver)
+  if (wasTakenOver !== padsTakenOver) {
+    setWasTakenOver(padsTakenOver)
+    if (padsTakenOver) setPerformOpen(false)
+  }
   useEffect(() => () => performer.stopAll(), [performer])
 
   // Step record captures every performed hit (repeats, arpeggio notes, strums) on the step it's heard on.
@@ -243,7 +251,7 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
       )}
       {/* How the pads respond — pinned to the bottom of the screen while the grid scrolls. */}
       <div className="pad-play-dock" data-no-page-swipe>
-        {performOpen && <PerformPanel />}
+        {performOpen && !padsTakenOver && <PerformPanel />}
         {sequencerRecordEnabled && <RecordStrip engine={engine} />}
         <div className="pad-play-row">
           <PadModeSwitch />
