@@ -1,5 +1,6 @@
 import type { AudioEngine } from '../engine/AudioEngine'
 import { buildSample, extractProjectMeta, stateFromMeta, type ProjectMeta } from '../engine/projectFile'
+import { decodePcm16, encodePcm16 } from './pcm16'
 import type { AppState, Sample, SampleKind, SequenceTrace } from './types'
 
 const DB_NAME = 'mini-mixer'
@@ -17,7 +18,7 @@ interface AutosaveMeta extends ProjectMeta {
   sampleIds: string[]
 }
 
-/** One sample's audio as raw PCM — copied, never encoded, so saving and restoring are cheap. */
+/** One sample's audio as raw PCM — a copy, never an encode, so saving and restoring are cheap. */
 interface StoredSample {
   id: string
   label: string
@@ -25,7 +26,10 @@ interface StoredSample {
   kind: SampleKind
   sequenceTrace?: SequenceTrace
   sampleRate: number
-  channels: Array<Float32Array<ArrayBuffer>>
+  /** Each channel as 16-bit PCM (see pcm16) — half the bytes a phone reads back on every launch. */
+  pcm16?: Int16Array[]
+  /** Records written before pcm16 held the engine's floats. Still readable, never written. */
+  channels?: Array<Float32Array<ArrayBuffer>>
 }
 
 /** The version-1 record: one object holding every sample as WAV bytes. Still readable, never written. */
@@ -77,7 +81,7 @@ function toStored(sample: Sample): StoredSample {
     kind: sample.kind,
     ...(sample.sequenceTrace ? { sequenceTrace: sample.sequenceTrace } : {}),
     sampleRate: sample.buffer.sampleRate,
-    channels: Array.from({ length: sample.buffer.numberOfChannels }, (_, c) => sample.buffer.getChannelData(c)),
+    pcm16: Array.from({ length: sample.buffer.numberOfChannels }, (_, c) => encodePcm16(sample.buffer.getChannelData(c))),
   }
 }
 
@@ -163,8 +167,9 @@ export async function loadAutosave(engine: AudioEngine): Promise<AppState | null
       for (const id of record.sampleIds) {
         const s = byId.get(id)
         if (!s) continue
-        const buffer = ctx.createBuffer(s.channels.length, s.channels[0]?.length ?? 1, s.sampleRate)
-        s.channels.forEach((data, c) => buffer.copyToChannel(data, c))
+        const channels = s.pcm16 ?? s.channels ?? []
+        const buffer = ctx.createBuffer(Math.max(1, channels.length), channels[0]?.length ?? 1, s.sampleRate)
+        channels.forEach((data, c) => buffer.copyToChannel(data instanceof Int16Array ? decodePcm16(data) : data, c))
         samples[id] = { ...buildSample(s.id, s.label, s.recordedAt, buffer, s.kind), ...(s.sequenceTrace ? { sequenceTrace: s.sequenceTrace } : {}) }
       }
       storedIds = new Set(byId.keys())
