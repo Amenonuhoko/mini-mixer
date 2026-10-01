@@ -299,14 +299,18 @@ button:disabled {
 /* A ring of a pad's light spreading across the room from the pad that was hit (LightShow moves and animates it). */
 .light-field-ripple {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 90vmax;
-  height: 90vmax;
+  left: 0;
+  top: 0;
+  /* The layer is only as big as the ring's outer edge (28vmax from the hit): the
+     compositor blends every pixel of a layer each frame, and a phone has a
+     handful of these in flight. LightShow places it with the animation's own
+     transform, so a hit never touches layout. */
+  width: 56vmax;
+  height: 56vmax;
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(0.1);
   opacity: 0;
-  background: radial-gradient(circle, transparent 42%, rgb(var(--bank-rgb) / 0.2) 49%, rgb(var(--bank-rgb) / 0.035) 56%, transparent 62%);
+  background: radial-gradient(circle, transparent 67.5%, rgb(var(--bank-rgb) / 0.2) 78.75%, rgb(var(--bank-rgb) / 0.035) 90%, transparent 100%);
   mix-blend-mode: screen;
   will-change: transform, opacity;
 }
@@ -3587,6 +3591,26 @@ button.list-item:hover .list-wave {
 
   .slider {
     height: 36px;
+  }
+}
+
+/* A touch screen (no hover, coarse pointer — a phone or tablet): no blurred
+   backdrops. The light show behind the bands moves every frame, and a backdrop
+   blur has to be recomputed every frame it does — the single most expensive
+   thing a phone GPU was asked to do here. The bands go a little more opaque instead. */
+@media (hover: none) and (pointer: coarse) {
+  .transport {
+    backdrop-filter: none;
+    background: linear-gradient(180deg, rgb(4 8 11 / 0.97), rgb(6 11 15 / 0.92));
+  }
+
+  .tabbar {
+    backdrop-filter: none;
+    background: linear-gradient(0deg, rgb(4 8 11 / 0.97), rgb(6 11 15 / 0.92));
+  }
+
+  .overlay-backdrop {
+    backdrop-filter: none;
   }
 }
 

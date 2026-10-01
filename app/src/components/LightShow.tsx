@@ -20,13 +20,18 @@ const BLOOM_KEYFRAMES: Keyframe[] = [
   { transform: 'scale(1.42)', opacity: 0 },
 ]
 const FLASH_KEYFRAMES: Keyframe[] = [{ opacity: 1 }, { opacity: 0 }]
-/** A ring of the pad's light spreading out across the room from where it was hit. */
-const RIPPLE_KEYFRAMES: Keyframe[] = [
-  { transform: 'translate(-50%, -50%) scale(0.1)', opacity: 0.6 },
-  { transform: 'translate(-50%, -50%) scale(1)', opacity: 0 },
+/** A ring of the pad's light spreading out across the room from where it was hit; `translate(x, y)` puts it there (see ripple). */
+const rippleKeyframes = (x: number, y: number): Keyframe[] => [
+  { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(0.1)`, opacity: 0.6 },
+  { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(1)`, opacity: 0 },
 ]
-/** Rings kept ready in the field; a busier moment than this just skips a ring, which keeps a dense beat from filling the room with them. */
+/**
+ * Rings kept ready in the field; a busier moment than this just skips a ring,
+ * which keeps a dense beat from filling the room with them. Each ring in
+ * flight is a screen-sized layer the GPU blends every frame, so a phone keeps fewer.
+ */
 const RIPPLE_POOL = 7
+const RIPPLE_POOL_PHONE = 4
 const BANK_KINDS: readonly BankKind[] = ['drums', 'bass', 'chords', 'melody']
 
 /**
@@ -89,7 +94,8 @@ export function LightShow() {
       el.style.opacity = value.toFixed(3)
       written.set(el, value)
     }
-    const frameInterval = window.matchMedia('(pointer: coarse)').matches ? 1000 / 30 : 1000 / 60
+    const coarse = window.matchMedia('(pointer: coarse)').matches
+    const frameInterval = coarse ? 1000 / 30 : 1000 / 60
     let lastFrame = 0
     let scene = 0
     let floor = 0
@@ -108,8 +114,10 @@ export function LightShow() {
     let beamGlide: Animation | null = null
 
     // The glowing elements, looked up again only when the page's structure
-    // changes — not with a document-wide query every frame.
+    // changes — not with a document-wide query every frame, nor per hit: a
+    // hit finds its pad's layers in `glowByPad`, which the same lookup fills.
     let glowEls: HTMLElement[] = []
+    let glowByPad = new Map<string, HTMLElement[]>()
     let beatEls: HTMLElement[] = []
     let haloEls: HTMLElement[] = []
     let beam: HTMLElement | null = null
@@ -118,6 +126,16 @@ export function LightShow() {
       stale = true
     })
     observer.observe(document.body, { childList: true, subtree: true })
+    /** The flash and bloom layers inside a glowing element, found once. */
+    const hitLayers = new WeakMap<HTMLElement, { flash: HTMLElement | null; bloom: HTMLElement | null }>()
+    const hitLayersOf = (el: HTMLElement) => {
+      let layers = hitLayers.get(el)
+      if (!layers) {
+        layers = { flash: el.querySelector<HTMLElement>('.pad-flash'), bloom: el.querySelector<HTMLElement>('.pad-bloom') }
+        hitLayers.set(el, layers)
+      }
+      return layers
+    }
 
     const field = fieldRef.current
     const mesh = field?.querySelector<HTMLElement>('.light-field-mesh') ?? null
@@ -128,7 +146,7 @@ export function LightShow() {
     // The ring pool: made once, before the observer starts watching.
     const rings: Array<{ el: HTMLElement; busy: boolean }> = []
     if (field && !reducedMotion.matches) {
-      for (let i = 0; i < RIPPLE_POOL; i++) {
+      for (let i = 0; i < (coarse ? RIPPLE_POOL_PHONE : RIPPLE_POOL); i++) {
         const el = document.createElement('div')
         el.className = 'light-field-ripple'
         field.appendChild(el)
@@ -157,6 +175,28 @@ export function LightShow() {
         { duration: glides ? engine.getStepSeconds() * 1000 : 0, easing: 'linear', fill: 'forwards' },
       )
       beamX = x
+    }
+
+    /** Finds the glowing elements again after the page's structure changed. */
+    const refreshTargets = () => {
+      glowEls = [...document.querySelectorAll<HTMLElement>('[data-glow-pad]')]
+      glowByPad = new Map()
+      for (const el of glowEls) {
+        const padId = el.dataset.glowPad!
+        const els = glowByPad.get(padId)
+        if (els) els.push(el)
+        else glowByPad.set(padId, [el])
+      }
+      beatEls = [...document.querySelectorAll<HTMLElement>('[data-beat]')]
+      haloEls = [...document.querySelectorAll<HTMLElement>('[data-beat-halo]')]
+      const nextBeam = document.querySelector<HTMLElement>('.sequencer-grid .playhead-beam')
+      if (nextBeam !== beam) {
+        beam = nextBeam
+        beamX = null
+        beamGlide = null
+      }
+      stale = false
+      playhead = null // re-mark the playhead on any new cells
     }
 
     const tick = (now: number) => {
@@ -192,19 +232,7 @@ export function LightShow() {
       // Glow layers get a plain opacity, written straight onto the layer: the
       // compositor fades it without restyling anything else — the whole
       // reason the light show can run every frame alongside the audio.
-      if (stale) {
-        glowEls = [...document.querySelectorAll<HTMLElement>('[data-glow-pad]')]
-        beatEls = [...document.querySelectorAll<HTMLElement>('[data-beat]')]
-        haloEls = [...document.querySelectorAll<HTMLElement>('[data-beat-halo]')]
-        const nextBeam = document.querySelector<HTMLElement>('.sequencer-grid .playhead-beam')
-        if (nextBeam !== beam) {
-          beam = nextBeam
-          beamX = null
-          beamGlide = null
-        }
-        stale = false
-        playhead = null // re-mark the playhead on any new cells
-      }
+      if (stale) refreshTargets()
 
       for (const el of glowEls) {
         let glow = glowLayers.get(el)
@@ -277,35 +305,41 @@ export function LightShow() {
     }
     frame = requestAnimationFrame(tick)
 
-    /** A ring of the pad's light across the room, from the pad on screen — or its sequencer row, or the floor when neither is showing. */
-    const ripple = (padId: string) => {
+    /**
+     * A ring of the pad's light across the room, from the pad on screen — or
+     * its sequencer row, or the floor when neither is showing. The ring is
+     * placed by its animation's transform (the field fills the viewport, so
+     * client coordinates are its own): positioning it with left/top would
+     * dirty layout on every hit, and the next hit's rect read would then force
+     * a whole relayout — a dense beat used to do that many times a step.
+     */
+    const ripple = (padId: string, els: HTMLElement[]) => {
       const ring = rings.find((candidate) => !candidate.busy)
       if (!ring) return
-      const anchor =
-        document.querySelector<HTMLElement>(`.pad[data-glow-pad="${CSS.escape(padId)}"]`) ??
-        document.querySelector<HTMLElement>(`[data-glow-pad="${CSS.escape(padId)}"]`)
+      const anchor = els.find((el) => el.classList.contains('pad')) ?? els[0]
       const rect = anchor?.getBoundingClientRect()
       const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2
       const y = rect ? rect.top + rect.height / 2 : window.innerHeight * 0.85
       ring.busy = true
       ring.el.className = `light-field-ripple bank-${padBankRef.current.get(padId) ?? 'drums'}`
-      ring.el.style.left = `${x}px`
-      ring.el.style.top = `${y}px`
-      const animation = ring.el.animate(RIPPLE_KEYFRAMES, { duration: 1100, easing: 'cubic-bezier(0.1, 0.6, 0.3, 1)' })
+      const animation = ring.el.animate(rippleKeyframes(x, y), { duration: 1100, easing: 'cubic-bezier(0.1, 0.6, 0.3, 1)' })
       animation.onfinish = animation.oncancel = () => {
         ring.busy = false
       }
     }
 
     const bloom = (padId: string) => {
-      ripple(padId)
-      for (const el of document.querySelectorAll<HTMLElement>(`[data-glow-pad="${CSS.escape(padId)}"]`)) {
-        el.querySelector<HTMLElement>('.pad-flash')?.animate(FLASH_KEYFRAMES, {
+      if (stale) refreshTargets()
+      const els = glowByPad.get(padId) ?? []
+      ripple(padId, els)
+      for (const el of els) {
+        const { flash, bloom: bloomLayer } = hitLayersOf(el)
+        flash?.animate(FLASH_KEYFRAMES, {
           duration: reducedMotion.matches ? 160 : 280,
           easing: 'ease-out',
         })
         if (!reducedMotion.matches) {
-          el.querySelector<HTMLElement>('.pad-bloom')?.animate(BLOOM_KEYFRAMES, {
+          bloomLayer?.animate(BLOOM_KEYFRAMES, {
             duration: 520,
             easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)',
           })
