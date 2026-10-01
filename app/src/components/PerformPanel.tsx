@@ -176,9 +176,10 @@ function Lesson({
   apply: (change: Partial<PerformSettings>) => void
 }) {
   const current = LESSON[step]
+  if (!current) return null
   const go = (next: number) => {
     const target = LESSON[next]
-    if (target.settings) apply(target.settings)
+    if (target?.settings) apply(target.settings)
     onStep(next)
   }
   return (
@@ -195,7 +196,7 @@ function Lesson({
           Back
         </button>
         {current.settings && (
-          <button type="button" className="chip-btn" onClick={() => apply(current.settings!)}>
+          <button type="button" className="chip-btn" onClick={() => current.settings && apply(current.settings)}>
             Set it up
           </button>
         )}
