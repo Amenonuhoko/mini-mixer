@@ -4170,3 +4170,60 @@ button.list-item:hover .list-wave {
 .sequencer-song-toggle { margin-left: auto; }
 /* Section names scroll under the fixed name column cleanly. */
 .sequencer-song-heads .sequencer-row-fixed { align-self: stretch; background: var(--deck-solid); }
+
+/* Record strip: the sequence being recorded into, shown above the pad tools while step record is armed. */
+.record-strip {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid rgb(var(--orange-rgb) / 0.3);
+  border-radius: var(--r-md);
+}
+
+.record-strip-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-xs);
+}
+
+.record-strip-title {
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.record-strip-hint {
+  margin-left: auto;
+  color: var(--text-dim);
+}
+
+.record-strip-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
+  gap: 2px;
+  height: 18px;
+}
+
+.record-strip-cells .cell {
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.record-strip-cells .cell.beat {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.record-strip-cells .cell.bar {
+  box-shadow: -2px 0 0 rgb(var(--orange-rgb) / 0.5);
+}
+
+.record-strip-cells .cell.hit {
+  background: var(--orange);
+}
+
+.record-strip-cells .cell.now {
+  outline: 2px solid var(--text);
+  outline-offset: -1px;
+}

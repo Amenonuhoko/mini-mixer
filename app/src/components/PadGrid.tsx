@@ -22,6 +22,7 @@ import { PadModeSwitch } from './PadModeSwitch'
 import { PadPlaybackModeButton } from './PadPlaybackModeButton'
 import { BankEffectsPanel } from './BankEffectsPanel'
 import { PerformPanel } from './PerformPanel'
+import { RecordStrip } from './RecordStrip'
 import { RecordButton, RecordSourceToggle } from './RecordButton'
 import type { PendingRecording } from './RecordingReview'
 import { StaticWaveform } from './Waveform'
@@ -243,6 +244,7 @@ export function PadGrid({ selectedPadId, onSelectPad, onRecorded }: PadGridProps
       {/* How the pads respond — pinned to the bottom of the screen while the grid scrolls. */}
       <div className="pad-play-dock" data-no-page-swipe>
         {performOpen && <PerformPanel />}
+        {sequencerRecordEnabled && <RecordStrip engine={engine} />}
         <div className="pad-play-row">
           <PadModeSwitch />
           {mixerModeEnabled ? (
@@ -526,7 +528,32 @@ function PadButton({
     startHit(event.pointerId)
   }
 
+  // Swipe-to-strum: a finger dragged across the grid plays each pad it
+  // crosses, like running a hand over strings. Every swept pad gets its own
+  // input id (offset so it can't clash with a real pointer or key) and is
+  // let go when the finger leaves it or lifts.
+  const sweptRef = useRef(new Map<number, number>())
+  const releaseSwept = (pointerId: number) => {
+    const swept = sweptRef.current.get(pointerId)
+    if (swept === undefined) return
+    sweptRef.current.delete(pointerId)
+    keyTargets.current.get(swept)?.release(SWIPE_INPUT_BASE + pointerId)
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (loopModeEnabled || event.buttons === 0) return
+    const under = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-pad-index]')
+    const target = under ? Number(under.dataset.padIndex) : null
+    const current = sweptRef.current.get(event.pointerId) ?? index
+    if (target === null || target === current) return
+    releaseSwept(event.pointerId)
+    if (target === index) return
+    sweptRef.current.set(event.pointerId, target)
+    keyTargets.current.get(target)?.press(SWIPE_INPUT_BASE + event.pointerId)
+  }
+
   const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    releaseSwept(event.pointerId)
     endHit(event.pointerId)
   }
 
@@ -534,6 +561,7 @@ function PadButton({
     // A dropped gesture (OS interruption, scroll takeover) behaves like a
     // release for gating purposes, but never toggles a loop — an incomplete
     // gesture shouldn't commit to a discrete on/off action.
+    releaseSwept(event.pointerId)
     if (releasePerform(event.pointerId)) return
     if (playbackMode === 'gate') stopActiveSource(event.pointerId)
   }
@@ -579,9 +607,11 @@ function PadButton({
         .filter(Boolean)
         .join(' ')}
       data-pad-id={pad.id}
+      data-pad-index={index}
       data-glow-pad={pad.id}
       aria-label={`Pad ${index + 1}${face.label ? `: ${face.label.name}` : sample ? `: ${sample.label}` : ', empty'}${pad.muted ? ', muted' : ''}${looping ? ', looping' : ''}`}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
       onLostPointerCapture={handlePointerCancel}
@@ -601,6 +631,9 @@ function PadButton({
     </button>
   )
 }
+
+/** Input ids for pads played by a swipe: far from pointer ids (small, positive) and key ids (negative). */
+const SWIPE_INPUT_BASE = 1_000_000
 
 interface MixPadTileProps {
   pad: Pad
@@ -623,6 +656,7 @@ function MixPadTile({ pad, index, engine, face, onOpen }: MixPadTileProps) {
       type="button"
       className={['pad', 'mix-tile', looping ? 'looping' : '', pad.muted ? 'muted' : ''].filter(Boolean).join(' ')}
       data-pad-id={pad.id}
+      data-pad-index={index}
       data-glow-pad={pad.id}
       onClick={onOpen}
       aria-label={`Pad ${index + 1}${pad.muted ? ', muted' : ''} — open its level, sound, trim and effects`}
