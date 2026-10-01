@@ -118,7 +118,7 @@ describe('Performer', () => {
     const { performer, played, recorded } = rig({ mode: 'off', strum: 'up', strumSpeed: 'medium' })
     performer.press('a', voice(0, [67, 60, 64]), false)
     expect(played.map((hit) => hit.sampleId)).toEqual(['n60', 'n64', 'n67'])
-    expect(played.map((hit) => +(hit.time - 10).toFixed(3))).toEqual([0, 0.035, 0.07])
+    expect(played.map((hit) => +(hit.time - 10).toFixed(3))).toEqual([0, 0.06, 0.12])
     expect(played[0]!.level).toBeCloseTo(1 / Math.sqrt(3))
     expect(recorded).toEqual(['whole0'])
   })

@@ -114,7 +114,7 @@ export function PerformPanel() {
 function helpFor(perform: PerformSettings): string {
   const strum =
     perform.strum !== 'off'
-      ? ` Strum is on: chord pads roll their notes ${perform.strum === 'up' ? 'low to high' : 'high to low'} instead of hitting at once.`
+      ? ` Strum is on: chord pads roll their notes ${perform.strum === 'up' ? 'low to high' : 'high to low'} instead of hitting at once (chord pads only — drum and single-note pads play normally).`
       : ''
   if (perform.mode === 'repeat')
     return `Press and hold any pad — it retriggers every ${perform.rate} note in time with the tempo. Let go to stop. Try hi-hats at 1/16, then switch rates mid-hold for rolls.${strum}`
@@ -157,7 +157,7 @@ const LESSON: LessonStep[] = [
   },
   {
     title: 'Strum',
-    text: 'Hold is Off and Strum is Down. Tap chord pads like a guitar: Slow for ballads, Fast for funk. Alternate Down and Up for a rhythm.',
+    text: 'Hold is Off and Strum is Down. Switch to a chord bank (drum and single-note pads don’t strum) and tap chord pads like a guitar: Slow for ballads, Fast for funk. Alternate Down and Up for a rhythm.',
     settings: { mode: 'off', strum: 'down', strumSpeed: 'medium', latch: false },
   },
   {

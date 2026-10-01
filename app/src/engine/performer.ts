@@ -40,7 +40,7 @@ export const RATE_BEATS: Record<PerformRate, number> = {
 }
 
 /** Gap between a strum's notes. */
-export const STRUM_SECONDS: Record<StrumSpeed, number> = { fast: 0.015, medium: 0.035, slow: 0.07 }
+export const STRUM_SECONDS: Record<StrumSpeed, number> = { fast: 0.03, medium: 0.06, slow: 0.12 }
 
 /** Short label for the header button: what holding a pad currently does. */
 export function performSummary(perform: PerformSettings): string | null {
