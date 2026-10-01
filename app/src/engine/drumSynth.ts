@@ -32,8 +32,9 @@ export interface DrumKitPreset {
   voices: DrumVoice[]
 }
 
-const CORE = 'https://raw.githubusercontent.com/0x4D44/ferrosintesis/main/crates/ferrosintesis-samples-drumkit/samples/'
-const CYMBALS = 'https://raw.githubusercontent.com/0x4D44/ferrosintesis/main/crates/ferrosintesis-samples-drumkit2/samples/'
+/** The kit's recordings ship with the app (public/drums, see its README): one origin, cached with the rest, no third party for a phone to reach. */
+const CORE = import.meta.env.BASE_URL + 'drums/core/'
+const CYMBALS = import.meta.env.BASE_URL + 'drums/cymbals/'
 
 export const DRUM_KITS: DrumKitPreset[] = [
   {
